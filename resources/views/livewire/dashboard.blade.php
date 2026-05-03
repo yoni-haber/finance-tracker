@@ -84,38 +84,33 @@
          data-income-breakdown='@json($incomeCategoryBreakdown->toArray())'
          data-expense-breakdown='@json($expenseCategoryBreakdown->toArray())'></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        let incomeCategoryChartInstance;
-        let expenseCategoryChartInstance;
-
         function renderCharts(payload) {
             const incomeCategoryCtx = document.getElementById('incomeCategoryChart');
             const expenseCategoryCtx = document.getElementById('expenseCategoryChart');
 
             if (!incomeCategoryCtx || !expenseCategoryCtx || !payload) return;
 
-            if (incomeCategoryChartInstance) incomeCategoryChartInstance.destroy();
-            if (expenseCategoryChartInstance) expenseCategoryChartInstance.destroy();
+            if (window._incomeCategoryChart) window._incomeCategoryChart.destroy();
+            if (window._expenseCategoryChart) window._expenseCategoryChart.destroy();
 
-            const incomeCategoryData = {
-                labels: payload.incomeCategoryBreakdown.map(item => item.category),
-                datasets: [{
-                    data: payload.incomeCategoryBreakdown.map(item => item.total),
-                    backgroundColor: ['#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']
-                }]
-            };
+            const colors = ['#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9'];
 
-            const expenseCategoryData = {
-                labels: payload.expenseCategoryBreakdown.map(item => item.category),
-                datasets: [{
-                    data: payload.expenseCategoryBreakdown.map(item => item.total),
-                    backgroundColor: ['#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']
-                }]
-            };
+            window._incomeCategoryChart = new Chart(incomeCategoryCtx, {
+                type: 'pie',
+                data: {
+                    labels: payload.incomeCategoryBreakdown.map(item => item.category),
+                    datasets: [{ data: payload.incomeCategoryBreakdown.map(item => item.total), backgroundColor: colors }]
+                }
+            });
 
-            incomeCategoryChartInstance = new Chart(incomeCategoryCtx, {type: 'pie', data: incomeCategoryData});
-            expenseCategoryChartInstance = new Chart(expenseCategoryCtx, {type: 'pie', data: expenseCategoryData});
+            window._expenseCategoryChart = new Chart(expenseCategoryCtx, {
+                type: 'pie',
+                data: {
+                    labels: payload.expenseCategoryBreakdown.map(item => item.category),
+                    datasets: [{ data: payload.expenseCategoryBreakdown.map(item => item.total), backgroundColor: colors }]
+                }
+            });
         }
 
         function getPayloadFromDom() {
@@ -135,16 +130,31 @@
 
         const initializeCharts = () => renderCharts(getPayloadFromDom());
 
-        document.addEventListener('DOMContentLoaded', initializeCharts);
-        document.addEventListener('livewire:navigated', initializeCharts);
+        // Register document-level listeners only once across SPA navigations.
+        if (!window._dashboardChartsListenersRegistered) {
+            window._dashboardChartsListenersRegistered = true;
 
-        document.addEventListener('livewire:init', () => {
-            initializeCharts();
+            document.addEventListener('DOMContentLoaded', initializeCharts);
+            document.addEventListener('livewire:navigated', initializeCharts);
 
-            Livewire.on('dashboard-charts-updated', (payload) => {
-                const chartPayload = payload?.detail ?? payload;
-                renderCharts(chartPayload);
-            });
-        });
+            // livewire:init fires once on the initial full-page load. When navigating
+            // to this page via wire:navigate, Livewire is already initialised so we
+            // register the listener immediately instead of waiting for the event.
+            const registerLivewireListener = () => {
+                Livewire.on('dashboard-charts-updated', (payload) => {
+                    renderCharts(payload);
+                });
+            };
+
+            if (typeof Livewire !== 'undefined') {
+                registerLivewireListener();
+            } else {
+                document.addEventListener('livewire:init', registerLivewireListener);
+            }
+        }
+
+        // Always attempt an immediate render — covers SPA navigation where the DOM
+        // data is already present when this script is (re-)evaluated.
+        initializeCharts();
     </script>
 </div>
