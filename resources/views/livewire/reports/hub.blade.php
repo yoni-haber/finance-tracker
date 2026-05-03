@@ -42,24 +42,15 @@
         ></canvas>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         (() => {
-            if (window.incomeVsExpensesChartInitialized) return;
-            window.incomeVsExpensesChartInitialized = true;
-
-            let incomeExpenseChartInstance;
-            let netWorthChartInstance;
-
             const renderIncomeVsExpensesChart = (chartData) => {
                 const chartElement = document.getElementById('incomeVsExpensesChart');
                 if (!chartElement) return;
 
-                if (incomeExpenseChartInstance) {
-                    incomeExpenseChartInstance.destroy();
-                }
+                if (window._incomeExpenseChart) window._incomeExpenseChart.destroy();
 
-                incomeExpenseChartInstance = new Chart(chartElement, {
+                window._incomeExpenseChart = new Chart(chartElement, {
                     type: 'line',
                     data: {
                         labels: chartData.labels,
@@ -84,25 +75,9 @@
                     },
                     options: {
                         responsive: true,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index',
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: (value) => `£${value}`,
-                                },
-                            },
-                        },
-                        plugins: {
-                            legend: {
-                                labels: {
-                                    usePointStyle: true,
-                                },
-                            },
-                        },
+                        interaction: { intersect: false, mode: 'index' },
+                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => `£${value}` } } },
+                        plugins: { legend: { labels: { usePointStyle: true } } },
                     },
                 });
             };
@@ -111,11 +86,9 @@
                 const chartElement = document.getElementById('netWorthChart');
                 if (!chartElement) return;
 
-                if (netWorthChartInstance) {
-                    netWorthChartInstance.destroy();
-                }
+                if (window._netWorthChart) window._netWorthChart.destroy();
 
-                netWorthChartInstance = new Chart(chartElement, {
+                window._netWorthChart = new Chart(chartElement, {
                     type: 'line',
                     data: {
                         labels: chartData.labels,
@@ -132,25 +105,9 @@
                     },
                     options: {
                         responsive: true,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index',
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: (value) => `£${value}`,
-                                },
-                            },
-                        },
-                        plugins: {
-                            legend: {
-                                labels: {
-                                    usePointStyle: true,
-                                },
-                            },
-                        },
+                        interaction: { intersect: false, mode: 'index' },
+                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => `£${value}` } } },
+                        plugins: { legend: { labels: { usePointStyle: true } } },
                     },
                 });
             };
@@ -176,15 +133,33 @@
                 }
             };
 
-            document.addEventListener('DOMContentLoaded', hydrateFromElement);
-            document.addEventListener('livewire:navigated', hydrateFromElement);
+            // Register document-level listeners only once across SPA navigations.
+            if (!window._reportsChartsListenersRegistered) {
+                window._reportsChartsListenersRegistered = true;
 
-            document.addEventListener('livewire:init', () => {
-                Livewire.on('reports-chart-data', (payload) => {
-                    const chartData = payload.chartData ?? payload;
-                    renderIncomeVsExpensesChart(chartData);
-                });
-            });
+                document.addEventListener('DOMContentLoaded', hydrateFromElement);
+                document.addEventListener('livewire:navigated', hydrateFromElement);
+
+                // livewire:init fires once on the initial full-page load. When navigating
+                // to this page via wire:navigate, Livewire is already initialised so we
+                // register the listener immediately instead of waiting for the event.
+                const registerLivewireListener = () => {
+                    Livewire.on('reports-chart-data', (payload) => {
+                        const chartData = payload.chartData ?? payload;
+                        renderIncomeVsExpensesChart(chartData);
+                    });
+                };
+
+                if (typeof Livewire !== 'undefined') {
+                    registerLivewireListener();
+                } else {
+                    document.addEventListener('livewire:init', registerLivewireListener);
+                }
+            }
+
+            // Always attempt an immediate render — covers SPA navigation where the DOM
+            // data is already present when this script is (re-)evaluated.
+            hydrateFromElement();
         })();
     </script>
 </div>
