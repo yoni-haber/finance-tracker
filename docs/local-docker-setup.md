@@ -14,8 +14,7 @@ tools directly on your machine:
 - MySQL
 
 If you worked on multiple projects with different PHP versions, you would need a version
-manager like `asdf` or `phpenv` to switch between them. If a teammate used a slightly
-different version, things could break in subtle ways.
+manager like `asdf` or `phpenv` to switch between them.
 
 **Docker solves this by packaging the entire environment — the right PHP version,
 all the right system libraries, the queue worker — into containers that run the same
@@ -244,6 +243,18 @@ Setting `host: '0.0.0.0'` makes Vite listen on all network interfaces inside the
 container, including the one Docker exposes to your host machine. The `hmr.host`
 setting tells the browser to connect HMR back to `localhost` (your machine), which
 Docker Desktop routes into the container correctly.
+
+---
+
+### How hot-reloading works
+
+There are two independent mechanisms for seeing your changes without rebuilding the container:
+
+**PHP / Blade / Livewire changes** are visible immediately on the next browser refresh. This works because your entire project folder is mounted directly into the container — the PHP process reads your files from your host machine in real time. No Vite, no rebuild needed.
+
+**CSS / JavaScript / Tailwind changes** require an extra step. These files are compiled into bundles (`public/build/`). `make setup` produces a one-off bundle, which is enough to use the app. If you want changes to CSS or JS to appear in the browser *instantly* (without even refreshing the page), run `make npm-dev` in a second terminal — this starts the Vite dev server, which watches those files and injects changes live.
+
+In short: if you're writing PHP, just refresh the browser. Only start `make npm-dev` if you're actively working on CSS or JavaScript.
 
 ---
 
