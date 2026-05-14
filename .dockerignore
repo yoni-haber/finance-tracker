@@ -1,0 +1,12 @@
+node_modules
+vendor
+.git
+.github
+storage/logs
+.env
+.env.backup
+.env.production
+.phpunit.cache
+.phpunit.result.cache
+public/build
+public/hot

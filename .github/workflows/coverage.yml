@@ -48,7 +48,7 @@ jobs:
         run: npm run build
 
       - name: Run Tests With Coverage
-        run: ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
+        run: composer test -- --coverage-clover=coverage.xml --coverage-text
 
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
