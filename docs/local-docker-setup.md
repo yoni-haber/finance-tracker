@@ -11,7 +11,7 @@ tools directly on your machine:
 - Composer
 - Node 22 (exact version)
 - npm
-- SQLite
+- MySQL
 
 If you worked on multiple projects with different PHP versions, you would need a version
 manager like `asdf` or `phpenv` to switch between them. If a teammate used a slightly
@@ -123,7 +123,7 @@ These files define the Docker image that Sail builds and runs.
 The recipe for the PHP 8.4 container. It is based on the official `php:8.4-cli`
 image (Debian) and installs only what this project actually needs:
 
-- PHP 8.4 with the extensions the app requires: `pdo_sqlite`, `mbstring`,
+- PHP 8.4 with the extensions the app requires: `pdo_sqlite`, `pdo_mysql`, `mbstring`,
   `xml`, `zip`, `bcmath`, `intl`, `gd`, `pcntl`
 - `pcov` for fast test coverage (Xdebug is available via `SAIL_XDEBUG_MODE`
   but not installed by default — keeping the image lean)
@@ -132,7 +132,7 @@ image (Debian) and installs only what this project actually needs:
 - Supervisor (a process manager — explained below)
 
 The stock Sail Dockerfile installs many extras this project does not use
-(MongoDB, Redis, PostgreSQL, MySQL, Swoole, Imagick, Playwright, Bun, Yarn…).
+(MongoDB, Redis, PostgreSQL, Swoole, Imagick, Playwright, Bun, Yarn…).
 The trimmed-down version here builds significantly faster and is less likely to
 fail due to a third-party package repository being temporarily unavailable.
 
@@ -247,29 +247,27 @@ Docker Desktop routes into the container correctly.
 
 ---
 
-### `phpunit.xml` — use a file-based test database
+### `phpunit.xml` — use a dedicated MySQL test database
 
-One line changed:
+PHPUnit is configured to run against a separate `finance_tracker_testing` database on
+the same MySQL container, keeping test data isolated from the development database.
 
 ```xml
-<!-- Before -->
-<env name="DB_CONNECTION" value="sqlite"/>
-<env name="DB_DATABASE" value=":memory:"/>
-
-<!-- After -->
-<env name="DB_DATABASE" value="testing"/>
+<env name="DB_CONNECTION" value="mysql"/>
+<env name="DB_HOST" value="mysql"/>
+<env name="DB_PORT" value="3306"/>
+<env name="DB_DATABASE" value="finance_tracker_testing"/>
+<env name="DB_USERNAME" value="sail"/>
+<env name="DB_PASSWORD" value="password"/>
 ```
 
-The original `:memory:` SQLite setting was replaced with a file-based database
-named `testing` (written to the project root at runtime). The reason is that
-SQLite in-memory databases do not survive across separate database connections
-— if any part of the test infrastructure opens a second connection (which Sail's
-environment can trigger), it receives a blank database and tests fail silently.
-Using a file-based database avoids this by making the schema visible to all
-connections.
+The `finance_tracker_testing` database is created automatically by the MySQL init
+script at `docker/mysql/create-testing-db.sql` when the container first starts.
+You do not need to create or manage it manually.
 
-The `testing` file is generated automatically when you run the test suite and is
-listed in `.gitignore` — you do not need to create or manage it manually.
+`RefreshDatabase` wraps each test in a transaction that is rolled back after the
+test completes, so tests are fast and isolated without re-running migrations on
+every test.
 
 ---
 
@@ -289,14 +287,16 @@ When you run `make setup` for the first time, here is what happens step by step:
 
 4. **`sail up -d --build`** — Docker reads `compose.yaml`, builds the PHP 8.4 image
    from `docker/8.4/Dockerfile` (this takes a few minutes the first time), and
-   starts two containers: `laravel.test` and `mailpit`. The `-d` flag runs them in
-   the background so your terminal is free.
+   starts three containers: `laravel.test`, `mysql`, and `mailpit`. The MySQL
+   container also runs its init script to create the `finance_tracker_testing`
+   database for the test suite. The `-d` flag runs them in the background so your
+   terminal is free.
 
 5. **`sail artisan key:generate`** — runs `php artisan key:generate` *inside* the
    `laravel.test` container. This writes `APP_KEY` into your `.env` file.
 
-6. **`sail artisan migrate`** — runs inside the container, creates the SQLite
-   database file at `database/database.sqlite`, and runs all migrations.
+6. **`sail artisan migrate`** — runs inside the container, connects to the MySQL
+   service, and runs all migrations against the `finance_tracker` database.
 
 7. **`sail artisan storage:link`** — creates the `public/storage` → `storage/app/public`
    symlink so publicly accessible file uploads work correctly.
@@ -315,13 +315,6 @@ days. Containers start in seconds once the image is already built.
 ---
 
 ## Frequently Asked Questions
-
-**Why is there a `testing` file in the project root?**
-
-That file is the SQLite database used by PHPUnit when you run `make test` or
-`composer test`. It is created automatically by the test suite and is listed in
-`.gitignore` — you can safely ignore it. If you delete it, it will be recreated
-the next time tests run.
 
 **Do I need to rebuild the image after changing PHP code?**
 
@@ -362,7 +355,7 @@ php artisan ...
 make down
 ```
 
-This stops and removes the containers, but your code, database file
-(`database/database.sqlite`), and `vendor/` folder are all on your host machine
-via the bind mount, so nothing is lost. Next time you run `make up`, everything
-picks up where it left off.
+This stops and removes the containers, but your code and `vendor/` folder are on
+your host machine via the bind mount, and your MySQL data is stored in the
+`sail-mysql` named Docker volume — so nothing is lost. Next time you run `make up`,
+everything picks up where it left off.

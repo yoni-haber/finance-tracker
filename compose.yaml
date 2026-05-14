@@ -24,8 +24,30 @@ services:
         depends_on:
             mailpit:
                 condition: service_healthy
+            mysql:
+                condition: service_healthy
         restart: unless-stopped
         tty: true
+    mysql:
+        image: 'mysql:8.0'
+        ports:
+            - '${FORWARD_DB_PORT:-3306}:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD:-password}'
+            MYSQL_ROOT_HOST: '%'
+            MYSQL_DATABASE: '${DB_DATABASE:-finance_tracker}'
+            MYSQL_USER: '${DB_USERNAME:-sail}'
+            MYSQL_PASSWORD: '${DB_PASSWORD:-password}'
+        volumes:
+            - 'sail-mysql:/var/lib/mysql'
+            - './docker/mysql/create-testing-db.sh:/docker-entrypoint-initdb.d/01_create-testing-db.sh'
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-p${DB_PASSWORD:-password}']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - sail
     mailpit:
         image: 'axllent/mailpit:v1.29'
         ports:
@@ -41,3 +63,6 @@ services:
 networks:
     sail:
         driver: bridge
+volumes:
+    sail-mysql:
+        driver: local

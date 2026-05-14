@@ -6,13 +6,13 @@ Laravel Finance Tracker is a personal budgeting and finance dashboard built with
 - **Framework:** Laravel 13 with Fortify authentication, Livewire 4, and Volt/Flux for server-driven UI components.
 - **Language:** PHP 8.4+.
 - **Frontend:** Blade-based Livewire views enhanced by Volt components; assets compiled with Vite, Tailwind CSS, and the Laravel Vite plugin.
-- **Database:** SQLite by default for easy local setup (switchable to MySQL/PostgreSQL via `.env`).
+- **Database:** MySQL 8.0 running in a Docker container, with a persistent named volume so data survives container restarts.
 - **Tooling:** Composer for PHP dependencies, npm for frontend tooling, and Docker / Laravel Sail for a consistent local development environment.
 
 ## Key Design Principles
 - **Framework conventions first:** Routes point directly to Livewire classes and Volt pages, leaning on Laravel defaults instead of custom routing or service layers for clarity.
 - **Separation of concerns:** Livewire components own screen-level interactions, Eloquent models handle data, and support classes (e.g., `App\Support\TransactionReport`) encapsulate reporting logic. Views stay thin and presentation-focused.
-- **Simplicity over premature optimisation:** SQLite works out of the box, migrations seed the necessary schema, and scripts automate common tasks to allow development rather than environment wrangling.
+- **Simplicity over premature optimisation:** MySQL runs automatically in Docker alongside the app, migrations seed the necessary schema, and scripts automate common tasks to allow development rather than environment wrangling.
 - **Learning-first architecture:** The code follows Laravel’s directory conventions and uses explicit method naming (`mount`, `render`, `save`, `edit`, `delete`) to make the request/component lifecycle easy to follow.
 
 ## Directory Structure Explained
@@ -34,7 +34,7 @@ Laravel Finance Tracker is a personal budgeting and finance dashboard built with
 
 ## Running the Project Locally
 
-This project uses **Docker / Laravel Sail** for local development. It handles PHP, SQLite, and all dependencies inside containers — no need to install PHP or Node on your machine beyond the initial bootstrap.
+This project uses **Docker / Laravel Sail** for local development. It handles PHP, MySQL, and all dependencies inside containers — no need to install PHP or Node on your machine beyond the initial bootstrap.
 
 **What is Laravel Sail?** Sail is Laravel's built-in Docker development environment. It wraps `docker compose` with a simple `./vendor/bin/sail` command, and this project adds a `Makefile` on top so commands are even shorter.
 
