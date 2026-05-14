@@ -53,4 +53,5 @@ jobs:
       - name: Run Database Migrations
         env:
           DB_HOST: 127.0.0.1
+          DB_DATABASE: finance_tracker_testing
         run: php artisan migrate --force --no-interaction
