@@ -48,7 +48,7 @@ jobs:
         run: npm run build
 
       - name: Run Tests With Coverage
-        run: composer test -- --coverage-clover=coverage.xml --coverage-text
+        run: php artisan config:clear --ansi && php artisan test --coverage-clover=coverage.xml --coverage-text
 
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
