@@ -29,12 +29,9 @@ jobs:
           --health-timeout=5s
           --health-retries=3
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -44,7 +41,7 @@ jobs:
           coverage: xdebug
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'npm'
@@ -73,7 +70,7 @@ jobs:
         run: ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
 
       - name: Upload Coverage Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: phpunit-coverage
           path: coverage.xml
