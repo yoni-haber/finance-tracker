@@ -29,7 +29,7 @@ services:
         restart: unless-stopped
         tty: true
     mysql:
-        image: 'mysql:8.4'
+        image: 'mysql:9.7.0'
         ports:
             - '${FORWARD_DB_PORT:-3306}:3306'
         environment:

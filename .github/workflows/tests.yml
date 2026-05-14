@@ -15,7 +15,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.4
+        image: mysql:9.7.0
         env:
           MYSQL_ROOT_PASSWORD: password
           MYSQL_DATABASE: finance_tracker_testing
