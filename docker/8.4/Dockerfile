@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
         libsqlite3-dev \
+        default-libmysqlclient-dev \
         supervisor \
         sqlite3 \
     && rm -rf /var/lib/apt/lists/*
@@ -36,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         pdo_sqlite \
+        pdo_mysql \
         mbstring \
         xml \
         zip \
