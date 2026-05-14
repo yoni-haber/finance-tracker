@@ -77,7 +77,7 @@ This project uses **Docker / Laravel Sail** for local development. It handles PH
 
 There are two independent mechanisms for seeing your changes without rebuilding the container:
 
-**PHP / Blade / Livewire changes** are visible immediately on the next browser refresh. This works because your entire project folder is mounted directly into the container — the PHP process reads your files from your Mac in real time. No Vite, no rebuild needed.
+**PHP / Blade / Livewire changes** are visible immediately on the next browser refresh. This works because your entire project folder is mounted directly into the container — the PHP process reads your files from your host machine in real time. No Vite, no rebuild needed.
 
 **CSS / JavaScript / Tailwind changes** require an extra step. These files are compiled into bundles (`public/build/`). `make setup` produces a one-off bundle, which is enough to use the app. If you want changes to CSS or JS to appear in the browser *instantly* (without even refreshing the page), run `make npm-dev` in a second terminal — this starts the Vite dev server, which watches those files and injects changes live.
 

@@ -58,7 +58,7 @@ Sail is **only for local development**. It is not used in production.
 
 ## Files Added or Changed
 
-### `.dockerignore` — excluded from version control context
+### `.dockerignore` — excluded from Docker build context
 
 The `.dockerignore` file at the project root tells Docker which files to exclude when
 evaluating build context. However, note that `compose.yaml` sets the Docker build
