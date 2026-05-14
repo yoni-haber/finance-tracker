@@ -12,6 +12,23 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     environment: Testing
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: finance_tracker_testing
+          MYSQL_USER: sail
+          MYSQL_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -32,10 +49,8 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-          touch database/database.sqlite
 
       - name: Run Database Migrations
         env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ./database/database.sqlite
+          DB_HOST: 127.0.0.1
         run: php artisan migrate --force --no-interaction

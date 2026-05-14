@@ -15,7 +15,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: password
           MYSQL_DATABASE: finance_tracker_testing
@@ -28,6 +28,9 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout
