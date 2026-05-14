@@ -48,11 +48,7 @@ jobs:
         run: npm run build
 
       - name: Run Tests With Coverage
-        shell: bash
-        run: |
-          set -o pipefail
-          php artisan config:clear --ansi
-          php artisan test --coverage-clover=coverage.xml --coverage-text | tee -a $GITHUB_STEP_SUMMARY
+        run: ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
 
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
