@@ -6,7 +6,7 @@ Laravel Finance Tracker is a personal budgeting and finance dashboard built with
 - **Framework:** Laravel 13 with Fortify authentication, Livewire 4, and Volt/Flux for server-driven UI components.
 - **Language:** PHP 8.4+.
 - **Frontend:** Blade-based Livewire views enhanced by Volt components; assets compiled with Vite, Tailwind CSS, and the Laravel Vite plugin.
-- **Database:** MySQL 8.0 running in a Docker container, with a persistent named volume so data survives container restarts.
+- **Database:** MySQL 9.7.0 running in a Docker container, with a persistent named volume so data survives container restarts.
 - **Tooling:** Composer for PHP dependencies, npm for frontend tooling, and Docker / Laravel Sail for a consistent local development environment.
 
 ## Key Design Principles
