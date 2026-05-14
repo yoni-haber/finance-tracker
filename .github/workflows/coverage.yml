@@ -12,6 +12,23 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     environment: Testing
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: finance_tracker_testing
+          MYSQL_USER: sail
+          MYSQL_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -48,6 +65,8 @@ jobs:
         run: npm run build
 
       - name: Run Tests With Coverage
+        env:
+          DB_HOST: 127.0.0.1
         run: ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
 
       - name: Upload Coverage Artifact
