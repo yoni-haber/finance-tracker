@@ -58,13 +58,17 @@ Sail is **only for local development**. It is not used in production.
 
 ## Files Added or Changed
 
-### `.dockerignore` — faster Docker builds
+### `.dockerignore` — excluded from version control context
 
-When Docker builds an image, it sends the entire project directory to the Docker
-daemon as "build context." Without a `.dockerignore`, this includes `node_modules/`,
-`vendor/`, `.git/`, and other large directories that the build does not need (the
-bind mount handles them at runtime). The `.dockerignore` file excludes these,
-making `make build` and `make setup` significantly faster.
+The `.dockerignore` file at the project root tells Docker which files to exclude when
+evaluating build context. However, note that `compose.yaml` sets the Docker build
+context to `./docker/8.4` (not the project root), so this root `.dockerignore` does
+**not** affect the image built by `make build` or `make setup`. The `./docker/8.4/`
+directory contains only configuration files (Dockerfile, php.ini, start-container,
+supervisord.conf), so there are no large directories to exclude there anyway.
+
+The file remains useful as a general safety net for any future tooling that uses the
+project root as a Docker build context.
 
 ### `compose.yaml` — the development environment definition
 
@@ -172,7 +176,7 @@ Key commands:
 
 | Command | What it runs internally |
 |---|---|
-| `make setup` | Checks for Composer, `composer install`, copies `.env.example` → `.env` (if missing), then `sail up --build`, `artisan key:generate`, `artisan migrate`, `artisan storage:link`, `npm install` |
+| `make setup` | Checks for Composer, `composer install`, copies `.env.example` → `.env` (if missing), then `sail up --build`, `artisan key:generate`, `artisan migrate`, `artisan storage:link`, `npm install`, `npm run build` |
 | `make up` | `sail up -d` (start containers in the background) |
 | `make down` | `sail down` (stop containers) |
 | `make shell` | `sail shell` (open a bash shell inside the app container) |
@@ -298,6 +302,11 @@ When you run `make setup` for the first time, here is what happens step by step:
 
 8. **`sail npm install`** — runs `npm install` inside the container, downloading
    front-end dependencies into `node_modules/`.
+
+9. **`sail npm run build`** — compiles front-end assets (CSS, JS) into `public/build/`.
+   This one-off production build is what makes the app load correctly when visiting
+   the URL after setup, since `public/build/` is gitignored and must be generated
+   locally.
 
 After setup, **only `make up`** is needed to start the environment on subsequent
 days. Containers start in seconds once the image is already built.

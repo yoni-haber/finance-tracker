@@ -1,4 +1,5 @@
 SAIL = ./vendor/bin/sail
+APP_SERVICE := $(shell [ -f .env ] && grep -E '^APP_SERVICE=' .env 2>/dev/null | head -n1 | cut -d'=' -f2- || echo laravel.test)
 
 .PHONY: help setup up down restart shell artisan test pint phpstan \
         migrate fresh logs build rebuild npm-dev npm-build docker-check
@@ -19,6 +20,7 @@ setup: docker-check ## First-time project setup (build image, run migrations, in
 	$(SAIL) artisan migrate
 	$(SAIL) artisan storage:link
 	$(SAIL) npm install
+	$(SAIL) npm run build
 	@echo "\n✅  Setup complete — visit http://localhost:$${APP_PORT:-8080}"
 
 up: docker-check ## Start all containers in the background
@@ -40,10 +42,10 @@ test: ## Run the full PHPUnit test suite
 	$(SAIL) composer test
 
 pint: ## Fix code style with Laravel Pint
-	$(SAIL) exec laravel.test vendor/bin/pint
+	$(SAIL) exec $(APP_SERVICE) vendor/bin/pint
 
 phpstan: ## Run PHPStan static analysis
-	$(SAIL) exec laravel.test vendor/bin/phpstan
+	$(SAIL) exec $(APP_SERVICE) vendor/bin/phpstan
 
 migrate: ## Run outstanding database migrations
 	$(SAIL) artisan migrate

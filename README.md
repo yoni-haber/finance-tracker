@@ -46,7 +46,7 @@ This project uses **Docker / Laravel Sail** for local development. It handles PH
    cd laravel-finance-tracker-app
    ```
 
-2. **Run the one-command setup** — this installs PHP dependencies, builds the Docker image, generates an app key, runs database migrations, creates the storage symlink, and installs JS dependencies:
+2. **Run the one-command setup** — this installs PHP dependencies, builds the Docker image, generates an app key, runs database migrations, creates the storage symlink, installs JS dependencies, and compiles frontend assets:
    ```bash
    make setup
    ```
