@@ -151,14 +151,17 @@ Always set `$data['user_id'] = Auth::id()` before creating records.
 Amounts are stored as `decimal:2` strings in the database — not floats.
 
 ```php
-// Correct
-$total = Money::normalize($a) + Money::normalize($b);
+// Correct — returns a usable decimal string
+$total = Money::add($a, $b);
+
+// Also correct when manual arithmetic is needed
+$total = Money::fromPennies(Money::normalize($a) + Money::normalize($b));
 
 // Never — raw float arithmetic loses precision
 $total = (float) $a + (float) $b;
 ```
 
-Use `Money::normalize()` / `Money::fromPennies()` for all arithmetic.
+Use `Money::add()` / `Money::subtract()` for arithmetic. When building up totals manually, convert to pennies with `Money::normalize()` and back to a decimal string with `Money::fromPennies()`.
 
 ## Recurring Transactions (`app/Models/Transaction.php`)
 
@@ -176,13 +179,13 @@ Recurring logic stays in the `Transaction` model. Do not move it into Livewire c
 
 Use the built-in scopes on `Transaction` instead of raw `where()` chains:
 
-| Scope | Purpose |
-|---|---|
-| `forUser($userId)` | Scope to the authenticated user |
-| `forMonthYear($month, $year)` | Filter by calendar month |
-| `forCategory($categoryId)` | Filter by category |
-| `income()` | Positive-amount transactions |
-| `expense()` | Negative-amount transactions |
+| Scope | Purpose                             |
+|---|-------------------------------------|
+| `forUser($userId)` | Scope to the authenticated user     |
+| `forMonthYear($month, $year)` | Filter by calendar month            |
+| `forCategory($categoryId)` | Filter by category                  |
+| `income()` | Filter to income-type transactions  |
+| `expense()` | Filter to expense-type transactions |
 
 ## Key Files
 

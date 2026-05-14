@@ -6,22 +6,22 @@ Run `make help` for a full list of targets.
 
 ## Makefile Commands
 
-| Command | What it does |
-|---|---|
-| `make setup` | First-time setup |
-| `make up` | Start containers in the background |
-| `make down` | Stop containers |
-| `make shell` | Open a bash shell inside the app container |
-| `make test` | Run PHPUnit test suite |
-| `make pint` | Fix code style |
-| `make phpstan` | Run static analysis |
-| `make migrate` | Run outstanding migrations |
-| `make fresh` | Wipe the DB and re-run all migrations |
-| `make logs` | Tail Laravel logs via Pail |
-| `make build` | Rebuild the Docker image without cache |
+| Command | What it does                                                     |
+|---|------------------------------------------------------------------|
+| `make setup` | First-time setup                                                 |
+| `make up` | Start containers in the background                               |
+| `make down` | Stop containers                                                  |
+| `make shell` | Open a bash shell inside the app container                       |
+| `make test` | Run PHPUnit test suite                                           |
+| `make pint` | Fix code style                                                   |
+| `make phpstan` | Run static analysis                                              |
+| `make migrate` | Run outstanding migrations                                       |
+| `make fresh` | Wipe the DB and re-run all migrations, and seed                     |
+| `make logs` | Tail Laravel logs via Pail                                       |
+| `make build` | Rebuild the Docker image without cache                           |
 | `make rebuild` | Tear down, rebuild from scratch, start back up, and open a shell |
-| `make npm-dev` | Start Vite HMR dev server |
-| `make npm-build` | Build frontend assets for production |
+| `make npm-dev` | Start Vite HMR dev server                                        |
+| `make npm-build` | Build frontend assets for production                             |
 
 ## Database
 
