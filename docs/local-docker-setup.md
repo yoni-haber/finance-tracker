@@ -46,8 +46,9 @@ one command.
 [Laravel Sail](https://laravel.com/docs/sail) is Laravel's official Docker development
 environment. It ships as a Composer package (`laravel/sail`) and provides:
 
-1. A pre-built Docker image for PHP 8.4 (Ubuntu-based, with all the extensions
-   Laravel needs already installed)
+1. A Docker image for PHP 8.4 — this project builds a custom Debian-based image
+   (see `docker/8.4/Dockerfile`) rather than using Sail's stock Ubuntu image, but
+   the extensions and tooling are equivalent
 2. A shell script at `./vendor/bin/sail` that wraps the `docker compose` command
    so you don't need to remember long Docker syntax
 3. A `docker compose` file (`compose.yaml`) that wires everything together
