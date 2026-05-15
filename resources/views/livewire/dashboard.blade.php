@@ -94,13 +94,29 @@
             if (window._incomeCategoryChart) window._incomeCategoryChart.destroy();
             if (window._expenseCategoryChart) window._expenseCategoryChart.destroy();
 
-            const colors = ['#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9'];
+            const colours = [
+                '#1d4ed8',
+                '#10b981',
+                '#f59e0b',
+                '#ef4444',
+                '#8b5cf6',
+                '#0ea5e9',
+                '#ec4899',
+                '#14b8a6',
+                '#f97316',
+                '#db2777',
+                '#84cc16',
+                '#6366f1',
+                '#06b6d4',
+                '#eab308',
+                '#f43f5e'
+            ];
 
             window._incomeCategoryChart = new Chart(incomeCategoryCtx, {
                 type: 'pie',
                 data: {
                     labels: payload.incomeCategoryBreakdown.map(item => item.category),
-                    datasets: [{ data: payload.incomeCategoryBreakdown.map(item => item.total), backgroundColor: colors }]
+                    datasets: [{ data: payload.incomeCategoryBreakdown.map(item => item.total), backgroundColor: colours }]
                 }
             });
 
@@ -108,7 +124,7 @@
                 type: 'pie',
                 data: {
                     labels: payload.expenseCategoryBreakdown.map(item => item.category),
-                    datasets: [{ data: payload.expenseCategoryBreakdown.map(item => item.total), backgroundColor: colors }]
+                    datasets: [{ data: payload.expenseCategoryBreakdown.map(item => item.total), backgroundColor: colours }]
                 }
             });
         }
