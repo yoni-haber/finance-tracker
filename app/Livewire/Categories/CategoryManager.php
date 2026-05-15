@@ -51,6 +51,13 @@ class CategoryManager extends Component
 
         $this->resetForm();
         session()->flash('status', 'Category saved.');
+        $this->dispatch('close-category-modal');
+    }
+
+    public function openModal(): void
+    {
+        $this->resetForm();
+        $this->dispatch('open-category-modal');
     }
 
     public function edit(int $categoryId): void
@@ -58,6 +65,8 @@ class CategoryManager extends Component
         $category = Category::where('user_id', Auth::id())->findOrFail($categoryId);
         $this->categoryId = $category->id;
         $this->name = $category->name;
+
+        $this->dispatch('open-category-modal');
     }
 
     public function delete(int $categoryId): void

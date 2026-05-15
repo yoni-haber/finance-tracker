@@ -2,100 +2,150 @@
      @if($polling)
          wire:poll.2s="checkImportStatus"
      @endif>
+
     @if (session('status'))
-        <div class="rounded-md bg-emerald-50 border border-emerald-200 p-4">
-            <div class="flex">
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-emerald-800">{{ session('status') }}</p>
-                </div>
-            </div>
+        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
+            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
         </div>
     @endif
 
-    @if ($currentImport)
+    @if (session('error'))
+        <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 dark:bg-rose-900/20 dark:border-rose-800">
+            <p class="text-sm font-medium text-rose-800 dark:text-rose-300">{{ session('error') }}</p>
+        </div>
+    @endif
+
+    {{-- Step progress indicator --}}
+    @php
+        if ($bankProfiles->isEmpty()) {
+            $currentStep = 0;
+        } elseif (!$currentImport) {
+            $currentStep = 1;
+        } elseif ($currentImport->isUploaded() || $currentImport->isParsing()) {
+            $currentStep = 2;
+        } elseif ($currentImport->isParsed()) {
+            $currentStep = 3;
+        } elseif ($currentImport->isFailed()) {
+            $currentStep = -1;
+        } else {
+            $currentStep = 4;
+        }
+        $steps = ['Bank Profile', 'Upload File', 'Processing', 'Review'];
+    @endphp
+
+    <div class="rounded-xl border border-zinc-200 bg-white px-4 py-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <nav class="flex items-center justify-between" aria-label="Import progress">
+            @foreach ($steps as $i => $label)
+                @php $stepNum = $i; $isActive = $currentStep === $stepNum; $isDone = $currentStep > $stepNum && $currentStep >= 0; @endphp
+                <div class="flex flex-1 items-center {{ $loop->last ? '' : '' }}">
+                    <div class="flex flex-col items-center gap-1">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold
+                            {{ $isActive ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : ($isDone ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800') }}
+                            {{ $currentStep === -1 && $i === 2 ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40' : '' }}
+                        ">
+                            @if ($isDone)
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            @else
+                                {{ $i + 1 }}
+                            @endif
+                        </div>
+                        <span class="text-xs font-medium {{ $isActive ? 'text-emerald-700 dark:text-emerald-400' : ($isDone ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400') }}">{{ $label }}</span>
+                    </div>
+                    @if (!$loop->last)
+                        <div class="mx-2 h-px flex-1 {{ $isDone ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-zinc-200 dark:bg-zinc-700' }}"></div>
+                    @endif
+                </div>
+            @endforeach
+        </nav>
+    </div>
+
+    {{-- No bank profiles: empty state --}}
+    @if ($bankProfiles->isEmpty())
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center shadow-sm dark:border-amber-700/50 dark:bg-amber-900/10">
+            <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40">
+                <svg class="h-6 w-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14zM12 12v6m0-6l-2 2m2-2l2 2"/>
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-amber-900 dark:text-amber-200">No bank profiles set up</h3>
+            <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">You need at least one bank profile to import statements. A profile tells the system how to read your CSV format.</p>
+            <a href="{{ route('statements.bank-profiles') }}"
+               class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
+                Create bank profile
+            </a>
+        </div>
+    @elseif ($currentImport)
+        {{-- Current import status --}}
         <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <h3 class="text-lg font-semibold mb-4">Current Import</h3>
-
-            <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="font-medium">{{ $currentImport->original_filename }}</p>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            Uploaded {{ $currentImport->created_at->diffForHumans() }}
-                        </p>
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <p class="font-semibold text-zinc-900 dark:text-white truncate">{{ $currentImport->original_filename }}</p>
+                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                        Uploaded {{ $currentImport->created_at->diffForHumans() }}
                         @if ($currentImport->bankProfile)
-                            <p class="text-sm text-gray-600 dark:text-gray-400">
-                                Bank Profile: {{ $currentImport->bankProfile->name }}
-                            </p>
+                            &nbsp;·&nbsp; {{ $currentImport->bankProfile->name }}
                         @endif
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            Type: {{ $currentImport->statement_type === 'credit_card' ? 'Credit Card Statement' : 'Bank Statement' }}
-                        </p>
-                    </div>
-                    <div class="text-right">
-                        @if ($currentImport->isUploaded())
-                            <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                                Uploaded
-                            </span>
-                        @elseif ($currentImport->isParsing())
-                            <span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-                                Processing...
-                            </span>
-                        @elseif ($currentImport->isParsed())
-                            <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                                Ready for Review
-                            </span>
-                        @elseif ($currentImport->isFailed())
-                            <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                                Failed
-                            </span>
-                        @endif
-                    </div>
+                        &nbsp;·&nbsp; {{ $currentImport->statement_type === 'credit_card' ? 'Credit Card' : 'Bank Statement' }}
+                    </p>
                 </div>
+                <div class="shrink-0">
+                    @if ($currentImport->isUploaded())
+                        <span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">Uploaded</span>
+                    @elseif ($currentImport->isParsing())
+                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            <span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>
+                            Processing…
+                        </span>
+                    @elseif ($currentImport->isParsed())
+                        <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">Ready for review</span>
+                    @elseif ($currentImport->isFailed())
+                        <span class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-400">Failed</span>
+                    @endif
+                </div>
+            </div>
 
-                <div class="flex gap-3">
-                    @if ($currentImport->isParsed())
+            @if ($currentImport->isParsing())
+                <div class="mt-4 rounded-md bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                    <p>Processing your CSV file — this may take a minute or two.</p>
+                    <p class="mt-0.5 text-xs">You can safely leave this page and return later.</p>
+                </div>
+            @endif
+
+            <div class="mt-4 flex flex-wrap gap-3">
+                @if ($currentImport->isParsed())
+                    <button
+                        wire:key="review-button-{{ $currentImport->id }}"
+                        wire:click="proceedToReview"
+                        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        Review transactions
+                    </button>
+                @endif
+
+                @if (!$currentImport->isCommitted())
+                    <flux:modal.trigger name="confirm-delete-import">
                         <button
-                            wire:key="review-button-{{ $currentImport->id }}"
-                            wire:click="proceedToReview"
-                            class="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                            wire:key="delete-button-{{ $currentImport->id }}"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20"
                         >
-                            Review Transactions
+                            Delete import
                         </button>
-                    @endif
-
-                    @if (!$currentImport->isCommitted())
-                        <flux:modal.trigger name="confirm-delete-import">
-                            <button
-                                wire:key="delete-button-{{ $currentImport->id }}"
-                                class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                            >
-                                Delete Import
-                            </button>
-                        </flux:modal.trigger>
-                    @endif
-
-                </div>
-
-                @if ($currentImport->isParsing())
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        <p>Processing your CSV file... This may take a few minutes.</p>
-                        <p class="mt-1">You can safely leave this page - we'll notify you when it's ready.</p>
-                    </div>
+                    </flux:modal.trigger>
                 @endif
             </div>
         </div>
     @else
+        {{-- Upload form --}}
         <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <h3 class="text-lg font-semibold mb-4">Upload Bank Statement</h3>
+            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Upload bank statement</h3>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Select your bank profile and upload a CSV or TXT file.</p>
 
-            <form wire:submit="uploadStatement" class="space-y-4">
+            <form wire:submit="uploadStatement" class="mt-5 space-y-5">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-900 dark:text-white mb-2">
-                        Bank Profile
-                    </label>
-                    <select wire:model="bankProfileId" class="w-full rounded-md border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
-                        <option value="">Select a bank profile...</option>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Bank profile</label>
+                    <select wire:model="bankProfileId" class="mt-1.5 w-full rounded-md border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
+                        <option value="">Select a bank profile…</option>
                         @foreach ($bankProfiles as $profile)
                             <option value="{{ $profile->id }}">
                                 {{ $profile->name }}
@@ -104,51 +154,39 @@
                         @endforeach
                     </select>
                     @error('bankProfileId')
-                        <p class="text-sm text-rose-600 mt-1">{{ $message }}</p>
+                        <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                     @enderror
-                    <p class="text-xs text-gray-500 mt-1">
-                        CSV format and statement type are configured in the bank profile -
-                        <a href="{{ route('statements.bank-profiles') }}" class="text-blue-600 hover:text-blue-500 underline">Manage Bank Profiles</a>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        CSV format is configured per bank profile —
+                        <a href="{{ route('statements.bank-profiles') }}" class="text-blue-600 hover:underline dark:text-blue-400">manage bank profiles</a>
                     </p>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-900 dark:text-white mb-2">
-                        CSV File
-                    </label>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">CSV file</label>
                     <input
                         type="file"
                         wire:model="csvFile"
                         accept=".csv,.txt"
-                        class="w-full rounded-md border-gray-300 dark:bg-zinc-800 dark:border-zinc-700"
+                        class="mt-1.5 w-full rounded-md border-gray-300 text-sm dark:bg-zinc-800 dark:border-zinc-700"
                     >
                     @error('csvFile')
-                        <p class="text-sm text-rose-600 mt-1">{{ $message }}</p>
+                        <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                     @enderror
-                    <p class="text-xs text-gray-500 mt-1">Maximum file size: 2MB. Supported formats: CSV, TXT</p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">CSV or TXT · max 2 MB</p>
                 </div>
 
-                <div class="flex items-center gap-3 pt-4">
+                <div>
                     <button
                         type="submit"
-                        class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                        class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50"
                         wire:loading.attr="disabled"
                     >
-                        <span wire:loading.remove wire:target="uploadStatement">Upload Statement</span>
-                        <span wire:loading wire:target="uploadStatement">Uploading...</span>
+                        <span wire:loading.remove wire:target="uploadStatement">Upload statement</span>
+                        <span wire:loading wire:target="uploadStatement">Uploading…</span>
                     </button>
                 </div>
             </form>
-        </div>
-    @endif
-
-    @if ($bankProfiles->isEmpty())
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-sm dark:border-amber-700 dark:bg-amber-900/20">
-            <h3 class="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">No Bank Profiles Found</h3>
-            <p class="text-amber-700 dark:text-amber-300 mb-4">
-                You need to create at least one bank profile before importing statements.
-            </p>
-            <a href="{{ route('statements.bank-profiles') }}" class="text-amber-600 hover:text-amber-500 underline">Create Bank Profile</a>
         </div>
     @endif
 
@@ -158,7 +196,7 @@
             <div>
                 <flux:heading size="lg">Delete Import</flux:heading>
                 <flux:subheading>
-                    Are you sure you want to delete this import? This will permanently remove 
+                    Are you sure you want to delete this import? This will permanently remove
                     the uploaded file and any processed transaction data. This action cannot be undone.
                 </flux:subheading>
             </div>
@@ -177,3 +215,4 @@
         </div>
     </flux:modal>
 </div>
+

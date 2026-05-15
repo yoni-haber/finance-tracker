@@ -95,11 +95,11 @@ class StatementImportReviewTest extends TestCase
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
             ->assertSee('3') // Total count
-            ->assertSee('Total Transactions')
+            ->assertSee('Total transactions')
             ->assertSee('2') // New count
-            ->assertSee('New Transactions')
+            ->assertSee('New')
             ->assertSee('1') // Duplicate count
-            ->assertSee('Duplicates (Skipped)');
+            ->assertSee('Duplicates (skipped)');
     }
 
     public function test_edits_transaction_successfully(): void

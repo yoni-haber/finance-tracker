@@ -87,6 +87,15 @@ class BudgetManager extends Component
 
         $this->resetForm();
         session()->flash('status', 'Budget saved.');
+        $this->dispatch('close-budget-modal');
+    }
+
+    public function openModal(): void
+    {
+        $this->resetForm();
+        $this->month = $this->filterMonth;
+        $this->year = $this->filterYear;
+        $this->dispatch('open-budget-modal');
     }
 
     public function edit(int $budgetId): void
@@ -97,6 +106,8 @@ class BudgetManager extends Component
         $this->month = $budget->month;
         $this->year = $budget->year;
         $this->amount = (string) $budget->amount;
+
+        $this->dispatch('open-budget-modal');
     }
 
     public function delete(int $budgetId): void

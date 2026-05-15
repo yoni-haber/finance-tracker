@@ -112,6 +112,13 @@ class NetWorthTracker extends Component
 
         $this->resetForm();
         session()->flash('status', 'Net worth entry saved.');
+        $this->dispatch('close-networth-modal');
+    }
+
+    public function openModal(): void
+    {
+        $this->resetForm();
+        $this->dispatch('open-networth-modal');
     }
 
     public function edit(int $entryId): void
@@ -143,6 +150,8 @@ class NetWorthTracker extends Component
             'category' => 'Liabilities',
             'amount' => number_format((float) $entry->liabilities, 2, '.', ''),
         ]];
+
+        $this->dispatch('open-networth-modal');
     }
 
     public function delete(int $entryId): void
@@ -195,7 +204,7 @@ class NetWorthTracker extends Component
     protected function lineItemRules(string $property): array
     {
         return [
-            "$property" => 'required|array|min:0',
+            "$property" => 'array',
             "$property.*.category" => 'required|string|max:255',
             "$property.*.amount" => 'required|numeric|min:0',
         ];
