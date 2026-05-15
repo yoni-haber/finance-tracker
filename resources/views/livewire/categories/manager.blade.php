@@ -28,7 +28,7 @@
                     <div class="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <div class="min-w-0">
                             <p class="truncate font-medium text-zinc-900 dark:text-white">{{ $category->name }}</p>
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $category->transactions()->count() }} transactions</p>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $category->transactions_count }} transactions</p>
                         </div>
                         <div class="ml-3 flex shrink-0 gap-3 text-sm">
                             <button type="button" wire:click="edit({{ $category->id }})" class="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>

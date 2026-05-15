@@ -22,6 +22,7 @@ class CategoryManager extends Component
     public function render(): View
     {
         $categories = Category::where('user_id', Auth::id())
+            ->withCount('transactions')
             ->orderBy('name')
             ->get();
 

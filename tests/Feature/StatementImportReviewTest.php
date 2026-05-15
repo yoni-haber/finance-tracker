@@ -97,7 +97,7 @@ class StatementImportReviewTest extends TestCase
             ->assertSee('3') // Total count
             ->assertSee('Total transactions')
             ->assertSee('2') // New count
-            ->assertSee('New')
+            ->assertSee('Ready to import') // Unique CTA only shown when new_transactions > 0
             ->assertSee('1') // Duplicate count
             ->assertSee('Duplicates (skipped)');
     }
