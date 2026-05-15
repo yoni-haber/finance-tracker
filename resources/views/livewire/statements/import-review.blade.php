@@ -11,75 +11,67 @@
 
     <!-- Import Summary -->
     <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold">Import Summary</h3>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Import Summary</h3>
+                <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                    {{ $import->original_filename }}
+                    @if ($import->bankProfile)
+                        &nbsp;·&nbsp; {{ $import->bankProfile->name }}
+                    @endif
+                    &nbsp;·&nbsp; {{ $import->statement_type === 'credit_card' ? 'Credit Card' : 'Bank Statement' }}
+                </p>
+            </div>
             <button
                 wire:click="backToImport"
-                class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
-                ← Back to Import
+                ← Back
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ $summary['total'] }}</div>
-                <div class="text-sm text-gray-600">Total Transactions</div>
+        <div class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div class="rounded-lg bg-zinc-50 px-4 py-3 dark:bg-zinc-800">
+                <div class="text-2xl font-bold tabular-nums text-zinc-900 dark:text-white">{{ $summary['total'] }}</div>
+                <div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Total transactions</div>
             </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-emerald-600">{{ $summary['new_transactions'] }}</div>
-                <div class="text-sm text-gray-600">New Transactions</div>
+            <div class="rounded-lg bg-emerald-50 px-4 py-3 dark:bg-emerald-900/20">
+                <div class="text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{{ $summary['new_transactions'] }}</div>
+                <div class="mt-0.5 text-xs text-emerald-600 dark:text-emerald-500">New</div>
             </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold text-amber-600">{{ $summary['duplicates'] }}</div>
-                <div class="text-sm text-gray-600">Duplicates (Skipped)</div>
+            <div class="rounded-lg bg-amber-50 px-4 py-3 dark:bg-amber-900/20">
+                <div class="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{{ $summary['duplicates'] }}</div>
+                <div class="mt-0.5 text-xs text-amber-600 dark:text-amber-500">Duplicates (skipped)</div>
             </div>
-            <div class="text-center">
-                <div class="text-2xl font-bold {{ $summary['total_amount'] >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+            <div class="rounded-lg bg-zinc-50 px-4 py-3 dark:bg-zinc-800">
+                <div class="text-2xl font-bold tabular-nums {{ $summary['total_amount'] >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">
                     £{{ number_format(abs($summary['total_amount']), 2) }}
                 </div>
-                <div class="text-sm text-gray-600">
-                    {{ $summary['total_amount'] >= 0 ? 'Net Credit' : 'Net Debit' }}
-                </div>
+                <div class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{ $summary['total_amount'] >= 0 ? 'Net credit' : 'Net debit' }}</div>
             </div>
         </div>
 
-        <div class="border-t pt-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="font-medium">{{ $import->original_filename }}</p>
-                    <p class="text-sm text-gray-600">
-                        Bank Profile: {{ $import->bankProfile->name ?? 'Unknown' }}
-                    </p>
-                    <p class="text-sm text-gray-600">
-                        Type: {{ $import->statement_type === 'credit_card' ? 'Credit Card Statement' : 'Bank Statement' }}
-                    </p>
-                </div>
-
-                @if ($summary['new_transactions'] > 0)
-                    <div class="flex gap-3">
-                        <flux:modal.trigger name="confirm-import-commit">
-                            <button
-                                class="bg-emerald-600 text-white px-6 py-2 rounded-md hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                            >
-                                Import {{ $summary['new_transactions'] }} Transactions
-                            </button>
-                        </flux:modal.trigger>
-                    </div>
-                @else
-                    <div class="text-sm text-gray-600">
-                        No new transactions to import.
-                    </div>
-                @endif
+        @if ($summary['new_transactions'] > 0)
+            <div class="mt-5 flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                    Ready to import <strong class="text-zinc-900 dark:text-white">{{ $summary['new_transactions'] }}</strong> new transaction{{ $summary['new_transactions'] !== 1 ? 's' : '' }}.
+                </p>
+                <flux:modal.trigger name="confirm-import-commit">
+                    <button class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1">
+                        Import {{ $summary['new_transactions'] }} transaction{{ $summary['new_transactions'] !== 1 ? 's' : '' }}
+                    </button>
+                </flux:modal.trigger>
             </div>
-        </div>
+        @else
+            <p class="mt-4 text-sm text-zinc-500 dark:text-zinc-400">No new transactions to import.</p>
+        @endif
     </div>
 
     <!-- Transaction List -->
     <div class="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold">Transaction Details</h3>
-            <p class="text-sm text-gray-600 mt-1">Review, edit, categorize, or remove transactions before importing.</p>
+        <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
+            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Transaction Details</h3>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Review, edit, categorize, or remove transactions before importing.</p>
         </div>
 
         <div class="overflow-x-auto">
@@ -97,7 +89,7 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200 dark:bg-zinc-900 dark:divide-gray-700">
                     @forelse ($transactions as $transaction)
-                        <tr class="{{ $transaction->is_duplicate ? 'opacity-50 bg-gray-50 dark:bg-gray-800' : '' }}">
+                        <tr class="{{ $transaction->is_duplicate ? 'opacity-60 bg-amber-50/50 dark:bg-amber-900/10' : '' }}">
                             @if ($editingTransactionId === $transaction->id)
                                 <!-- Edit Mode -->
                                 <td class="px-6 py-4">
@@ -218,7 +210,6 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                                     £{{ number_format(abs($transaction->amount), 2) }}
-                                </td>
                                 </td>
                                 <td class="px-6 py-4">
                                     @if (!$transaction->is_duplicate)

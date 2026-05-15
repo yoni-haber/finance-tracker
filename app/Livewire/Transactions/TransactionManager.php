@@ -93,6 +93,13 @@ class TransactionManager extends Component
 
         $this->resetForm();
         session()->flash('status', 'Transaction saved successfully.');
+        $this->dispatch('close-transaction-modal');
+    }
+
+    public function openModal(): void
+    {
+        $this->resetForm();
+        $this->dispatch('open-transaction-modal');
     }
 
     public function edit(int $transactionId): void
@@ -108,6 +115,8 @@ class TransactionManager extends Component
         $this->is_recurring = $transaction->is_recurring;
         $this->frequency = $transaction->frequency;
         $this->recurring_until = $transaction->recurring_until?->toDateString();
+
+        $this->dispatch('open-transaction-modal');
     }
 
     public function delete(int $transactionId, ?string $occurrenceDate = null): void
@@ -159,6 +168,7 @@ class TransactionManager extends Component
         $this->transactionId = null;
         $this->type = Transaction::TYPE_EXPENSE;
         $this->amount = '0.00';
+        $this->date = now()->toDateString();
         $this->description = null;
         $this->category_id = null;
         $this->is_recurring = false;

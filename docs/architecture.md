@@ -56,11 +56,19 @@ class TransactionManager extends Component
         $data['user_id'] = Auth::id();
         Transaction::create($data);
         $this->resetForm();
+        $this->dispatch('close-transaction-modal');
+    }
+
+    public function openModal(): void
+    {
+        $this->resetForm();
+        $this->dispatch('open-transaction-modal');
     }
 
     public function edit(int $id): void
     {
         // Load row into form state
+        $this->dispatch('open-transaction-modal');
     }
 
     public function delete(int $id): void
@@ -79,6 +87,7 @@ Key rules:
 - `#[Layout]` and `#[Title]` attributes on every component class.
 - Validation rules live in a `protected function rules(): array` method, called inside `save()` via `$this->validate($this->rules())`.
 - No service classes for CRUD — validation and persistence live directly in component methods.
+- Modal open/close is driven by Livewire events — `openModal()` resets the form and dispatches `open-*-modal`; `edit()` dispatches `open-*-modal` after loading state; `save()` dispatches `close-*-modal` after persisting.
 
 ## Volt Pages (Settings)
 
