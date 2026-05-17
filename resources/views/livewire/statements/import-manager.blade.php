@@ -37,7 +37,7 @@
         <nav class="flex items-center justify-between" aria-label="Import progress">
             @foreach ($steps as $i => $label)
                 @php $stepNum = $i; $isActive = $currentStep === $stepNum; $isDone = $currentStep > $stepNum && $currentStep >= 0; @endphp
-                <div class="flex flex-1 items-center {{ $loop->last ? '' : '' }}">
+                <div class="flex items-center {{ $loop->last ? '' : 'flex-1' }}">
                     <div class="flex flex-col items-center gap-1">
                         <div class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold
                             {{ $isActive ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : ($isDone ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800') }}
@@ -68,8 +68,8 @@
                 </svg>
             </div>
             <h3 class="text-base font-semibold text-amber-900 dark:text-amber-200">No bank profiles set up</h3>
-            <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">You need at least one bank profile to import statements. A profile tells the system how to read your CSV format.</p>
-            <a href="{{ route('statements.bank-profiles') }}"
+            <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">You need at least one bank profile to import statements. A profile tells the system how to read your statement file.</p>
+            <a href="{{ route('statements.bank-profiles', ['create' => 1]) }}"
                class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
                 Create bank profile
             </a>
@@ -138,14 +138,24 @@
     @else
         {{-- Upload form --}}
         <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Upload bank statement</h3>
-            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Select your bank profile and upload a CSV or TXT file.</p>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Upload statement</h3>
+                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Select your profile and upload a CSV or TXT file.</p>
+                </div>
+                <a
+                    href="{{ route('statements.bank-profiles') }}"
+                    class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                    Manage profiles
+                </a>
+            </div>
 
             <form wire:submit="uploadStatement" class="mt-5 space-y-5">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Bank profile</label>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">profile</label>
                     <select wire:model="bankProfileId" class="mt-1.5 w-full rounded-md border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
-                        <option value="">Select a bank profile…</option>
+                        <option value="">Select a profile…</option>
                         @foreach ($bankProfiles as $profile)
                             <option value="{{ $profile->id }}">
                                 {{ $profile->name }}
@@ -156,14 +166,11 @@
                     @error('bankProfileId')
                         <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                     @enderror
-                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        CSV format is configured per bank profile —
-                        <a href="{{ route('statements.bank-profiles') }}" class="text-blue-600 hover:underline dark:text-blue-400">manage bank profiles</a>
-                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Profiles define how CSV/TXT files are read.</p>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">CSV file</label>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Statement file</label>
                     <input
                         type="file"
                         wire:model="csvFile"
@@ -173,7 +180,7 @@
                     @error('csvFile')
                         <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                     @enderror
-                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">CSV or TXT · max 2 MB</p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">CSV or TXT - max 2 MB</p>
                 </div>
 
                 <div>
@@ -215,4 +222,3 @@
         </div>
     </flux:modal>
 </div>
-

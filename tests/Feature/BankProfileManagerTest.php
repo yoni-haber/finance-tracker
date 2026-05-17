@@ -65,8 +65,27 @@ class BankProfileManagerTest extends TestCase
             ->assertSet('showCreateForm', true)
             ->assertSet('hasSeparateColumns', false)
             ->assertSet('editingProfile', null)
+            ->assertDispatched('open-bank-profile-modal')
             ->assertSee('Profile Name')
-            ->assertSee('Statement Type');
+            ->assertSee('Statement Type')
+            ->assertSee('Choose how positive and negative amounts should be interpreted.')
+            ->assertSee('Column number for the transaction date.')
+            ->assertDontSee('Bank: Positive = Income, Negative = Expense');
+    }
+
+    public function test_create_query_parameter_opens_create_modal_on_first_render(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::withQueryParams(['create' => 1])
+            ->actingAs($user)
+            ->test(BankProfileManager::class)
+            ->assertSet('showCreateForm', true)
+            ->assertSet('hasSeparateColumns', false)
+            ->assertSet('editingProfile', null)
+            ->assertSet('openCreateModalOnFirstRender', true)
+            ->assertSee('Create Bank Profile')
+            ->assertSee('Profile Name');
     }
 
     public function test_creates_new_bank_profile_with_single_amount_column(): void
@@ -85,6 +104,7 @@ class BankProfileManagerTest extends TestCase
             ->set('hasSeparateColumns', false)
             ->call('save')
             ->assertHasNoErrors()
+            ->assertDispatched('close-bank-profile-modal')
             ->assertSet('showCreateForm', false);
 
         $profile = BankProfile::where('name', 'My Bank')->where('user_id', $user->id)->first();
@@ -115,6 +135,7 @@ class BankProfileManagerTest extends TestCase
             ->set('hasSeparateColumns', true)
             ->call('save')
             ->assertHasNoErrors()
+            ->assertDispatched('close-bank-profile-modal')
             ->assertSet('showCreateForm', false);
 
         $profile = BankProfile::where('name', 'My Credit Card')->where('user_id', $user->id)->first();
@@ -215,6 +236,7 @@ class BankProfileManagerTest extends TestCase
             ->call('edit', $profile->id)
             ->assertSet('editingProfile.id', $profile->id)
             ->assertSet('showCreateForm', true)
+            ->assertDispatched('open-bank-profile-modal')
             ->assertSet('form.name', 'Original Name')
             ->assertSet('form.statement_type', 'bank')
             ->assertSet('form.date_column', 1)
@@ -230,6 +252,7 @@ class BankProfileManagerTest extends TestCase
             ->set('form.statement_type', 'credit_card')
             ->call('save')
             ->assertHasNoErrors()
+            ->assertDispatched('close-bank-profile-modal')
             ->assertSet('showCreateForm', false);
 
         $profile->refresh();
@@ -300,7 +323,9 @@ class BankProfileManagerTest extends TestCase
             ->test(BankProfileManager::class)
             ->call('edit', $profile->id)
             ->assertSet('showCreateForm', true)
+            ->assertDispatched('open-bank-profile-modal')
             ->call('cancel')
+            ->assertDispatched('close-bank-profile-modal')
             ->assertSet('showCreateForm', false)
             ->assertSet('editingProfile', null)
             ->assertSet('hasSeparateColumns', false);
