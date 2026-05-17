@@ -287,12 +287,12 @@ class ParseBankStatementJobTest extends TestCase
 
     public function test_failed_is_a_no_op_when_import_not_found(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $job = new ParseBankStatementJob(99999);
 
         // Should not throw — import simply does not exist
         $job->failed(new \RuntimeException('Boom'));
-
-        $this->assertTrue(true); // reached without exception
     }
 
     public function test_skips_committed_imports(): void

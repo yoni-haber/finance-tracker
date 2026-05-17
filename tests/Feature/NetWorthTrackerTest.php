@@ -30,6 +30,7 @@ class NetWorthTrackerTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
+        /** @var null|NetWorthEntry $entry */
         $entry = NetWorthEntry::first();
 
         $this->assertNotNull($entry);
@@ -79,7 +80,7 @@ class NetWorthTrackerTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseCount('net_worth_entries', 1);
-        $firstEntryId = NetWorthEntry::first()->id;
+        $firstEntryId = NetWorthEntry::first()?->id;
 
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
@@ -90,6 +91,7 @@ class NetWorthTrackerTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseCount('net_worth_entries', 1);
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::first();
         $this->assertSame($firstEntryId, $entry->id);
         $this->assertSame(2000.0, (float) $entry->assets);
@@ -117,6 +119,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create([
             'date' => '2024-07-01',
             'assets' => '1000.00',
@@ -133,6 +136,7 @@ class NetWorthTrackerTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
+        /** @var NetWorthEntry $updated */
         $updated = $entry->fresh();
         $this->assertSame(3000.0, (float) $updated->assets);
         $this->assertSame(1000.0, (float) $updated->liabilities);
@@ -143,6 +147,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create([
             'date' => '2024-08-10',
             'assets' => '5000.00',
@@ -168,6 +173,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create([
             'assets' => '2500.00',
             'liabilities' => '750.00',
@@ -186,9 +192,10 @@ class NetWorthTrackerTest extends TestCase
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
 
-        $entry = NetWorthEntry::factory()->for($otherUser)->create();
-
         $this->expectException(ModelNotFoundException::class);
+
+        /** @var NetWorthEntry $entry */
+        $entry = NetWorthEntry::factory()->for($otherUser)->create();
 
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
@@ -199,6 +206,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create();
 
         Livewire::actingAs($user)
@@ -214,6 +222,7 @@ class NetWorthTrackerTest extends TestCase
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($otherUser)->create();
 
         Livewire::actingAs($user)
@@ -428,6 +437,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create();
 
         Livewire::actingAs($user)
@@ -467,6 +477,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create([
             'date' => '2024-06-01',
             'assets' => '1000.00',
@@ -488,6 +499,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($user)->create([
             'assets' => '2000.00',
             'liabilities' => '500.00',
@@ -538,6 +550,7 @@ class NetWorthTrackerTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
+        /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::where('user_id', $user->id)->first();
         $this->assertCount(1, $entry->lineItems()->where('type', 'asset')->get());
 

@@ -1,0 +1,13 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+        - tests
+        - database
+        - routes
+    ignoreErrors:
+        - message: '#Call to an undefined static method Illuminate\\Support\\Facades\\Log::shouldHaveReceived\(\)#'
+          path: tests/*

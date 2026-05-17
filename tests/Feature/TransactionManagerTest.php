@@ -510,11 +510,14 @@ class TransactionManagerTest extends TestCase
         ]);
 
         // Selecting parent shows both subcategory transactions.
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->set('filterParentCategory', $parent->id)
-            ->assertViewHas('transactions', fn ($t) => $t->count() === 2)
-            // Drilling into sub1 narrows to just that subcategory.
+            ->set('filterParentCategory', $parent->id);
+
+        $component->assertViewHas('transactions', fn ($t) => $t->count() === 2);
+
+        // Drilling into sub1 narrows to just that subcategory.
+        $component
             ->set('filterSubCategory', $sub1->id)
             ->assertViewHas('transactions', function ($transactions) use ($sub1) {
                 return $transactions->count() === 1

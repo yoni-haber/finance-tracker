@@ -2,12 +2,54 @@
 
 namespace App\Models;
 
+use Database\Factories\CategoryFactory;
+use Eloquent;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $parent_id
+ * @property int|null $parent_lookup_id
+ * @property string $type
+ * @property string $name
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Collection<int, Budget> $budgets
+ * @property-read int|null $budgets_count
+ * @property-read Collection<int, Category> $children
+ * @property-read int|null $children_count
+ * @property-read Category|null $parent
+ * @property-read Collection<int, Transaction> $transactions
+ * @property-read int|null $transactions_count
+ * @property-read User $user
+ *
+ * @method static Builder<static>|Category expense()
+ * @method static CategoryFactory factory($count = null, $state = [])
+ * @method static Builder<static>|Category forUser(int $userId)
+ * @method static Builder<static>|Category income()
+ * @method static Builder<static>|Category newModelQuery()
+ * @method static Builder<static>|Category newQuery()
+ * @method static Builder<static>|Category parents()
+ * @method static Builder<static>|Category query()
+ * @method static Builder<static>|Category subcategories()
+ * @method static Builder<static>|Category whereCreatedAt($value)
+ * @method static Builder<static>|Category whereId($value)
+ * @method static Builder<static>|Category whereName($value)
+ * @method static Builder<static>|Category whereParentId($value)
+ * @method static Builder<static>|Category whereParentLookupId($value)
+ * @method static Builder<static>|Category whereType($value)
+ * @method static Builder<static>|Category whereUpdatedAt($value)
+ * @method static Builder<static>|Category whereUserId($value)
+ *
+ * @mixin Eloquent
+ */
 class Category extends Model
 {
     use HasFactory;
