@@ -139,7 +139,7 @@ class Dashboard extends Component
                 }
 
                 // Roll subcategory amounts up to the parent name.
-                return $categoryParentNames->get($t->category_id) ?? $t->category?->name ?? 'Uncategorised';
+                return $categoryParentNames->get($t->category_id) ?? $t->category->name ?? 'Uncategorised';
             })
             ->map(fn ($items, $category) => [
                 'category' => $category,

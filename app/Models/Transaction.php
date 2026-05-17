@@ -3,19 +3,67 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Database\Factories\TransactionFactory;
+use Eloquent;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon as SupportCarbon;
 use Illuminate\Support\Collection;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $category_id
+ * @property string $type
+ * @property numeric $amount
+ * @property SupportCarbon $date
+ * @property bool $is_recurring
+ * @property string|null $frequency
+ * @property SupportCarbon|null $recurring_until
+ * @property string|null $description
+ * @property string|null $hash
+ * @property SupportCarbon|null $created_at
+ * @property SupportCarbon|null $updated_at
+ * @property-read Category|null $category
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, TransactionException> $occurrenceExceptions
+ * @property-read int|null $occurrence_exceptions_count
+ * @property-read User $user
+ *
+ * @method static Builder<static>|Transaction expense()
+ * @method static TransactionFactory factory($count = null, $state = [])
+ * @method static Builder<static>|Transaction forCategory(array|int|null $categoryId)
+ * @method static Builder<static>|Transaction forMonthYear(int $month, int $year)
+ * @method static Builder<static>|Transaction forUser(int $userId)
+ * @method static Builder<static>|Transaction income()
+ * @method static Builder<static>|Transaction newModelQuery()
+ * @method static Builder<static>|Transaction newQuery()
+ * @method static Builder<static>|Transaction query()
+ * @method static Builder<static>|Transaction whereAmount($value)
+ * @method static Builder<static>|Transaction whereCategoryId($value)
+ * @method static Builder<static>|Transaction whereCreatedAt($value)
+ * @method static Builder<static>|Transaction whereDate($value)
+ * @method static Builder<static>|Transaction whereDescription($value)
+ * @method static Builder<static>|Transaction whereFrequency($value)
+ * @method static Builder<static>|Transaction whereHash($value)
+ * @method static Builder<static>|Transaction whereId($value)
+ * @method static Builder<static>|Transaction whereIsRecurring($value)
+ * @method static Builder<static>|Transaction whereRecurringUntil($value)
+ * @method static Builder<static>|Transaction whereType($value)
+ * @method static Builder<static>|Transaction whereUpdatedAt($value)
+ * @method static Builder<static>|Transaction whereUserId($value)
+ *
+ * @mixin Eloquent
+ */
 class Transaction extends Model
 {
     use HasFactory;
 
-    const TYPE_INCOME = 'income';
+    const string TYPE_INCOME = 'income';
 
-    const TYPE_EXPENSE = 'expense';
+    const string TYPE_EXPENSE = 'expense';
 
     protected $fillable = [
         'user_id',
@@ -193,7 +241,7 @@ class Transaction extends Model
      *
      * @param  bool  $isProjected  Whether this occurrence is derived from recurrence rules
      */
-    protected function replicateForDate(Carbon $date, bool $isProjected = true): self
+    protected function replicateForDate(SupportCarbon $date, bool $isProjected = true): self
     {
         $clone = $this->replicate();
         $clone->id = $this->id;

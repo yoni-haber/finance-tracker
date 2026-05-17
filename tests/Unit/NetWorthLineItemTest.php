@@ -35,7 +35,6 @@ class NetWorthLineItemTest extends TestCase
         /** @var NetWorthLineItem $lineItem */
         $lineItem = NetWorthLineItem::factory()->create();
 
-        $this->assertNotNull($lineItem->netWorthEntry);
         $this->assertEquals($lineItem->net_worth_entry_id, $lineItem->netWorthEntry->id);
     }
 }

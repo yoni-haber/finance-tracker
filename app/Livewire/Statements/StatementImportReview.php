@@ -4,6 +4,7 @@ namespace App\Livewire\Statements;
 
 use App\Models\BankStatementImport;
 use App\Models\Category;
+use App\Models\ImportedTransaction;
 use App\Models\Transaction;
 use App\Support\BankStatement\DuplicateDetector;
 use App\Support\StatementImportCommitter;
@@ -96,6 +97,7 @@ class StatementImportReview extends Component
 
     public function editTransaction(int $transactionId): void
     {
+        /** @var ImportedTransaction $transaction */
         $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
         $this->editingTransactionId = $transactionId;
@@ -112,6 +114,7 @@ class StatementImportReview extends Component
     {
         $this->validate();
 
+        /** @var ImportedTransaction $transaction */
         $transaction = $this->import->importedTransactions()->findOrFail($this->editingTransactionId);
 
         $normalizedDescription = Str::squish(Str::upper($this->editForm['description']));
@@ -156,6 +159,7 @@ class StatementImportReview extends Component
                 ]);
             }
 
+            /** @var ImportedTransaction $transaction */
             $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
             $transactionType = $this->determineTransactionType($transaction);
 
@@ -170,12 +174,14 @@ class StatementImportReview extends Component
             return;
         }
 
+        /** @var ImportedTransaction $transaction */
         $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
         $transaction->update(['category_id' => null]);
     }
 
     public function updateType(int $transactionId, string $type): void
     {
+        /** @var ImportedTransaction $transaction */
         $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
         $amount = $type === Transaction::TYPE_EXPENSE
@@ -215,7 +221,7 @@ class StatementImportReview extends Component
         $this->dispatch('close-delete-modal');
     }
 
-    private function determineTransactionType($transaction): string
+    private function determineTransactionType(ImportedTransaction $transaction): string
     {
         if ($this->import->isCreditCardStatement()) {
             return $transaction->amount < 0 ? Transaction::TYPE_EXPENSE : Transaction::TYPE_INCOME;

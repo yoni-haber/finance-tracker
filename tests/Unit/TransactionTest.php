@@ -39,8 +39,8 @@ class TransactionTest extends TestCase
             Transaction::forUser($user->id)->pluck('user_id')->unique()->all()
         );
 
-        $this->assertTrue(Transaction::income()->get()->contains($februaryIncome));
-        $this->assertTrue(Transaction::expense()->get()->contains($januaryExpense));
+        $this->assertTrue(Transaction::income()->whereKey($februaryIncome->id)->exists());
+        $this->assertTrue(Transaction::expense()->whereKey($januaryExpense->id)->exists());
 
         $this->assertCount(2, Transaction::forMonthYear(1, 2024)->get());
 

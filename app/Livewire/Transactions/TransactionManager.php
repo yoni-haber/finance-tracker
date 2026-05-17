@@ -74,9 +74,11 @@ class TransactionManager extends Component
             ->get();
 
         // Subcategories for the drill-down dropdown (children of the selected parent).
-        $filterSubCategories = $this->filterParentCategory
-            ? ($filterCategories->firstWhere('id', $this->filterParentCategory)?->children ?? collect())
-            : collect();
+        $filterSubCategories = collect();
+        if ($this->filterParentCategory) {
+            $parentCategory = $filterCategories->firstWhere('id', $this->filterParentCategory);
+            $filterSubCategories = $parentCategory !== null ? $parentCategory->children : collect();
+        }
 
         // Resolve effective filter: subcategory takes precedence; parent expands to include all children.
         $effectiveCategoryFilter = null;

@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\BankProfile;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\NetWorthEntry;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Support\BankStatementConfig;
@@ -64,6 +65,7 @@ class UserTest extends TestCase
     public function test_user_has_many_net_worth_line_items(): void
     {
         $user = User::factory()->create();
+        /** @var NetWorthEntry $entry */
         $entry = $user->netWorthEntries()->create(['date' => '2024-01-01', 'assets' => 1000, 'liabilities' => 200, 'net_worth' => 800]);
 
         $user->netWorthLineItems()->createMany([

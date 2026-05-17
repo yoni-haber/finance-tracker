@@ -346,7 +346,7 @@ class StatementImportReviewTest extends TestCase
 
         $transaction->refresh();
         $this->assertNotEquals($originalHash, $transaction->hash);
-        $this->assertNotNull($transaction->hash);
+        $this->assertNotEmpty($transaction->hash);
     }
 
     public function test_hash_uses_normalized_description_after_edit(): void

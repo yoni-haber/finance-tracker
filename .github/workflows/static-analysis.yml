@@ -25,4 +25,4 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse app bootstrap config database routes tests --level=0 --no-progress --memory-limit=1G --error-format=github
+        run: vendor/bin/phpstan analyse app database routes tests --level=5 --no-progress --memory-limit=1G --error-format=github

@@ -29,8 +29,7 @@ class BankProfileTest extends TestCase
 
         $profile = BankProfile::factory()->create(['config' => $config]);
 
-        $this->assertIsArray($profile->config);
-        $this->assertEquals($config, $profile->config);
+        $this->assertArraysAreEqual($config, $profile->config);
     }
 
     public function test_bank_profile_belongs_to_user(): void

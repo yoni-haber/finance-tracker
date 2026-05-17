@@ -59,8 +59,8 @@ class ImportedTransactionTest extends TestCase
 
         $this->assertInstanceOf(Carbon::class, $transaction->date);
         $this->assertSame('123.45', $transaction->amount);
-        $this->assertIsBool($transaction->is_duplicate);
-        $this->assertIsBool($transaction->is_committed);
+        $this->assertTrue($transaction->is_duplicate);
+        $this->assertFalse($transaction->is_committed);
     }
 
     public function test_duplicate_scope_filters_correctly(): void

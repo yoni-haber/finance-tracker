@@ -10,6 +10,11 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
+/**
+ * @property-read float $calculatedNetWorthValue
+ * @property-read string $calculatedNetWorth
+ * @property-read string $calculatedNetWorthStyle
+ */
 #[Layout('components.layouts.app')]
 #[Title('Net Worth')]
 class NetWorthTracker extends Component

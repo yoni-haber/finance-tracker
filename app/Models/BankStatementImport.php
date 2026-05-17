@@ -3,11 +3,46 @@
 namespace App\Models;
 
 use App\Support\BankStatementConfig;
+use Database\Factories\BankStatementImportFactory;
+use Eloquent;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $original_filename
+ * @property string $status
+ * @property int|null $bank_profile_id
+ * @property string $statement_type
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read BankProfile|null $bankProfile
+ * @property-read Collection<int, ImportedTransaction> $importedTransactions
+ * @property-read int|null $imported_transactions_count
+ * @property-read User $user
+ *
+ * @method static BankStatementImportFactory factory($count = null, $state = [])
+ * @method static Builder<static>|BankStatementImport forUser(int $userId)
+ * @method static Builder<static>|BankStatementImport newModelQuery()
+ * @method static Builder<static>|BankStatementImport newQuery()
+ * @method static Builder<static>|BankStatementImport query()
+ * @method static Builder<static>|BankStatementImport whereBankProfileId($value)
+ * @method static Builder<static>|BankStatementImport whereCreatedAt($value)
+ * @method static Builder<static>|BankStatementImport whereId($value)
+ * @method static Builder<static>|BankStatementImport whereOriginalFilename($value)
+ * @method static Builder<static>|BankStatementImport whereStatementType($value)
+ * @method static Builder<static>|BankStatementImport whereStatus($value)
+ * @method static Builder<static>|BankStatementImport whereUpdatedAt($value)
+ * @method static Builder<static>|BankStatementImport whereUserId($value)
+ *
+ * @mixin Eloquent
+ */
 class BankStatementImport extends Model
 {
     use HasFactory;
@@ -30,6 +65,7 @@ class BankStatementImport extends Model
         return $this->belongsTo(BankProfile::class);
     }
 
+    /** @return HasMany<ImportedTransaction, $this> */
     public function importedTransactions(): HasMany
     {
         return $this->hasMany(ImportedTransaction::class, 'import_id');
