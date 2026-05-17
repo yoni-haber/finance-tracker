@@ -423,7 +423,7 @@ class TransactionManagerTest extends TestCase
         Carbon::setTestNow('2024-06-15');
 
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Transaction::factory()->for($user)->create([
             'category_id' => $category->id,
@@ -444,11 +444,97 @@ class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->set('filterCategory', $category->id)
+            ->set('filterParentCategory', $category->id)
             ->assertViewHas('transactions', function ($transactions) use ($category) {
                 return $transactions->count() === 1
                     && $transactions->every(fn ($t) => $t->category_id === $category->id);
             });
+    }
+
+    public function test_render_filter_by_parent_category_includes_subcategory_transactions(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $sub = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        $other = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+
+        Transaction::factory()->for($user)->create([
+            'category_id' => $sub->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '50.00',
+            'date' => '2024-06-10',
+            'is_recurring' => false,
+        ]);
+        Transaction::factory()->for($user)->create([
+            'category_id' => $other->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '100.00',
+            'date' => '2024-06-10',
+            'is_recurring' => false,
+        ]);
+
+        // Selecting the parent shows transactions from all its subcategories.
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('filterParentCategory', $parent->id)
+            ->assertViewHas('transactions', function ($transactions) use ($sub) {
+                return $transactions->count() === 1
+                    && $transactions->every(fn ($t) => $t->category_id === $sub->id);
+            });
+    }
+
+    public function test_render_filter_sub_category_drills_down_within_parent(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $sub1 = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        $sub2 = Category::factory()->subcategoryOf($parent)->create(['name' => 'Restaurants']);
+
+        Transaction::factory()->for($user)->create([
+            'category_id' => $sub1->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '50.00',
+            'date' => '2024-06-10',
+            'is_recurring' => false,
+        ]);
+        Transaction::factory()->for($user)->create([
+            'category_id' => $sub2->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '30.00',
+            'date' => '2024-06-10',
+            'is_recurring' => false,
+        ]);
+
+        // Selecting parent shows both subcategory transactions.
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('filterParentCategory', $parent->id)
+            ->assertViewHas('transactions', fn ($t) => $t->count() === 2)
+            // Drilling into sub1 narrows to just that subcategory.
+            ->set('filterSubCategory', $sub1->id)
+            ->assertViewHas('transactions', function ($transactions) use ($sub1) {
+                return $transactions->count() === 1
+                    && $transactions->every(fn ($t) => $t->category_id === $sub1->id);
+            });
+    }
+
+    public function test_updated_filter_parent_category_resets_sub_category(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $sub = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('filterParentCategory', $parent->id)
+            ->set('filterSubCategory', $sub->id)
+            ->assertSet('filterSubCategory', $sub->id)
+            ->set('filterParentCategory', null)
+            ->assertSet('filterSubCategory', null);
     }
 
     public function test_reset_form_restores_all_fields_to_defaults(): void
@@ -551,5 +637,54 @@ class TransactionManagerTest extends TestCase
             ->set('is_recurring', false)
             ->call('save')
             ->assertNotDispatched('close-transaction-modal');
+    }
+
+    public function test_form_categories_are_filtered_by_transaction_type(): void
+    {
+        $user = User::factory()->create();
+
+        $incomeParent = Category::factory()->for($user)->income()->create(['name' => 'Employment']);
+        $expenseParent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+
+        // Default type is expense — only expense categories in formCategories.
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->assertViewHas('formCategories', fn ($cats) => $cats->contains('id', $expenseParent->id))
+            ->assertViewHas('formCategories', fn ($cats) => $cats->doesntContain('id', $incomeParent->id));
+
+        // Switch to income — only income categories.
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('type', Transaction::TYPE_INCOME)
+            ->assertViewHas('formCategories', fn ($cats) => $cats->contains('id', $incomeParent->id))
+            ->assertViewHas('formCategories', fn ($cats) => $cats->doesntContain('id', $expenseParent->id));
+    }
+
+    public function test_save_fails_when_category_type_does_not_match_transaction_type(): void
+    {
+        $user = User::factory()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('type', Transaction::TYPE_EXPENSE)
+            ->set('amount', '50.00')
+            ->set('date', '2024-06-15')
+            ->set('category_id', $incomeCategory->id)
+            ->call('save')
+            ->assertHasErrors(['category_id']);
+    }
+
+    public function test_updated_type_clears_category_id(): void
+    {
+        $user = User::factory()->create();
+        $expenseCategory = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('type', Transaction::TYPE_EXPENSE)
+            ->set('category_id', $expenseCategory->id)
+            ->set('type', Transaction::TYPE_INCOME)
+            ->assertSet('category_id', null);
     }
 }

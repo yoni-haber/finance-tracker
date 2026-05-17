@@ -19,11 +19,10 @@ class UserAndFinanceSeeder extends Seeder
         DB::transaction(function () {
             $now = Carbon::now();
 
-            $users = $this->seedUsers();
+            $user = $this->seedUser();
+            $categories = $this->seedCategories($user);
 
-            $categories = $this->seedCategories($users);
-
-            $this->seedBudgets($users['alex'], $categories['alex'], [
+            $this->seedBudgets($user, $categories, [
                 [
                     'category' => 'Housing',
                     'month' => $now->month,
@@ -31,53 +30,32 @@ class UserAndFinanceSeeder extends Seeder
                     'amount' => 1800.00,
                 ],
                 [
-                    'category' => 'Groceries',
+                    'category' => 'Food',
                     'month' => $now->month,
                     'year' => $now->year,
                     'amount' => 650.00,
                 ],
                 [
-                    'category' => 'Utilities',
+                    'category' => 'Bills',
                     'month' => $now->copy()->subMonth()->month,
                     'year' => $now->copy()->subMonth()->year,
                     'amount' => 220.00,
                 ],
                 [
-                    'category' => 'Travel',
+                    'category' => 'Transport',
                     'month' => $now->copy()->addMonths(2)->month,
                     'year' => $now->copy()->addMonths(2)->year,
                     'amount' => 1200.00,
                 ],
             ]);
 
-            $this->seedBudgets($users['jamie'], $categories['jamie'], [
-                [
-                    'category' => 'Living',
-                    'month' => $now->month,
-                    'year' => $now->year,
-                    'amount' => 1200.00,
-                ],
-                [
-                    'category' => 'Consulting',
-                    'month' => $now->copy()->addMonth()->month,
-                    'year' => $now->copy()->addMonth()->year,
-                    'amount' => 1000.00,
-                ],
-                [
-                    'category' => 'Education',
-                    'month' => $now->copy()->addMonths(2)->month,
-                    'year' => $now->copy()->addMonths(2)->year,
-                    'amount' => 350.00,
-                ],
-            ]);
-
-            $this->seedTransactions($users, $categories);
+            $this->seedTransactions($user, $categories);
         });
     }
 
-    private function seedUsers(): array
+    private function seedUser(): User
     {
-        $alex = User::updateOrCreate(
+        return User::updateOrCreate(
             ['email' => 'alex@example.com'],
             [
                 'name' => 'Alex Financier',
@@ -89,64 +67,56 @@ class UserAndFinanceSeeder extends Seeder
                 'remember_token' => Str::random(10),
             ],
         );
-
-        $jamie = User::updateOrCreate(
-            ['email' => 'jamie@example.com'],
-            [
-                'name' => 'Jamie Auditor',
-                'password' => 'password',
-                'email_verified_at' => null,
-                'two_factor_secret' => null,
-                'two_factor_recovery_codes' => null,
-                'two_factor_confirmed_at' => null,
-                'remember_token' => Str::random(10),
-            ],
-        );
-
-        return [
-            'alex' => $alex,
-            'jamie' => $jamie,
-        ];
     }
 
-    private function seedCategories(array $users): array
+    private function seedCategories(User $user): array
     {
-        $alexCategories = collect([
-            'Salary',
-            'Freelance',
-            'Housing',
-            'Groceries',
-            'Utilities',
-            'Entertainment',
-            'Travel',
-            'Savings',
-        ])->mapWithKeys(function ($name) use ($users) {
-            $category = Category::updateOrCreate(
-                ['user_id' => $users['alex']->id, 'name' => $name]
-            );
-
-            return [$name => $category];
-        });
-
-        $jamieCategories = collect([
-            'Consulting',
-            'Living',
-            'Education',
-        ])->mapWithKeys(function ($name) use ($users) {
-            $category = Category::updateOrCreate(
-                ['user_id' => $users['jamie']->id, 'name' => $name]
-            );
-
-            return [$name => $category];
-        });
-
-        return [
-            'alex' => $alexCategories,
-            'jamie' => $jamieCategories,
-        ];
+        return $this->createHierarchy($user, [
+            'income' => [
+                'Employment' => ['Salary', 'Bonus'],
+                'Self Employment' => ['Freelance'],
+            ],
+            'expense' => [
+                'Housing' => ['Rent'],
+                'Food' => ['Groceries', 'Restaurants'],
+                'Transport' => ['Fuel', 'Travel'],
+                'Bills' => ['Utilities'],
+                'Lifestyle' => ['Entertainment'],
+                'Savings' => [],
+            ],
+        ]);
     }
 
-    private function seedBudgets(User $user, $categories, array $budgetDefinitions): void
+    /**
+     * Create a typed parent/subcategory hierarchy for a user.
+     * Returns a flat map keyed as "Parent" for parents and "Parent.Child" for subcategories.
+     */
+    private function createHierarchy(User $user, array $hierarchy): array
+    {
+        $map = [];
+
+        foreach (['income', 'expense'] as $type) {
+            foreach ($hierarchy[$type] ?? [] as $parentName => $children) {
+                $parent = Category::updateOrCreate(
+                    ['user_id' => $user->id, 'parent_id' => null, 'name' => $parentName],
+                    ['type' => $type],
+                );
+                $map[$parentName] = $parent;
+
+                foreach ($children as $childName) {
+                    $child = Category::updateOrCreate(
+                        ['user_id' => $user->id, 'parent_id' => $parent->id, 'name' => $childName],
+                        ['type' => $type],
+                    );
+                    $map["{$parentName}.{$childName}"] = $child;
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    private function seedBudgets(User $user, array $categories, array $budgetDefinitions): void
     {
         foreach ($budgetDefinitions as $definition) {
             Budget::updateOrCreate(
@@ -161,17 +131,14 @@ class UserAndFinanceSeeder extends Seeder
         }
     }
 
-    private function seedTransactions(array $users, array $categories): void
+    private function seedTransactions(User $user, array $categories): void
     {
-        $alex = $users['alex'];
-        $jamie = $users['jamie'];
         $now = Carbon::now();
 
         $transactions = [
-            // Alex income and recurring salary with an extended end date for projections.
+            // Income — recurring salary with exceptions.
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Salary'],
+                'category' => $categories['Employment.Salary'],
                 'type' => Transaction::TYPE_INCOME,
                 'amount' => 5500.00,
                 'date' => $now->copy()->subMonths(1)->startOfMonth(),
@@ -181,8 +148,7 @@ class UserAndFinanceSeeder extends Seeder
                 'description' => 'Full-time salary (recurring)',
             ],
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Freelance'],
+                'category' => $categories['Self Employment.Freelance'],
                 'type' => Transaction::TYPE_INCOME,
                 'amount' => 850.00,
                 'date' => $now->copy()->subWeeks(2),
@@ -192,10 +158,9 @@ class UserAndFinanceSeeder extends Seeder
                 'description' => 'Freelance web design gig',
             ],
 
-            // Alex housing and utilities showing mixed recurrence and one-off adjustments.
+            // Expenses spread across subcategories.
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Housing'],
+                'category' => $categories['Housing.Rent'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 1750.00,
                 'date' => $now->copy()->startOfMonth(),
@@ -205,8 +170,7 @@ class UserAndFinanceSeeder extends Seeder
                 'description' => 'Apartment rent recurring',
             ],
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Utilities'],
+                'category' => $categories['Bills.Utilities'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 95.40,
                 'date' => $now->copy()->subMonth()->startOfMonth()->addDays(5),
@@ -216,8 +180,7 @@ class UserAndFinanceSeeder extends Seeder
                 'description' => 'Electricity bill (prior month)',
             ],
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Utilities'],
+                'category' => $categories['Bills.Utilities'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 0.00,
                 'date' => $now->copy()->startOfMonth()->addDays(5),
@@ -226,11 +189,8 @@ class UserAndFinanceSeeder extends Seeder
                 'recurring_until' => null,
                 'description' => 'Utility credit from provider',
             ],
-
-            // Alex groceries and entertainment illustrate category coverage.
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Groceries'],
+                'category' => $categories['Food.Groceries'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 125.80,
                 'date' => $now->copy()->subDays(10),
@@ -240,8 +200,7 @@ class UserAndFinanceSeeder extends Seeder
                 'description' => 'Weekly grocery run',
             ],
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Entertainment'],
+                'category' => $categories['Lifestyle.Entertainment'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 64.99,
                 'date' => $now->copy()->subDays(3),
@@ -251,8 +210,7 @@ class UserAndFinanceSeeder extends Seeder
                 'description' => 'Concert ticket',
             ],
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Travel'],
+                'category' => $categories['Transport.Travel'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 480.00,
                 'date' => $now->copy()->addMonths(1)->startOfMonth(),
@@ -261,11 +219,8 @@ class UserAndFinanceSeeder extends Seeder
                 'recurring_until' => null,
                 'description' => 'Flight booking for conference',
             ],
-
-            // Alex savings recurring transfer with an exception later.
             [
-                'user' => $alex,
-                'category' => $categories['alex']['Savings'],
+                'category' => $categories['Savings'],
                 'type' => Transaction::TYPE_EXPENSE,
                 'amount' => 300.00,
                 'date' => $now->copy()->startOfMonth()->addDays(2),
@@ -274,52 +229,6 @@ class UserAndFinanceSeeder extends Seeder
                 'recurring_until' => $now->copy()->addMonths(4),
                 'description' => 'Automatic savings transfer',
             ],
-
-            // Jamie transactions showcase another user's data and uncategorized spending.
-            [
-                'user' => $jamie,
-                'category' => $categories['jamie']['Consulting'],
-                'type' => Transaction::TYPE_INCOME,
-                'amount' => 3200.00,
-                'date' => $now->copy()->subMonths(2)->startOfMonth()->addDays(7),
-                'is_recurring' => true,
-                'frequency' => 'monthly',
-                'recurring_until' => $now->copy()->addMonths(1),
-                'description' => 'Consulting retainer',
-            ],
-            [
-                'user' => $jamie,
-                'category' => $categories['jamie']['Living'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 900.00,
-                'date' => $now->copy()->subMonth()->addDays(1),
-                'is_recurring' => true,
-                'frequency' => 'monthly',
-                'recurring_until' => $now->copy()->addMonths(3),
-                'description' => 'Shared apartment rent',
-            ],
-            [
-                'user' => $jamie,
-                'category' => $categories['jamie']['Education'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 200.00,
-                'date' => $now->copy()->addMonths(1)->startOfMonth()->addDays(12),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Online course enrollment',
-            ],
-            [
-                'user' => $jamie,
-                'category' => null,
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 45.00,
-                'date' => $now->copy()->subDays(6),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Misc uncategorized purchase',
-            ],
         ];
 
         $recurringExceptionSeeds = [];
@@ -327,7 +236,7 @@ class UserAndFinanceSeeder extends Seeder
         foreach ($transactions as $data) {
             $transaction = Transaction::updateOrCreate(
                 [
-                    'user_id' => $data['user']->id,
+                    'user_id' => $user->id,
                     'date' => $data['date']->toDateString(),
                     'amount' => $data['amount'],
                     'description' => $data['description'],
@@ -341,31 +250,17 @@ class UserAndFinanceSeeder extends Seeder
                 ],
             );
 
-            // Capture exceptions to create after we know transaction IDs.
             if ($transaction->description === 'Apartment rent recurring') {
                 $recurringExceptionSeeds[] = [
                     'transaction' => $transaction,
-                    'dates' => [
-                        $data['date']->copy()->addMonths(2), // skipped rent due to free month promotion
-                    ],
+                    'dates' => [$data['date']->copy()->addMonths(2)],
                 ];
             }
 
             if ($transaction->description === 'Automatic savings transfer') {
                 $recurringExceptionSeeds[] = [
                     'transaction' => $transaction,
-                    'dates' => [
-                        $data['date']->copy()->addMonths(3)->addDay(), // postpone one transfer by a day to simulate adjustment
-                    ],
-                ];
-            }
-
-            if ($transaction->description === 'Consulting retainer') {
-                $recurringExceptionSeeds[] = [
-                    'transaction' => $transaction,
-                    'dates' => [
-                        $data['date']->copy()->addMonth(), // paused retainer for a month
-                    ],
+                    'dates' => [$data['date']->copy()->addMonths(3)->addDay()],
                 ];
             }
         }

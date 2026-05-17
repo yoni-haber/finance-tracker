@@ -31,7 +31,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_creates_budget_with_valid_data(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
@@ -55,7 +55,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_create_detects_duplicate_budget(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Budget::factory()->for($user)->for($category, 'category')->create([
             'month' => 3,
@@ -76,7 +76,7 @@ class BudgetManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $otherCategory = Category::factory()->for($otherUser)->create();
+        $otherCategory = Category::factory()->for($otherUser)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
@@ -105,7 +105,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_create_validates_month_out_of_range(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
@@ -129,7 +129,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_create_validates_year_out_of_range(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
@@ -153,7 +153,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_updates_existing_budget(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $budget = Budget::factory()->for($user)->for($category, 'category')->create([
             'month' => 4,
             'year' => 2025,
@@ -177,7 +177,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_update_duplicate_check_excludes_self(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $budget = Budget::factory()->for($user)->for($category, 'category')->create([
             'month' => 7,
             'year' => 2025,
@@ -197,7 +197,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_update_returns_error_when_budget_not_found(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
@@ -214,8 +214,8 @@ class BudgetManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
-        $otherCategory = Category::factory()->for($otherUser)->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        $otherCategory = Category::factory()->for($otherUser)->expense()->create();
         $otherBudget = Budget::factory()->for($otherUser)->for($otherCategory, 'category')->create([
             'month' => 5,
             'year' => 2025,
@@ -239,7 +239,7 @@ class BudgetManagerTest extends TestCase
     public function test_edit_loads_all_fields_correctly(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $budget = Budget::factory()->for($user)->for($category, 'category')->create([
             'month' => 8,
             'year' => 2024,
@@ -307,8 +307,8 @@ class BudgetManagerTest extends TestCase
     public function test_render_filters_by_category(): void
     {
         $user = User::factory()->create();
-        $catA = Category::factory()->for($user)->create(['name' => 'Groceries']);
-        $catB = Category::factory()->for($user)->create(['name' => 'Rent']);
+        $catA = Category::factory()->for($user)->expense()->create(['name' => 'Groceries']);
+        $catB = Category::factory()->for($user)->expense()->create(['name' => 'Rent']);
 
         Budget::factory()->for($user)->for($catA, 'category')->create(['month' => 1, 'year' => 2025]);
         Budget::factory()->for($user)->for($catB, 'category')->create(['month' => 1, 'year' => 2025]);
@@ -328,7 +328,7 @@ class BudgetManagerTest extends TestCase
     public function test_render_filters_by_month_and_year(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create(['name' => 'Travel']);
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Travel']);
 
         $budgetFeb = Budget::factory()->for($user)->for($category, 'category')->create([
             'month' => 2,
@@ -356,8 +356,8 @@ class BudgetManagerTest extends TestCase
     public function test_copy_from_previous_month_creates_missing_budgets(): void
     {
         $user = User::factory()->create();
-        $catA = Category::factory()->for($user)->create();
-        $catB = Category::factory()->for($user)->create();
+        $catA = Category::factory()->for($user)->expense()->create();
+        $catB = Category::factory()->for($user)->expense()->create();
 
         Budget::factory()->for($user)->for($catA, 'category')->create(['month' => 3, 'year' => 2025, 'amount' => '200.00']);
         Budget::factory()->for($user)->for($catB, 'category')->create(['month' => 3, 'year' => 2025, 'amount' => '400.00']);
@@ -376,8 +376,8 @@ class BudgetManagerTest extends TestCase
     public function test_copy_from_previous_month_skips_existing_budgets(): void
     {
         $user = User::factory()->create();
-        $catA = Category::factory()->for($user)->create();
-        $catB = Category::factory()->for($user)->create();
+        $catA = Category::factory()->for($user)->expense()->create();
+        $catB = Category::factory()->for($user)->expense()->create();
 
         // Previous month
         Budget::factory()->for($user)->for($catA, 'category')->create(['month' => 3, 'year' => 2025, 'amount' => '200.00']);
@@ -417,7 +417,7 @@ class BudgetManagerTest extends TestCase
     public function test_copy_from_previous_month_handles_january_rollover(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Budget::factory()->for($user)->for($category, 'category')->create(['month' => 12, 'year' => 2024, 'amount' => '150.00']);
 
@@ -435,7 +435,7 @@ class BudgetManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $otherCategory = Category::factory()->for($otherUser)->create();
+        $otherCategory = Category::factory()->for($otherUser)->expense()->create();
 
         Budget::factory()->for($otherUser)->for($otherCategory, 'category')->create(['month' => 3, 'year' => 2025, 'amount' => '500.00']);
 
@@ -452,7 +452,7 @@ class BudgetManagerTest extends TestCase
     public function test_reset_form_clears_state_to_defaults(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $budget = Budget::factory()->for($user)->for($category, 'category')->create([
             'amount' => '999.00',
         ]);
@@ -480,7 +480,7 @@ class BudgetManagerTest extends TestCase
     public function test_open_modal_resets_form_state(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $budget = Budget::factory()->for($user)->for($category, 'category')->create();
 
         Livewire::actingAs($user)
@@ -509,7 +509,7 @@ class BudgetManagerTest extends TestCase
     public function test_edit_dispatches_open_budget_modal_event(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $budget = Budget::factory()->for($user)->for($category, 'category')->create();
 
         Livewire::actingAs($user)
@@ -521,7 +521,7 @@ class BudgetManagerTest extends TestCase
     public function test_save_dispatches_close_budget_modal_event_on_success(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
@@ -545,5 +545,50 @@ class BudgetManagerTest extends TestCase
             ->set('amount', '100.00')
             ->call('save')
             ->assertNotDispatched('close-budget-modal');
+    }
+
+    public function test_save_rejects_income_category(): void
+    {
+        $user = User::factory()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->set('category_id', $incomeCategory->id)
+            ->set('month', 5)
+            ->set('year', 2025)
+            ->set('amount', '200.00')
+            ->call('save')
+            ->assertHasErrors('category_id');
+    }
+
+    public function test_save_rejects_subcategory(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $sub = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->set('category_id', $sub->id)
+            ->set('month', 5)
+            ->set('year', 2025)
+            ->set('amount', '200.00')
+            ->call('save')
+            ->assertHasErrors('category_id');
+    }
+
+    public function test_render_categories_shows_only_expense_parents(): void
+    {
+        $user = User::factory()->create();
+        $expenseParent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $incomeParent = Category::factory()->for($user)->income()->create(['name' => 'Employment']);
+        $sub = Category::factory()->subcategoryOf($expenseParent)->create(['name' => 'Groceries']);
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->assertViewHas('categories', fn ($cats) => $cats->contains('id', $expenseParent->id))
+            ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $incomeParent->id))
+            ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $sub->id));
     }
 }

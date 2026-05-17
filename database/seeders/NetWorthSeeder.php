@@ -15,7 +15,6 @@ class NetWorthSeeder extends Seeder
     {
         DB::transaction(function () {
             $user = User::where('email', 'alex@example.com')->firstOrFail();
-            $altUser = User::where('email', 'jamie@example.com')->firstOrFail();
 
             $this->seedEntriesForUser($user, [
                 'Checking account' => 4200.50,
@@ -23,12 +22,6 @@ class NetWorthSeeder extends Seeder
                 'Retirement 401k' => 33800.00,
                 'Credit card' => -1200.40,
                 'Auto loan' => -7300.00,
-            ]);
-
-            $this->seedEntriesForUser($altUser, [
-                'Cash savings' => 1800.00,
-                'College fund' => 6200.00,
-                'Student loan' => -5400.00,
             ]);
         });
     }

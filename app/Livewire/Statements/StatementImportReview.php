@@ -64,7 +64,11 @@ class StatementImportReview extends Component
         return view('livewire.statements.import-review', [
             'transactions' => $transactions,
             'summary' => $summary,
-            'categories' => Category::where('user_id', Auth::id())->orderBy('name')->get(),
+            'categories' => Category::forUser(Auth::id())
+                ->parents()
+                ->with('children')
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
@@ -75,7 +79,18 @@ class StatementImportReview extends Component
             'editForm.amount' => 'required|numeric|min:0.01',
             'editForm.date' => 'required|date',
             'editForm.type' => 'required|in:income,expense',
-            'editForm.category_id' => ['nullable', Rule::exists('categories', 'id')->where('user_id', Auth::id())],
+            'editForm.category_id' => [
+                'nullable',
+                Rule::exists('categories', 'id')->where('user_id', Auth::id()),
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $category = Category::find($value);
+                        if ($category && $category->type !== ($this->editForm['type'] ?? null)) {
+                            $fail("This category is for {$category->type} transactions.");
+                        }
+                    }
+                },
+            ],
         ];
     }
 
@@ -132,14 +147,31 @@ class StatementImportReview extends Component
 
     public function updateCategory(int $transactionId, ?int $categoryId): void
     {
-        if ($categoryId !== null && ! Category::where('id', $categoryId)->where('user_id', Auth::id())->exists()) {
-            throw ValidationException::withMessages([
-                'categoryId' => 'The selected category is invalid.',
-            ]);
+        if ($categoryId !== null) {
+            $category = Category::where('id', $categoryId)->where('user_id', Auth::id())->first();
+
+            if (! $category) {
+                throw ValidationException::withMessages([
+                    'categoryId' => 'The selected category is invalid.',
+                ]);
+            }
+
+            $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
+            $transactionType = $this->determineTransactionType($transaction);
+
+            if ($category->type !== $transactionType) {
+                throw ValidationException::withMessages([
+                    'categoryId' => "This category is for {$category->type} transactions, but this is a {$transactionType} transaction.",
+                ]);
+            }
+
+            $transaction->update(['category_id' => $categoryId]);
+
+            return;
         }
 
         $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
-        $transaction->update(['category_id' => $categoryId]);
+        $transaction->update(['category_id' => null]);
     }
 
     public function updateType(int $transactionId, string $type): void

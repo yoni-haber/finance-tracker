@@ -13,7 +13,7 @@ class TransactionReport
      *
      * @return Collection<Transaction>
      */
-    public static function projectedForMonth(int $userId, int $month, int $year, ?int $categoryId = null): Collection
+    public static function projectedForMonth(int $userId, int $month, int $year, int|array|null $categoryId = null): Collection
     {
         // Build the base query for the users transactions, optionally filtered by category
         $baseQuery = Transaction::forUser($userId)

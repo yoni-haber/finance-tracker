@@ -21,13 +21,22 @@
                 </select>
                 <input type="number" wire:model.live="year"
                        class="h-6 w-15 rounded-md border-gray-300 py-1.5 text-sm text-center dark:bg-zinc-800 dark:border-zinc-700" min="2000" max="2100"/>
-                <select wire:model.live="filterCategory"
+                <select wire:model.live="filterParentCategory"
                         class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All categories</option>
-                    @foreach ($categories as $category)
-                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                    @foreach ($filterCategories as $parent)
+                        <option value="{{ $parent->id }}">{{ $parent->name }}</option>
                     @endforeach
                 </select>
+                @if ($filterSubCategories->isNotEmpty())
+                    <select wire:model.live="filterSubCategory"
+                            class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        <option value="">All subcategories</option>
+                        @foreach ($filterSubCategories as $sub)
+                            <option value="{{ $sub->id }}">{{ $sub->name }}</option>
+                        @endforeach
+                    </select>
+                @endif
                 <select wire:model.live="filterType"
                         class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All types</option>
@@ -118,7 +127,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Type</label>
-                        <select wire:model="type"
+                        <select wire:model.live="type"
                                 class="mt-1.5 w-full rounded-md border border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
                             <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Income</option>
                             <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Expense</option>
@@ -140,8 +149,16 @@
                         <select wire:model="category_id"
                                 class="mt-1.5 w-full rounded-md border border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
                             <option value="">Uncategorised</option>
-                            @foreach ($categories as $category)
-                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @foreach ($formCategories as $parent)
+                                @if ($parent->children->isNotEmpty())
+                                    <optgroup label="{{ $parent->name }}">
+                                        @foreach ($parent->children as $sub)
+                                            <option value="{{ $sub->id }}">{{ $sub->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @else
+                                    <option value="{{ $parent->id }}">{{ $parent->name }}</option>
+                                @endif
                             @endforeach
                         </select>
                         @error('category_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror

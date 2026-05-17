@@ -10,22 +10,10 @@ class SupportTablesSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function () {
-            $this->seedPasswordResets();
             $this->seedSessions();
             $this->seedCacheTables();
             $this->seedJobTables();
         });
-    }
-
-    private function seedPasswordResets(): void
-    {
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => 'jamie@example.com'],
-            [
-                'token' => 'pending-reset-token',
-                'created_at' => now()->subHours(6),
-            ],
-        );
     }
 
     private function seedSessions(): void

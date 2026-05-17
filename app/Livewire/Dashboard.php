@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Budget;
+use App\Models\Category;
 use App\Models\Transaction;
 use App\Support\Money;
 use App\Support\TransactionReport;
@@ -61,7 +62,7 @@ class Dashboard extends Component
 
         $net = Money::subtract($income, $expenses);
 
-        $budgets = Budget::with('category')
+        $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
             ->where('month', $this->month)
             ->where('year', $this->year)
@@ -76,12 +77,18 @@ class Dashboard extends Component
 
         $budgetSummaries = $budgets->map(function (Budget $budget) use ($transactions, $periodEnd) {
             $budgetPennies = Money::normalize($budget->amount);
+
+            // Include transactions assigned to the parent category AND all its subcategories.
+            $categoryIds = collect([$budget->category_id])
+                ->merge($budget->category->children->pluck('id'))
+                ->all();
+
             $spentPennies = Money::normalize(
                 $transactions
                     // Avoid counting projected recurring entries that fall later in the current month
                     // so "actual" reflects spending up to the present day.
                     ->filter(fn ($transaction) => $transaction->date->lessThanOrEqualTo($periodEnd))
-                    ->where('category_id', $budget->category_id)
+                    ->filter(fn ($transaction) => in_array($transaction->category_id, $categoryIds))
                     ->where('type', Transaction::TYPE_EXPENSE)
                     ->sum('amount')
             );
@@ -95,8 +102,17 @@ class Dashboard extends Component
             ];
         });
 
-        $categoryIncome = $this->categoryTotals($transactions, Transaction::TYPE_INCOME);
-        $categoryExpenses = $this->categoryTotals($transactions, Transaction::TYPE_EXPENSE);
+        // Build a category-id → parent-name map for the pie chart rollup.
+        // Subcategory amounts are grouped under their parent's name.
+        $categoryParentNames = Category::forUser($userId)
+            ->with('parent:id,name')
+            ->get()
+            ->mapWithKeys(fn ($cat) => [
+                $cat->id => $cat->parent ? $cat->parent->name : $cat->name,
+            ]);
+
+        $categoryIncome = $this->categoryTotals($transactions, Transaction::TYPE_INCOME, $categoryParentNames);
+        $categoryExpenses = $this->categoryTotals($transactions, Transaction::TYPE_EXPENSE, $categoryParentNames);
 
         $this->dispatch('dashboard-charts-updated',
             incomeCategoryBreakdown: $categoryIncome->all(),
@@ -113,13 +129,20 @@ class Dashboard extends Component
         ]);
     }
 
-    private function categoryTotals(Collection $transactions, string $type): Enumerable
+    private function categoryTotals(Collection $transactions, string $type, Collection $categoryParentNames): Enumerable
     {
         return $transactions
             ->where('type', $type)
-            ->groupBy('category.name')
+            ->groupBy(function ($t) use ($categoryParentNames) {
+                if (! $t->category_id) {
+                    return 'Uncategorised';
+                }
+
+                // Roll subcategory amounts up to the parent name.
+                return $categoryParentNames->get($t->category_id) ?? $t->category?->name ?? 'Uncategorised';
+            })
             ->map(fn ($items, $category) => [
-                'category' => $category ?: 'Uncategorised',
+                'category' => $category,
                 'total' => Money::fromPennies(
                     Money::normalize($items->sum('amount'))
                 ),
