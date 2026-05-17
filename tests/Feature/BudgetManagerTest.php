@@ -466,4 +466,84 @@ class BudgetManagerTest extends TestCase
             ->assertSet('category_id', null)
             ->assertSet('amount', '0.00');
     }
+
+    public function test_open_modal_dispatches_open_budget_modal_event(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->call('openModal')
+            ->assertDispatched('open-budget-modal');
+    }
+
+    public function test_open_modal_resets_form_state(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create();
+        $budget = Budget::factory()->for($user)->for($category, 'category')->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->call('edit', $budget->id)
+            ->assertSet('budgetId', $budget->id)
+            ->call('openModal')
+            ->assertSet('budgetId', null)
+            ->assertSet('category_id', null)
+            ->assertSet('amount', '0.00');
+    }
+
+    public function test_open_modal_copies_filter_month_and_year_to_form_fields(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->set('filterMonth', 8)
+            ->set('filterYear', 2026)
+            ->call('openModal')
+            ->assertSet('month', 8)
+            ->assertSet('year', 2026);
+    }
+
+    public function test_edit_dispatches_open_budget_modal_event(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create();
+        $budget = Budget::factory()->for($user)->for($category, 'category')->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->call('edit', $budget->id)
+            ->assertDispatched('open-budget-modal');
+    }
+
+    public function test_save_dispatches_close_budget_modal_event_on_success(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->set('category_id', $category->id)
+            ->set('month', 5)
+            ->set('year', 2025)
+            ->set('amount', '100.00')
+            ->call('save')
+            ->assertDispatched('close-budget-modal');
+    }
+
+    public function test_save_does_not_dispatch_close_budget_modal_event_when_validation_fails(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->set('category_id', null)
+            ->set('month', 5)
+            ->set('year', 2025)
+            ->set('amount', '100.00')
+            ->call('save')
+            ->assertNotDispatched('close-budget-modal');
+    }
 }

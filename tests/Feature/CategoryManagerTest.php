@@ -221,4 +221,62 @@ class CategoryManagerTest extends TestCase
             ->assertSet('categoryId', null)
             ->assertSet('name', '');
     }
+
+    public function test_open_modal_dispatches_open_category_modal_event(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('openModal')
+            ->assertDispatched('open-category-modal');
+    }
+
+    public function test_open_modal_resets_form_state(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create(['name' => 'Hobbies']);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertSet('categoryId', $category->id)
+            ->assertSet('name', 'Hobbies')
+            ->call('openModal')
+            ->assertSet('categoryId', null)
+            ->assertSet('name', '');
+    }
+
+    public function test_edit_dispatches_open_category_modal_event(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create(['name' => 'Transport']);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertDispatched('open-category-modal');
+    }
+
+    public function test_save_dispatches_close_category_modal_event_on_success(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Groceries')
+            ->call('save')
+            ->assertDispatched('close-category-modal');
+    }
+
+    public function test_save_does_not_dispatch_close_category_modal_event_when_validation_fails(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', '')
+            ->call('save')
+            ->assertNotDispatched('close-category-modal');
+    }
 }

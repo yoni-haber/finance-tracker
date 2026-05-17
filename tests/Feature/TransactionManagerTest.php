@@ -474,4 +474,82 @@ class TransactionManagerTest extends TestCase
             ->assertSet('frequency', null)
             ->assertSet('recurring_until', null);
     }
+
+    public function test_open_modal_dispatches_open_transaction_modal_event(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('openModal')
+            ->assertDispatched('open-transaction-modal');
+    }
+
+    public function test_open_modal_resets_form_state(): void
+    {
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'type' => Transaction::TYPE_INCOME,
+            'amount' => '300.00',
+            'date' => '2024-06-15',
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('edit', $transaction->id)
+            ->assertSet('transactionId', $transaction->id)
+            ->call('openModal')
+            ->assertSet('transactionId', null)
+            ->assertSet('type', Transaction::TYPE_EXPENSE)
+            ->assertSet('amount', '0.00');
+    }
+
+    public function test_edit_dispatches_open_transaction_modal_event(): void
+    {
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '50.00',
+            'date' => '2024-06-10',
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('edit', $transaction->id)
+            ->assertDispatched('open-transaction-modal');
+    }
+
+    public function test_save_dispatches_close_transaction_modal_event_on_success(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('type', Transaction::TYPE_EXPENSE)
+            ->set('amount', '25.00')
+            ->set('date', '2024-06-15')
+            ->set('is_recurring', false)
+            ->call('save')
+            ->assertDispatched('close-transaction-modal');
+    }
+
+    public function test_save_does_not_dispatch_close_transaction_modal_event_when_validation_fails(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('type', 'invalid')
+            ->set('amount', '25.00')
+            ->set('date', '2024-06-15')
+            ->set('is_recurring', false)
+            ->call('save')
+            ->assertNotDispatched('close-transaction-modal');
+    }
 }
