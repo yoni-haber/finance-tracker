@@ -14,22 +14,22 @@
             <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Transactions</h2>
             <div class="flex flex-wrap items-center gap-2 text-sm">
                 <select wire:model.live="month"
-                        class="rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     @foreach (range(1, 12) as $m)
                         <option value="{{ $m }}">{{ now()->startOfYear()->month($m)->shortMonthName }}</option>
                     @endforeach
                 </select>
                 <input type="number" wire:model.live="year"
-                       class="w-20 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700" min="2000" max="2100"/>
+                       class="h-6 w-15 rounded-md border-gray-300 py-1.5 text-sm text-center dark:bg-zinc-800 dark:border-zinc-700" min="2000" max="2100"/>
                 <select wire:model.live="filterCategory"
-                        class="rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All categories</option>
                     @foreach ($categories as $category)
                         <option value="{{ $category->id }}">{{ $category->name }}</option>
                     @endforeach
                 </select>
                 <select wire:model.live="filterType"
-                        class="rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All types</option>
                     <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Income</option>
                     <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Expense</option>
