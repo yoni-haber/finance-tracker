@@ -45,7 +45,25 @@ class StatementImportManagerTest extends TestCase
             ->test(StatementImportManager::class)
             ->assertSee('My Bank')
             ->assertSee('My Credit Card')
+            ->assertSee('Manage profiles')
+            ->assertSee('Profiles define how CSV/TXT files are read.')
+            ->assertSee('Statement file')
+            ->assertSee('CSV or TXT · max 2 MB')
+            ->assertDontSee('manage bank profiles')
+            ->assertDontSee('CSV format is configured per bank profile')
             ->assertDontSee('Other User Bank');
+    }
+
+    public function test_no_profile_empty_state_links_directly_to_create_profile(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(StatementImportManager::class)
+            ->assertSee('No bank profiles set up')
+            ->assertSee('read your statement file')
+            ->assertSee(route('statements.bank-profiles', ['create' => 1]), false)
+            ->assertDontSee('read your CSV format');
     }
 
     public function test_mount_loads_existing_pending_import(): void

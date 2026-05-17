@@ -22,9 +22,18 @@ class BankProfileManager extends Component
 
     public bool $hasSeparateColumns = false;
 
+    public bool $openCreateModalOnFirstRender = false;
+
     public function mount(): void
     {
         $this->resetForm();
+
+        if (request()->boolean('create')) {
+            $this->editingProfile = null;
+            $this->hasSeparateColumns = false;
+            $this->showCreateForm = true;
+            $this->openCreateModalOnFirstRender = true;
+        }
     }
 
     public function render(): View
@@ -72,6 +81,8 @@ class BankProfileManager extends Component
         $this->editingProfile = null;
         $this->hasSeparateColumns = false;
         $this->showCreateForm = true;
+        $this->openCreateModalOnFirstRender = false;
+        $this->dispatch('open-bank-profile-modal');
     }
 
     public function edit(int $profileId): void
@@ -94,6 +105,8 @@ class BankProfileManager extends Component
         ];
 
         $this->showCreateForm = true;
+        $this->openCreateModalOnFirstRender = false;
+        $this->dispatch('open-bank-profile-modal');
     }
 
     public function save(): void
@@ -170,6 +183,9 @@ class BankProfileManager extends Component
         $this->hasSeparateColumns = false;
         $this->resetForm();
         $this->resetValidation();
+        $this->resetErrorBag();
+        $this->openCreateModalOnFirstRender = false;
+        $this->dispatch('close-bank-profile-modal');
     }
 
     private function resetForm(): void
