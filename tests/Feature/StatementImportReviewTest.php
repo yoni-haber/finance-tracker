@@ -105,7 +105,7 @@ class StatementImportReviewTest extends TestCase
     public function test_edits_transaction_successfully(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create(['name' => 'Test Category']);
+        $category = Category::factory()->for($user)->income()->create(['name' => 'Test Category']);
         $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
@@ -173,11 +173,12 @@ class StatementImportReviewTest extends TestCase
     public function test_updates_transaction_category(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
-        $profile = BankProfile::factory()->create();
+        $category = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
-        $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        // Positive amount on a bank statement = income, matching the income category above.
+        $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 50.00]);
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
@@ -580,5 +581,32 @@ class StatementImportReviewTest extends TestCase
 
         $component->call('commitImport')
             ->assertHasErrors(['commit']);
+    }
+
+    public function test_update_category_rejects_category_with_mismatched_type(): void
+    {
+        $user = User::factory()->create();
+
+        // Expense category, but the transaction will be income (positive on bank statement).
+        $expenseCategory = Category::factory()->for($user)->expense()->create();
+
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'status' => BankStatementConfig::STATUS_PARSED,
+        ]);
+
+        // Positive amount on a bank statement = income.
+        $transaction = ImportedTransaction::factory()
+            ->for($import, 'bankStatementImport')
+            ->create(['amount' => 75.00]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('updateCategory', $transaction->id, $expenseCategory->id)
+            ->assertHasErrors();
+
+        // Category should not have been persisted.
+        $transaction->refresh();
+        $this->assertNull($transaction->category_id);
     }
 }

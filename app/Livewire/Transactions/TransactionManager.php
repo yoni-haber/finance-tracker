@@ -40,7 +40,9 @@ class TransactionManager extends Component
 
     public int $year;
 
-    public ?int $filterCategory = null;
+    public ?int $filterParentCategory = null;
+
+    public ?int $filterSubCategory = null;
 
     public ?string $filterType = null;
 
@@ -56,14 +58,42 @@ class TransactionManager extends Component
     {
         $userId = Auth::id();
 
-        $transactions = TransactionReport::projectedForMonth($userId, $this->month, $this->year, $this->filterCategory)
+        // Form categories: only those matching the currently selected type, grouped by parent.
+        $formCategories = Category::forUser($userId)
+            ->where('type', $this->type)
+            ->parents()
+            ->with('children')
+            ->orderBy('name')
+            ->get();
+
+        // Filter categories: all parent categories with children eager-loaded (type-independent).
+        $filterCategories = Category::forUser($userId)
+            ->parents()
+            ->with('children')
+            ->orderBy('name')
+            ->get();
+
+        // Subcategories for the drill-down dropdown (children of the selected parent).
+        $filterSubCategories = $this->filterParentCategory
+            ? ($filterCategories->firstWhere('id', $this->filterParentCategory)?->children ?? collect())
+            : collect();
+
+        // Resolve effective filter: subcategory takes precedence; parent expands to include all children.
+        $effectiveCategoryFilter = null;
+        if ($this->filterSubCategory) {
+            $effectiveCategoryFilter = $this->filterSubCategory;
+        } elseif ($this->filterParentCategory) {
+            $selected = $filterCategories->firstWhere('id', $this->filterParentCategory);
+            $effectiveCategoryFilter = $selected
+                ? $selected->children->pluck('id')->push($selected->id)->all()
+                : $this->filterParentCategory;
+        }
+
+        $transactions = TransactionReport::projectedForMonth($userId, $this->month, $this->year, $effectiveCategoryFilter)
             ->when($this->filterType, fn ($items) => $items->where('type', $this->filterType))
             ->sortByDesc('date');
 
-        return view('livewire.transactions.manager', [
-            'transactions' => $transactions,
-            'categories' => Category::where('user_id', $userId)->orderBy('name')->get(),
-        ]);
+        return view('livewire.transactions.manager', compact('transactions', 'formCategories', 'filterCategories', 'filterSubCategories'));
     }
 
     public function save(): void
@@ -149,6 +179,18 @@ class TransactionManager extends Component
         session()->flash('status', 'Transaction removed.');
     }
 
+    /** Clear the selected category when the transaction type changes. */
+    public function updatedType(): void
+    {
+        $this->category_id = null;
+    }
+
+    /** Reset the subcategory drill-down whenever the parent category changes. */
+    public function updatedFilterParentCategory(): void
+    {
+        $this->filterSubCategory = null;
+    }
+
     public function updatedIsRecurring(bool $value): void
     {
         if (! $value) {
@@ -188,7 +230,9 @@ class TransactionManager extends Component
             'description' => ['nullable', 'string', 'max:500'],
             'category_id' => [
                 'nullable',
-                Rule::exists('categories', 'id')->where('user_id', Auth::id()),
+                Rule::exists('categories', 'id')
+                    ->where('user_id', Auth::id())
+                    ->where('type', $this->type),
             ],
             'is_recurring' => ['boolean'],
             'frequency' => ['nullable', 'required_if:is_recurring,true', 'in:weekly,monthly,yearly'],

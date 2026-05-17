@@ -18,7 +18,7 @@ class BudgetFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'category_id' => Category::factory(),
+            'category_id' => Category::factory()->expense(),
             'month' => now()->month,
             'year' => now()->year,
             'amount' => fake()->numberBetween(50, 1500),

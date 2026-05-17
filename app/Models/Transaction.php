@@ -75,8 +75,12 @@ class Transaction extends Model
         return $query->whereMonth('date', $month)->whereYear('date', $year);
     }
 
-    public function scopeForCategory($query, ?int $categoryId)
+    public function scopeForCategory($query, int|array|null $categoryId)
     {
+        if (is_array($categoryId)) {
+            return $query->whereIn('category_id', $categoryId);
+        }
+
         return $categoryId ? $query->where('category_id', $categoryId) : $query;
     }
 

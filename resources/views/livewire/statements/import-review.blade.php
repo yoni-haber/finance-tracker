@@ -142,8 +142,16 @@
                                         class="w-full text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
                                     >
                                         <option value="">Uncategorised</option>
-                                        @foreach ($categories as $category)
-                                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                        @foreach ($categories as $parent)
+                                            @if ($parent->children->isNotEmpty())
+                                                <optgroup label="{{ $parent->name }}">
+                                                    @foreach ($parent->children as $sub)
+                                                        <option value="{{ $sub->id }}">{{ $sub->name }}</option>
+                                                    @endforeach
+                                                </optgroup>
+                                            @else
+                                                <option value="{{ $parent->id }}">{{ $parent->name }}</option>
+                                            @endif
                                         @endforeach
                                     </select>
                                 </td>
@@ -218,10 +226,16 @@
                                             class="text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
                                         >
                                             <option value="">Uncategorised</option>
-                                            @foreach ($categories as $category)
-                                                <option value="{{ $category->id }}" @selected($transaction->category_id == $category->id)>
-                                                    {{ $category->name }}
-                                                </option>
+                                            @foreach ($categories as $parent)
+                                                @if ($parent->children->isNotEmpty())
+                                                    <optgroup label="{{ $parent->name }}">
+                                                        @foreach ($parent->children as $sub)
+                                                            <option value="{{ $sub->id }}" @selected($transaction->category_id == $sub->id)>{{ $sub->name }}</option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @else
+                                                    <option value="{{ $parent->id }}" @selected($transaction->category_id == $parent->id)>{{ $parent->name }}</option>
+                                                @endif
                                             @endforeach
                                         </select>
                                     @else

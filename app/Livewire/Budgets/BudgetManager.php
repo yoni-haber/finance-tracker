@@ -54,10 +54,14 @@ class BudgetManager extends Component
             ->orderByDesc('month')
             ->get();
 
-        return view('livewire.budgets.manager', [
-            'budgets' => $budgets,
-            'categories' => Category::where('user_id', $userId)->orderBy('name')->get(),
-        ]);
+        // Budgets may only be set on expense parent categories.
+        $categories = Category::forUser($userId)
+            ->expense()
+            ->parents()
+            ->orderBy('name')
+            ->get();
+
+        return view('livewire.budgets.manager', compact('budgets', 'categories'));
     }
 
     public function save(): void
@@ -203,7 +207,10 @@ class BudgetManager extends Component
         return [
             'category_id' => [
                 'required',
-                Rule::exists('categories', 'id')->where('user_id', Auth::id()),
+                Rule::exists('categories', 'id')
+                    ->where('user_id', Auth::id())
+                    ->where('type', 'expense')
+                    ->whereNull('parent_id'),
             ],
             'month' => ['required', 'integer', 'min:1', 'max:12'],
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],

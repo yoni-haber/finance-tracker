@@ -152,4 +152,81 @@ class DashboardTest extends TestCase
                     && $groceries['remaining'] === '300.00';
             });
     }
+
+    public function test_budget_actuals_include_subcategory_transactions(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create();
+
+        // Food parent with Groceries subcategory. Budget is on the parent.
+        $foodParent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $groceries = Category::factory()->subcategoryOf($foodParent)->create(['name' => 'Groceries']);
+
+        Budget::factory()->for($user)->for($foodParent)->create([
+            'month' => 5,
+            'year' => 2024,
+            'amount' => 500,
+        ]);
+
+        // Transaction assigned to the subcategory, NOT the parent.
+        $user->transactions()->create([
+            'category_id' => $groceries->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 150,
+            'date' => '2024-05-07',
+            'is_recurring' => false,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->assertViewHas('budgetSummaries', function ($summaries) {
+                $food = $summaries->firstWhere('category', 'Food');
+
+                // Subcategory transaction must count towards the parent budget actual.
+                return $food !== null
+                    && $food['actual'] === '150.00'
+                    && $food['remaining'] === '350.00'
+                    && $food['overspent'] === false;
+            });
+    }
+
+    public function test_category_totals_rolls_subcategory_transactions_up_to_parent(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create();
+
+        $foodParent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $groceries = Category::factory()->subcategoryOf($foodParent)->create(['name' => 'Groceries']);
+
+        $user->transactions()->createMany([
+            [
+                'category_id' => $groceries->id,
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => 80,
+                'date' => '2024-05-07',
+                'is_recurring' => false,
+            ],
+            [
+                'category_id' => $foodParent->id,
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => 20,
+                'date' => '2024-05-08',
+                'is_recurring' => false,
+            ],
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->assertViewHas('expenseCategoryBreakdown', function ($breakdown) {
+                $food = collect($breakdown)->firstWhere('category', 'Food');
+                $groceries = collect($breakdown)->firstWhere('category', 'Groceries');
+
+                // Both parent and subcategory transactions should be grouped under "Food".
+                return $food !== null
+                    && $food['total'] === '100.00'
+                    && $groceries === null; // Groceries should not appear as its own entry.
+            });
+    }
 }

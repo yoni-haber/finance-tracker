@@ -83,7 +83,7 @@ The repository includes multiple workflows to keep quality high and demonstrate 
 ## Skills Demonstrated
 - Laravel 13 fundamentals: routing to Livewire components, Fortify auth, validation, Eloquent models, and schema migrations.
 - Livewire 4 + Volt patterns: server-driven UI state, reusable layouts, and interactive forms without heavy JavaScript.
-- Domain modelling: Transactions, categories, budgets, net worth entries, and recurring transaction support with occurrence exceptions.
+- Domain modelling: Transactions, typed categories with a one-level parent/subcategory hierarchy, monthly budgets scoped to expense parent categories, net worth entries, and recurring transaction support with occurrence exceptions.
 - Async queue processing: CSV bank statement import pipeline with job retries, duplicate detection, and a staged review/commit workflow.
 - Frontend tooling: Vite, Tailwind CSS, and Laravel Vite plugin for modern asset pipelines.
 - DevOps & quality: Multi-stage CI with tests, linting, static analysis, coverage, and security scans to mirror professional workflows.

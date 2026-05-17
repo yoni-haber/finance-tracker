@@ -19,7 +19,7 @@ class MultiUserIsolationTest extends TestCase
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $otherCategory = Category::factory()->for($otherUser)->create();
+        $otherCategory = Category::factory()->for($otherUser)->expense()->create();
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
@@ -33,10 +33,10 @@ class MultiUserIsolationTest extends TestCase
     public function test_budget_updates_are_scoped_to_the_authenticated_user(): void
     {
         $user = User::factory()->create();
-        $userCategory = Category::factory()->for($user)->create();
+        $userCategory = Category::factory()->for($user)->expense()->create();
 
         $otherUser = User::factory()->create();
-        $otherCategory = Category::factory()->for($otherUser)->create();
+        $otherCategory = Category::factory()->for($otherUser)->expense()->create();
         $otherBudget = Budget::factory()->for($otherUser)->for($otherCategory)->create([
             'month' => 1,
             'year' => 2024,

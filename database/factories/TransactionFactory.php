@@ -20,7 +20,7 @@ class TransactionFactory extends Factory
 
         return [
             'user_id' => User::factory(),
-            'category_id' => Category::factory(),
+            'category_id' => Category::factory()->state(['type' => $type]),
             'type' => $type,
             'amount' => $type === Transaction::TYPE_INCOME ? fake()->randomFloat(2, 200, 2000) : fake()->randomFloat(2, 10, 800),
             'date' => fake()->dateTimeBetween('-3 months', '+3 months'),

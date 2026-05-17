@@ -196,11 +196,51 @@ Use the built-in scopes on `Transaction` instead of raw `where()` chains:
 | `income()` | Filter to income-type transactions  |
 | `expense()` | Filter to expense-type transactions |
 
+Use the built-in scopes on `Category` instead of raw `where()` chains:
+
+| Scope | Purpose |
+|---|---|
+| `forUser($userId)` | Scope to the authenticated user |
+| `income()` | Income categories only |
+| `expense()` | Expense categories only |
+| `parents()` | Top-level categories (`parent_id IS NULL`) |
+| `subcategories()` | Child categories (`parent_id IS NOT NULL`) |
+
+## Category Hierarchy
+
+Categories have a `type` (`income` or `expense`) and support **one level of nesting**.
+
+- **Parent categories** have `parent_id = null`.
+- **Subcategories** have a `parent_id` pointing to a parent of the **same user and same type**.
+- No third level is permitted — a subcategory cannot have children.
+
+### Hierarchy helpers on `Category`
+
+```php
+$category->isParent();       // true when parent_id is null
+$category->isSubcategory();  // true when parent_id is set
+$category->hasTransactions(); // checks own + children's transactions
+$category->hasBudgets();      // checks own budgets
+```
+
+### Constraints enforced in code
+
+- **Uniqueness is PHP-enforced**, not at the database level. MySQL treats `NULL` as always-distinct in unique indexes, so `UNIQUE(user_id, parent_id, name)` would allow duplicate parent names. `CategoryManager` validates uniqueness before persisting.
+- **Budget categories must be expense parents.** `BudgetManager::rules()` includes `->where('type', 'expense')->whereNull('parent_id')`.
+- **Transaction `category_id` must match the transaction type.** `TransactionManager::rules()` includes `->where('type', $this->type)`.
+- Changing the `type` property in `CategoryManager` or `TransactionManager` clears the dependent category field via `updatedType()`.
+- Deleting a parent is blocked when any category in its subtree has transactions or budgets.
+
+### Dashboard rollup
+
+`Dashboard::categoryTotals()` maps every transaction's `category_id` to the parent's name before grouping, so subcategory transactions appear under their parent in charts and breakdowns. Budget actuals also collect the parent's subcategory IDs and filter against the combined set.
+
 ## Key Files
 
 | Path | Purpose |
 |---|---|
 | `app/Livewire/Transactions/TransactionManager.php` | Reference implementation of the Livewire CRUD pattern |
+| `app/Models/Category.php` | Category type hierarchy, scopes, and helper methods |
 | `app/Support/Money.php` | All monetary arithmetic |
 | `app/Support/TransactionReport.php` | Month-projection entry point |
 | `app/Models/Transaction.php` | Recurring expansion logic |
