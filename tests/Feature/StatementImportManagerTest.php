@@ -48,7 +48,7 @@ class StatementImportManagerTest extends TestCase
             ->assertSee('Manage profiles')
             ->assertSee('Profiles define how CSV/TXT files are read.')
             ->assertSee('Statement file')
-            ->assertSee('CSV or TXT · max 2 MB')
+            ->assertSee('CSV or TXT - max 2 MB')
             ->assertDontSee('manage bank profiles')
             ->assertDontSee('CSV format is configured per bank profile')
             ->assertDontSee('Other User Bank');
