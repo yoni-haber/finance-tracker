@@ -453,6 +453,79 @@ class NetWorthTrackerTest extends TestCase
             ->assertSet('editingLiabilityIndex', null);
     }
 
+    public function test_open_modal_dispatches_open_networth_modal_event(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('openModal')
+            ->assertDispatched('open-networth-modal');
+    }
+
+    public function test_open_modal_resets_form_state(): void
+    {
+        $user = User::factory()->create();
+
+        $entry = NetWorthEntry::factory()->for($user)->create([
+            'date' => '2024-06-01',
+            'assets' => '1000.00',
+            'liabilities' => '500.00',
+            'net_worth' => '500.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('edit', $entry->id)
+            ->assertSet('entryId', $entry->id)
+            ->call('openModal')
+            ->assertSet('entryId', null)
+            ->assertSet('assetLines', [])
+            ->assertSet('liabilityLines', []);
+    }
+
+    public function test_edit_dispatches_open_networth_modal_event(): void
+    {
+        $user = User::factory()->create();
+
+        $entry = NetWorthEntry::factory()->for($user)->create([
+            'assets' => '2000.00',
+            'liabilities' => '500.00',
+            'net_worth' => '1500.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('edit', $entry->id)
+            ->assertDispatched('open-networth-modal');
+    }
+
+    public function test_save_dispatches_close_networth_modal_event_on_success(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-05-01')
+            ->set('assetLines', [['category' => 'Cash', 'amount' => '1000.00']])
+            ->set('liabilityLines', [['category' => 'Loan', 'amount' => '200.00']])
+            ->call('save')
+            ->assertDispatched('close-networth-modal');
+    }
+
+    public function test_save_does_not_dispatch_close_networth_modal_event_when_validation_fails(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '')
+            ->set('assetLines', [['category' => 'Cash', 'amount' => '1000.00']])
+            ->set('liabilityLines', [])
+            ->call('save')
+            ->assertNotDispatched('close-networth-modal');
+    }
+
     public function test_sync_line_items_replaces_old_lines_when_saving_same_date(): void
     {
         $user = User::factory()->create();
