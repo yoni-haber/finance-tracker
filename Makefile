@@ -1,7 +1,7 @@
 SAIL = ./vendor/bin/sail
 APP_SERVICE := $(shell [ -f .env ] && grep -E '^APP_SERVICE=' .env 2>/dev/null | head -n1 | cut -d'=' -f2- || echo laravel.test)
 
-.PHONY: help setup up down restart shell artisan test pint phpstan \
+.PHONY: help setup up down restart shell artisan test pint phpstan rector \
         migrate fresh logs build rebuild npm-dev npm-build docker-check
 
 help: ## Show this help
@@ -46,6 +46,9 @@ pint: ## Fix code style with Laravel Pint
 
 phpstan: ## Run PHPStan static analysis
 	$(SAIL) exec $(APP_SERVICE) vendor/bin/phpstan
+
+rector: ## Apply automated refactoring with Rector
+	$(SAIL) exec $(APP_SERVICE) vendor/bin/rector
 
 migrate: ## Run outstanding database migrations
 	$(SAIL) artisan migrate
