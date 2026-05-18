@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\CategoryFactory;
 use Eloquent;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -50,6 +51,12 @@ use Illuminate\Support\Carbon;
  *
  * @mixin Eloquent
  */
+#[Fillable([
+    'name',
+    'user_id',
+    'type',
+    'parent_id',
+])]
 class Category extends Model
 {
     use HasFactory;
@@ -57,13 +64,6 @@ class Category extends Model
     const string TYPE_INCOME = 'income';
 
     const string TYPE_EXPENSE = 'expense';
-
-    protected $fillable = [
-        'name',
-        'user_id',
-        'type',
-        'parent_id',
-    ];
 
     public function user(): BelongsTo
     {
@@ -92,31 +92,31 @@ class Category extends Model
         return $this->hasMany(Budget::class);
     }
 
-    public function scopeForUser(Builder $query, int $userId): void
+    public function scopeForUser(Builder $builder, int $userId): void
     {
-        $query->where('user_id', $userId);
+        $builder->where('user_id', $userId);
     }
 
-    public function scopeIncome(Builder $query): void
+    public function scopeIncome(Builder $builder): void
     {
-        $query->where('type', self::TYPE_INCOME);
+        $builder->where('type', self::TYPE_INCOME);
     }
 
-    public function scopeExpense(Builder $query): void
+    public function scopeExpense(Builder $builder): void
     {
-        $query->where('type', self::TYPE_EXPENSE);
+        $builder->where('type', self::TYPE_EXPENSE);
     }
 
     /** Top-level categories (no parent). */
-    public function scopeParents(Builder $query): void
+    public function scopeParents(Builder $builder): void
     {
-        $query->whereNull('parent_id');
+        $builder->whereNull('parent_id');
     }
 
     /** Subcategories (have a parent). */
-    public function scopeSubcategories(Builder $query): void
+    public function scopeSubcategories(Builder $builder): void
     {
-        $query->whereNotNull('parent_id');
+        $builder->whereNotNull('parent_id');
     }
 
     public function isParent(): bool

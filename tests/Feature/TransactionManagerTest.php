@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Transactions\TransactionManager;
@@ -12,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class TransactionManagerTest extends TestCase
+final class TransactionManagerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -187,7 +189,7 @@ class TransactionManagerTest extends TestCase
             ->set('amount', '50.00')
             ->set('date', '2024-06-15')
             ->set('is_recurring', true)
-            ->set('frequency', null)
+            ->set('frequency')
             ->call('save')
             ->assertHasErrors(['frequency']);
     }
@@ -370,7 +372,7 @@ class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->set('frequency', null)
+            ->set('frequency')
             ->set('is_recurring', true)
             ->assertSet('frequency', 'monthly');
     }
@@ -412,10 +414,8 @@ class TransactionManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
             ->set('filterType', Transaction::TYPE_INCOME)
-            ->assertViewHas('transactions', function ($transactions) {
-                return $transactions->count() === 1
-                    && $transactions->every(fn ($t) => $t->type === Transaction::TYPE_INCOME);
-            });
+            ->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1
+                && $transactions->every(fn ($t): bool => $t->type === Transaction::TYPE_INCOME));
     }
 
     public function test_render_filter_category_shows_only_matching_category_transactions(): void
@@ -445,10 +445,8 @@ class TransactionManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
             ->set('filterParentCategory', $category->id)
-            ->assertViewHas('transactions', function ($transactions) use ($category) {
-                return $transactions->count() === 1
-                    && $transactions->every(fn ($t) => $t->category_id === $category->id);
-            });
+            ->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1
+                && $transactions->every(fn ($t): bool => $t->category_id === $category->id));
     }
 
     public function test_render_filter_by_parent_category_includes_subcategory_transactions(): void
@@ -479,10 +477,8 @@ class TransactionManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
             ->set('filterParentCategory', $parent->id)
-            ->assertViewHas('transactions', function ($transactions) use ($sub) {
-                return $transactions->count() === 1
-                    && $transactions->every(fn ($t) => $t->category_id === $sub->id);
-            });
+            ->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1
+                && $transactions->every(fn ($t): bool => $t->category_id === $sub->id));
     }
 
     public function test_render_filter_sub_category_drills_down_within_parent(): void
@@ -510,19 +506,17 @@ class TransactionManagerTest extends TestCase
         ]);
 
         // Selecting parent shows both subcategory transactions.
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(TransactionManager::class)
             ->set('filterParentCategory', $parent->id);
 
-        $component->assertViewHas('transactions', fn ($t) => $t->count() === 2);
+        $testable->assertViewHas('transactions', fn ($t): bool => $t->count() === 2);
 
         // Drilling into sub1 narrows to just that subcategory.
-        $component
+        $testable
             ->set('filterSubCategory', $sub1->id)
-            ->assertViewHas('transactions', function ($transactions) use ($sub1) {
-                return $transactions->count() === 1
-                    && $transactions->every(fn ($t) => $t->category_id === $sub1->id);
-            });
+            ->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1
+                && $transactions->every(fn ($t): bool => $t->category_id === $sub1->id));
     }
 
     public function test_updated_filter_parent_category_resets_sub_category(): void

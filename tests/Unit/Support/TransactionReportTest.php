@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit\Support;
 
 use App\Models\Category;
@@ -9,7 +11,7 @@ use App\Support\TransactionReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TransactionReportTest extends TestCase
+final class TransactionReportTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -40,7 +42,7 @@ class TransactionReportTest extends TestCase
         $transactions = TransactionReport::projectedForMonth($user->id, 5, 2024, $primaryCategory->id);
 
         $this->assertCount(6, $transactions);
-        $this->assertTrue($transactions->every(fn ($transaction) => $transaction->category_id === $primaryCategory->id));
-        $this->assertSame(70.0, $transactions->sum('amount'));
+        $this->assertTrue($transactions->every(fn ($transaction): bool => $transaction->category_id === $primaryCategory->id));
+        $this->assertEqualsWithDelta(70.0, $transactions->sum('amount'), PHP_FLOAT_EPSILON);
     }
 }

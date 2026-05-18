@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\BankStatementConfig;
 use Database\Factories\BankStatementImportFactory;
 use Eloquent;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -43,17 +44,16 @@ use Illuminate\Support\Carbon;
  *
  * @mixin Eloquent
  */
+#[Fillable([
+    'user_id',
+    'original_filename',
+    'status',
+    'bank_profile_id',
+    'statement_type',
+])]
 class BankStatementImport extends Model
 {
     use HasFactory;
-
-    protected $fillable = [
-        'user_id',
-        'original_filename',
-        'status',
-        'bank_profile_id',
-        'statement_type',
-    ];
 
     public function user(): BelongsTo
     {

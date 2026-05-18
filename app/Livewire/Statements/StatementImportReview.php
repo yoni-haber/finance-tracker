@@ -8,6 +8,7 @@ use App\Models\ImportedTransaction;
 use App\Models\Transaction;
 use App\Support\BankStatement\DuplicateDetector;
 use App\Support\StatementImportCommitter;
+use Exception;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
@@ -42,7 +43,7 @@ class StatementImportReview extends Component
             return;
         }
 
-        if (! $this->import->isParsed()) {
+        if (!$this->import->isParsed()) {
             session()->flash('error', 'Import is not ready for review.');
             $this->redirectRoute('statements.import', navigate: true);
         }
@@ -73,6 +74,9 @@ class StatementImportReview extends Component
         ]);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function rules(): array
     {
         return [
@@ -83,11 +87,11 @@ class StatementImportReview extends Component
             'editForm.category_id' => [
                 'nullable',
                 Rule::exists('categories', 'id')->where('user_id', Auth::id()),
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail): void {
                     if ($value) {
                         $category = Category::find($value);
                         if ($category && $category->type !== ($this->editForm['type'] ?? null)) {
-                            $fail("This category is for {$category->type} transactions.");
+                            $fail(sprintf('This category is for %s transactions.', $category->type));
                         }
                     }
                 },
@@ -97,16 +101,16 @@ class StatementImportReview extends Component
 
     public function editTransaction(int $transactionId): void
     {
-        /** @var ImportedTransaction $transaction */
-        $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
+        /** @var ImportedTransaction $importedTransaction */
+        $importedTransaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
         $this->editingTransactionId = $transactionId;
         $this->editForm = [
-            'description' => $transaction->description,
-            'amount' => (string) abs($transaction->amount),
-            'date' => $transaction->date->toDateString(),
-            'type' => $this->determineTransactionType($transaction),
-            'category_id' => $transaction->category_id,
+            'description' => $importedTransaction->description,
+            'amount' => (string) abs($importedTransaction->amount),
+            'date' => $importedTransaction->date->toDateString(),
+            'type' => $this->determineTransactionType($importedTransaction),
+            'category_id' => $importedTransaction->category_id,
         ];
     }
 
@@ -114,8 +118,8 @@ class StatementImportReview extends Component
     {
         $this->validate();
 
-        /** @var ImportedTransaction $transaction */
-        $transaction = $this->import->importedTransactions()->findOrFail($this->editingTransactionId);
+        /** @var ImportedTransaction $importedTransaction */
+        $importedTransaction = $this->import->importedTransactions()->findOrFail($this->editingTransactionId);
 
         $normalizedDescription = Str::squish(Str::upper($this->editForm['description']));
 
@@ -123,7 +127,7 @@ class StatementImportReview extends Component
             ? -abs((float) $this->editForm['amount'])
             : abs((float) $this->editForm['amount']);
 
-        $transaction->update([
+        $importedTransaction->update([
             'description' => $normalizedDescription,
             'amount' => $amount,
             'date' => $this->editForm['date'],
@@ -136,10 +140,10 @@ class StatementImportReview extends Component
             $this->import->user_id,
             $this->editForm['date'],
             $amount,
-            $normalizedDescription
+            $normalizedDescription,
         );
-        $isDuplicate = $duplicateDetector->isDuplicateExcluding($hash, $transaction->id);
-        $transaction->update([
+        $isDuplicate = $duplicateDetector->isDuplicateExcluding($hash, $importedTransaction->id);
+        $importedTransaction->update([
             'hash' => $hash,
             'is_duplicate' => $isDuplicate,
         ]);
@@ -153,7 +157,7 @@ class StatementImportReview extends Component
         if ($categoryId !== null) {
             $category = Category::where('id', $categoryId)->where('user_id', Auth::id())->first();
 
-            if (! $category) {
+            if (!$category) {
                 throw ValidationException::withMessages([
                     'categoryId' => 'The selected category is invalid.',
                 ]);
@@ -165,7 +169,7 @@ class StatementImportReview extends Component
 
             if ($category->type !== $transactionType) {
                 throw ValidationException::withMessages([
-                    'categoryId' => "This category is for {$category->type} transactions, but this is a {$transactionType} transaction.",
+                    'categoryId' => sprintf('This category is for %s transactions, but this is a %s transaction.', $category->type, $transactionType),
                 ]);
             }
 
@@ -181,25 +185,25 @@ class StatementImportReview extends Component
 
     public function updateType(int $transactionId, string $type): void
     {
-        /** @var ImportedTransaction $transaction */
-        $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
+        /** @var ImportedTransaction $importedTransaction */
+        $importedTransaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
         $amount = $type === Transaction::TYPE_EXPENSE
-            ? -abs($transaction->amount)
-            : abs($transaction->amount);
+            ? -abs($importedTransaction->amount)
+            : abs($importedTransaction->amount);
 
-        $transaction->update(['amount' => $amount]);
+        $importedTransaction->update(['amount' => $amount]);
 
         // Regenerate hash using the explicit $amount var, not the post-update model attribute
         $duplicateDetector = new DuplicateDetector($this->import->user_id);
         $hash = $duplicateDetector->generateTransactionHash(
             $this->import->user_id,
-            $transaction->date,
+            $importedTransaction->date,
             $amount,
-            $transaction->description
+            $importedTransaction->description,
         );
-        $isDuplicate = $duplicateDetector->isDuplicateExcluding($hash, $transaction->id);
-        $transaction->update([
+        $isDuplicate = $duplicateDetector->isDuplicateExcluding($hash, $importedTransaction->id);
+        $importedTransaction->update([
             'hash' => $hash,
             'is_duplicate' => $isDuplicate,
         ]);
@@ -218,29 +222,30 @@ class StatementImportReview extends Component
             $this->deletingTransactionId = null;
             session()->flash('status', 'Transaction removed from import.');
         }
+
         $this->dispatch('close-delete-modal');
     }
 
-    private function determineTransactionType(ImportedTransaction $transaction): string
+    private function determineTransactionType(ImportedTransaction $importedTransaction): string
     {
         if ($this->import->isCreditCardStatement()) {
-            return $transaction->amount < 0 ? Transaction::TYPE_EXPENSE : Transaction::TYPE_INCOME;
+            return $importedTransaction->amount < 0 ? Transaction::TYPE_EXPENSE : Transaction::TYPE_INCOME;
         }
 
-        return $transaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
+        return $importedTransaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
     }
 
     public function commitImport(): void
     {
-        if (! $this->import->isParsed()) {
+        if (!$this->import->isParsed()) {
             $this->addError('commit', 'Import is not ready to be committed.');
 
             return;
         }
 
         try {
-            $committer = new StatementImportCommitter($this->import);
-            $success = $committer->commit();
+            $statementImportCommitter = new StatementImportCommitter($this->import);
+            $success = $statementImportCommitter->commit();
 
             if ($success) {
                 session()->flash('status', 'Transactions imported successfully.');
@@ -249,10 +254,10 @@ class StatementImportReview extends Component
             } else {
                 $this->addError('commit', 'Failed to import transactions. Please try again.');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $exception) {
             logger()->error('Failed to commit import', [
                 'import_id' => $this->import->id,
-                'error' => $e->getMessage(),
+                'error' => $exception->getMessage(),
             ]);
 
             $this->addError('commit', 'Failed to import transactions. Please try again.');

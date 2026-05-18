@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\BankProfile;
@@ -8,16 +10,16 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class BankProfileTest extends TestCase
+final class BankProfileTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_bank_profile_has_required_fillable_fields(): void
     {
-        $profile = new BankProfile;
+        $bankProfile = new BankProfile();
         $expectedFillable = ['user_id', 'name', 'statement_type', 'config'];
 
-        $this->assertEquals($expectedFillable, $profile->getFillable());
+        $this->assertEquals($expectedFillable, $bankProfile->getFillable());
     }
 
     public function test_bank_profile_casts_config_to_array(): void
@@ -55,8 +57,8 @@ class BankProfileTest extends TestCase
         $this->assertCount(3, $profile->bankStatementImports);
         $this->assertTrue(
             $profile->bankStatementImports->every(
-                fn ($import) => $import->bankProfile->is($profile)
-            )
+                fn ($import) => $import->bankProfile->is($profile),
+            ),
         );
     }
 

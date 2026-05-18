@@ -35,7 +35,7 @@ class Dashboard extends Component
     {
         $userId = Auth::id();
 
-        if (! $userId) {
+        if (!$userId) {
             return view('livewire.dashboard', [
                 'income' => 0,
                 'expenses' => 0,
@@ -50,14 +50,14 @@ class Dashboard extends Component
 
         $income = Money::fromPennies(
             Money::normalize(
-                $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount')
-            )
+                $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount'),
+            ),
         );
 
         $expenses = Money::fromPennies(
             Money::normalize(
-                $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount')
-            )
+                $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount'),
+            ),
         );
 
         $net = Money::subtract($income, $expenses);
@@ -75,7 +75,7 @@ class Dashboard extends Component
             $periodEnd = $now->copy()->endOfDay();
         }
 
-        $budgetSummaries = $budgets->map(function (Budget $budget) use ($transactions, $periodEnd) {
+        $budgetSummaries = $budgets->map(function (Budget $budget) use ($transactions, $periodEnd): array {
             $budgetPennies = Money::normalize($budget->amount);
 
             // Include transactions assigned to the parent category AND all its subcategories.
@@ -88,9 +88,9 @@ class Dashboard extends Component
                     // Avoid counting projected recurring entries that fall later in the current month
                     // so "actual" reflects spending up to the present day.
                     ->filter(fn ($transaction) => $transaction->date->lessThanOrEqualTo($periodEnd))
-                    ->filter(fn ($transaction) => in_array($transaction->category_id, $categoryIds))
+                    ->filter(fn ($transaction): bool => in_array($transaction->category_id, $categoryIds))
                     ->where('type', Transaction::TYPE_EXPENSE)
-                    ->sum('amount')
+                    ->sum('amount'),
             );
 
             return [
@@ -107,15 +107,15 @@ class Dashboard extends Component
         $categoryParentNames = Category::forUser($userId)
             ->with('parent:id,name')
             ->get()
-            ->mapWithKeys(fn ($cat) => [
+            ->mapWithKeys(fn ($cat): array => [
                 $cat->id => $cat->parent ? $cat->parent->name : $cat->name,
             ]);
 
-        $categoryIncome = $this->categoryTotals($transactions, Transaction::TYPE_INCOME, $categoryParentNames);
+        $enumerable = $this->categoryTotals($transactions, Transaction::TYPE_INCOME, $categoryParentNames);
         $categoryExpenses = $this->categoryTotals($transactions, Transaction::TYPE_EXPENSE, $categoryParentNames);
 
         $this->dispatch('dashboard-charts-updated',
-            incomeCategoryBreakdown: $categoryIncome->all(),
+            incomeCategoryBreakdown: $enumerable->all(),
             expenseCategoryBreakdown: $categoryExpenses->all(),
         );
 
@@ -124,7 +124,7 @@ class Dashboard extends Component
             'expenses' => $expenses,
             'net' => $net,
             'budgetSummaries' => $budgetSummaries,
-            'incomeCategoryBreakdown' => $categoryIncome,
+            'incomeCategoryBreakdown' => $enumerable,
             'expenseCategoryBreakdown' => $categoryExpenses,
         ]);
     }
@@ -134,17 +134,17 @@ class Dashboard extends Component
         return $transactions
             ->where('type', $type)
             ->groupBy(function ($t) use ($categoryParentNames) {
-                if (! $t->category_id) {
+                if (!$t->category_id) {
                     return 'Uncategorised';
                 }
 
                 // Roll subcategory amounts up to the parent name.
                 return $categoryParentNames->get($t->category_id) ?? $t->category->name ?? 'Uncategorised';
             })
-            ->map(fn ($items, $category) => [
+            ->map(fn ($items, $category): array => [
                 'category' => $category,
                 'total' => Money::fromPennies(
-                    Money::normalize($items->sum('amount'))
+                    Money::normalize($items->sum('amount')),
                 ),
             ])->values();
     }

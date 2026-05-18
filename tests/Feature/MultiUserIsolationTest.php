@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Budgets\BudgetManager;
@@ -11,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class MultiUserIsolationTest extends TestCase
+final class MultiUserIsolationTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -53,7 +55,7 @@ class MultiUserIsolationTest extends TestCase
             ->call('save')
             ->assertHasErrors('save');
 
-        $this->assertSame(50.00, (float) $otherBudget->fresh()->amount);
+        $this->assertEqualsWithDelta(50.00, (float) $otherBudget->fresh()->amount, PHP_FLOAT_EPSILON);
         $this->assertDatabaseMissing('budgets', [
             'id' => $otherBudget->id,
             'user_id' => $user->id,

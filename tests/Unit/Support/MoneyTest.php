@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit\Support;
 
 use App\Support\Money;
 use PHPUnit\Framework\TestCase;
 
-class MoneyTest extends TestCase
+final class MoneyTest extends TestCase
 {
     public function test_normalize_returns_integer_pennies(): void
     {

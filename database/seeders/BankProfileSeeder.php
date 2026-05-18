@@ -62,7 +62,7 @@ class BankProfileSeeder extends Seeder
                 [
                     'statement_type' => $profile['statement_type'],
                     'config' => $profile['config'],
-                ]
+                ],
             );
         }
     }

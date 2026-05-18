@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Reports\ReportsHub;
@@ -11,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class ReportsHubTest extends TestCase
+final class ReportsHubTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -28,9 +30,9 @@ class ReportsHubTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $chartData = $component->get('chartData');
+        $chartData = $testable->get('chartData');
         $this->assertArrayHasKey('labels', $chartData);
         $this->assertArrayHasKey('income', $chartData);
         $this->assertArrayHasKey('expenses', $chartData);
@@ -40,9 +42,9 @@ class ReportsHubTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $netWorthData = $component->get('netWorthChartData');
+        $netWorthData = $testable->get('netWorthChartData');
         $this->assertArrayHasKey('labels', $netWorthData);
         $this->assertArrayHasKey('netWorth', $netWorthData);
     }
@@ -75,33 +77,33 @@ class ReportsHubTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', '3_months'); // triggers updatedRange automatically
 
-        $this->assertCount(3, $component->get('chartData')['labels']);
+        $this->assertCount(3, $testable->get('chartData')['labels']);
     }
 
     public function test_chart_data_for_6_months_produces_6_labels(): void
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', '6_months');
 
-        $this->assertCount(6, $component->get('chartData')['labels']);
+        $this->assertCount(6, $testable->get('chartData')['labels']);
     }
 
     public function test_chart_data_for_12_months_produces_12_labels(): void
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', '12_months');
 
-        $this->assertCount(12, $component->get('chartData')['labels']);
+        $this->assertCount(12, $testable->get('chartData')['labels']);
     }
 
     public function test_chart_data_for_ytd_produces_labels_equal_to_current_month_number(): void
@@ -110,12 +112,12 @@ class ReportsHubTest extends TestCase
 
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', 'ytd');
 
         // April is month 4, so YTD covers Jan–Apr = 4 labels
-        $this->assertCount(4, $component->get('chartData')['labels']);
+        $this->assertCount(4, $testable->get('chartData')['labels']);
     }
 
     public function test_chart_data_sums_income_and_expenses_correctly_for_current_month(): void
@@ -142,16 +144,16 @@ class ReportsHubTest extends TestCase
             'frequency' => null,
         ]);
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', '12_months'); // re-set to trigger updatedRange
 
-        $chartData = $component->get('chartData');
+        $chartData = $testable->get('chartData');
         // June 2024 is the last label in a 12-month window ending today
         $lastIndex = count($chartData['labels']) - 1;
-        $this->assertStringContainsString('Jun 2024', $chartData['labels'][$lastIndex]);
-        $this->assertSame(1000.0, $chartData['income'][$lastIndex]);
-        $this->assertSame(350.0, $chartData['expenses'][$lastIndex]);
+        $this->assertStringContainsString('Jun 2024', (string) $chartData['labels'][$lastIndex]);
+        $this->assertEqualsWithDelta(1000.0, $chartData['income'][$lastIndex], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(350.0, $chartData['expenses'][$lastIndex], PHP_FLOAT_EPSILON);
     }
 
     public function test_chart_data_does_not_include_other_users_transactions(): void
@@ -170,14 +172,14 @@ class ReportsHubTest extends TestCase
             'frequency' => null,
         ]);
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', '12_months'); // re-set to trigger updatedRange
 
-        $chartData = $component->get('chartData');
+        $chartData = $testable->get('chartData');
         $lastIndex = count($chartData['labels']) - 1;
 
-        $this->assertSame(0.0, $chartData['income'][$lastIndex]);
+        $this->assertEqualsWithDelta(0.0, $chartData['income'][$lastIndex], PHP_FLOAT_EPSILON);
     }
 
     public function test_updated_range_resets_to_12_months_when_given_invalid_value(): void
@@ -205,13 +207,13 @@ class ReportsHubTest extends TestCase
         $user = User::factory()->create();
 
         // Start at 12_months (12 labels), switch to 3_months (3 labels)
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(ReportsHub::class)
             ->set('range', '3_months');
 
-        $this->assertCount(3, $component->get('chartData')['labels']);
-        $this->assertCount(3, $component->get('chartData')['income']);
-        $this->assertCount(3, $component->get('chartData')['expenses']);
+        $this->assertCount(3, $testable->get('chartData')['labels']);
+        $this->assertCount(3, $testable->get('chartData')['income']);
+        $this->assertCount(3, $testable->get('chartData')['expenses']);
     }
 
     public function test_net_worth_chart_data_includes_entries_within_last_12_months(): void
@@ -227,11 +229,11 @@ class ReportsHubTest extends TestCase
             'net_worth' => '8000.00',
         ]);
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $netWorthData = $component->get('netWorthChartData');
+        $netWorthData = $testable->get('netWorthChartData');
         $this->assertCount(1, $netWorthData['labels']);
-        $this->assertSame(8000.0, $netWorthData['netWorth'][0]);
+        $this->assertEqualsWithDelta(8000.0, $netWorthData['netWorth'][0], PHP_FLOAT_EPSILON);
     }
 
     public function test_net_worth_chart_data_excludes_entries_older_than_12_months(): void
@@ -256,11 +258,11 @@ class ReportsHubTest extends TestCase
             'net_worth' => '9000.00',
         ]);
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $netWorthData = $component->get('netWorthChartData');
+        $netWorthData = $testable->get('netWorthChartData');
         $this->assertCount(1, $netWorthData['labels']);
-        $this->assertSame(9000.0, $netWorthData['netWorth'][0]);
+        $this->assertEqualsWithDelta(9000.0, $netWorthData['netWorth'][0], PHP_FLOAT_EPSILON);
         $this->assertNotContains(1000.0, $netWorthData['netWorth']);
     }
 
@@ -276,9 +278,9 @@ class ReportsHubTest extends TestCase
             'net_worth' => '99999.00',
         ]);
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $netWorthData = $component->get('netWorthChartData');
+        $netWorthData = $testable->get('netWorthChartData');
         $this->assertEmpty($netWorthData['labels']);
         $this->assertEmpty($netWorthData['netWorth']);
     }
@@ -303,11 +305,11 @@ class ReportsHubTest extends TestCase
             'net_worth' => '3000.00',
         ]);
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $netWorthData = $component->get('netWorthChartData');
-        $this->assertSame(3000.0, $netWorthData['netWorth'][0]);
-        $this->assertSame(5000.0, $netWorthData['netWorth'][1]);
+        $netWorthData = $testable->get('netWorthChartData');
+        $this->assertEqualsWithDelta(3000.0, $netWorthData['netWorth'][0], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(5000.0, $netWorthData['netWorth'][1], PHP_FLOAT_EPSILON);
     }
 
     public function test_net_worth_chart_data_label_format_is_month_day_year(): void
@@ -323,9 +325,9 @@ class ReportsHubTest extends TestCase
             'net_worth' => '4000.00',
         ]);
 
-        $component = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
 
-        $netWorthData = $component->get('netWorthChartData');
+        $netWorthData = $testable->get('netWorthChartData');
         $this->assertSame('Mar 22, 2024', $netWorthData['labels'][0]);
     }
 }

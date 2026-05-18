@@ -12,7 +12,7 @@ readonly class CsvFileReader
 {
     public function __construct(
         private string $filePath,
-        private ?BankProfile $profile = null
+        private ?BankProfile $bankProfile = null,
     ) {}
 
     /**
@@ -20,7 +20,7 @@ readonly class CsvFileReader
      */
     public function readRows(): Collection
     {
-        if (! file_exists($this->filePath)) {
+        if (!file_exists($this->filePath)) {
             throw new Exception('CSV file not found: '.$this->filePath);
         }
 
@@ -28,9 +28,9 @@ readonly class CsvFileReader
 
         $rows = collect();
         $isFirstRow = true;
-        $hasHeader = $this->profile ? ($this->profile->config['has_header'] ?? BankStatementConfig::CSV_HAS_HEADER_DEFAULT) : BankStatementConfig::CSV_HAS_HEADER_DEFAULT;
+        $hasHeader = $this->bankProfile instanceof BankProfile ? ($this->bankProfile->config['has_header'] ?? BankStatementConfig::CSV_HAS_HEADER_DEFAULT) : BankStatementConfig::CSV_HAS_HEADER_DEFAULT;
 
-        while (! $file->eof()) {
+        while (!$file->eof()) {
             $row = $file->fgetcsv(separator: ',', enclosure: '"', escape: '');
 
             if ($isFirstRow && $hasHeader) {
@@ -40,8 +40,11 @@ readonly class CsvFileReader
             }
 
             $isFirstRow = false;
+            if (!$row) {
+                continue;
+            }
 
-            if (! $row || count(array_filter($row)) === 0) {
+            if (array_filter($row) === []) {
                 continue;
             }
 

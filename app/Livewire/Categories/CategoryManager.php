@@ -55,9 +55,12 @@ class CategoryManager extends Component
             ->orderBy('name')
             ->get();
 
-        return view('livewire.categories.manager', compact('incomeParents', 'expenseParents', 'parentOptions'));
+        return view('livewire.categories.manager', ['incomeParents' => $incomeParents, 'expenseParents' => $expenseParents, 'parentOptions' => $parentOptions]);
     }
 
+    /**
+     * @return array<string, string[]|\Illuminate\Validation\Rules\In[]|string[]>
+     */
     protected function rules(): array
     {
         return [
@@ -80,7 +83,7 @@ class CategoryManager extends Component
                 ->where('type', $this->type)
                 ->find($this->parentId);
 
-            if (! $parent) {
+            if (!$parent) {
                 $this->addError('parentId', 'Invalid parent category.');
 
                 return;
@@ -111,7 +114,7 @@ class CategoryManager extends Component
         if ($this->categoryId) {
             $category = Category::forUser($userId)->find($this->categoryId);
 
-            if (! $category) {
+            if (!$category) {
                 $this->addError('save', 'Category not found.');
 
                 return;
@@ -151,7 +154,7 @@ class CategoryManager extends Component
             ->with('children')
             ->find($categoryId);
 
-        if (! $category) {
+        if (!$category) {
             return;
         }
 
@@ -176,7 +179,7 @@ class CategoryManager extends Component
 
     public function delete(): void
     {
-        if (! $this->deletingId) {
+        if (!$this->deletingId) {
             return;
         }
 
@@ -186,7 +189,7 @@ class CategoryManager extends Component
 
         $this->deletingId = null;
 
-        if (! $category) {
+        if (!$category) {
             $this->dispatch('close-delete-category-modal');
 
             return;

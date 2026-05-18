@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 readonly class DuplicateDetector
 {
     public function __construct(
-        private int $userId
+        private int $userId,
     ) {}
 
     /**
@@ -18,12 +18,12 @@ readonly class DuplicateDetector
      */
     public function detectDuplicates(Collection &$transactions): void
     {
-        $transactions = $transactions->map(function ($transaction) {
+        $transactions = $transactions->map(function (array $transaction): array {
             $hash = $this->generateTransactionHash(
                 $this->userId,
                 $transaction['date'],
                 $transaction['amount'],
-                $transaction['description']
+                $transaction['description'],
             );
 
             $transaction['hash'] = $hash;
@@ -61,10 +61,10 @@ readonly class DuplicateDetector
         }
 
         // Check against previously imported transactions (by current or original hash)
-        return ImportedTransaction::whereHas('bankStatementImport', function ($query) {
+        return ImportedTransaction::whereHas('bankStatementImport', function ($query): void {
             $query->where('user_id', $this->userId);
         })
-            ->where(function ($query) use ($hash) {
+            ->where(function ($query) use ($hash): void {
                 $query->where('hash', $hash)->orWhere('original_hash', $hash);
             })
             ->exists();
@@ -82,9 +82,9 @@ readonly class DuplicateDetector
         }
 
         // Imported transactions (exclude current one, check both hash and original_hash)
-        $query = ImportedTransaction::whereHas('bankStatementImport', function ($query) {
+        $query = ImportedTransaction::whereHas('bankStatementImport', function ($query): void {
             $query->where('user_id', $this->userId);
-        })->where(function ($query) use ($hash) {
+        })->where(function ($query) use ($hash): void {
             $query->where('hash', $hash)->orWhere('original_hash', $hash);
         });
 

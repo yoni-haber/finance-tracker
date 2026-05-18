@@ -4,13 +4,14 @@ namespace App\Support;
 
 use App\Models\BankStatementImport;
 use App\Models\Transaction;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 readonly class StatementImportCommitter
 {
     public function __construct(
-        private BankStatementImport $import
+        private BankStatementImport $bankStatementImport,
     ) {}
 
     /**
@@ -18,20 +19,20 @@ readonly class StatementImportCommitter
      */
     public function commit(): bool
     {
-        $this->import->refresh(); // Refresh to get latest status
+        $this->bankStatementImport->refresh(); // Refresh to get latest status
 
         // Skip if already committed (idempotency)
-        if ($this->import->isCommitted()) {
+        if ($this->bankStatementImport->isCommitted()) {
             return true;
         }
 
-        if (! $this->import->isParsed()) {
+        if (!$this->bankStatementImport->isParsed()) {
             return false;
         }
 
         try {
-            DB::transaction(function () {
-                $importedTransactions = $this->import->importedTransactions()
+            DB::transaction(function (): void {
+                $importedTransactions = $this->bankStatementImport->importedTransactions()
                     ->committable()
                     ->lockForUpdate()  // Add row locking to prevent race conditions
                     ->get();
@@ -41,7 +42,7 @@ readonly class StatementImportCommitter
                     // but Transaction table should store positive amounts for expenses
                     $amount = $importedTransaction->amount;
 
-                    if ($this->import->isCreditCardStatement()) {
+                    if ($this->bankStatementImport->isCreditCardStatement()) {
                         // Credit card: flip back to positive amounts, determine type from original CSV logic
                         $isExpense = $amount < 0; // Negative imported amount = expense
                         $amount = abs($amount); // Store positive amount
@@ -54,7 +55,7 @@ readonly class StatementImportCommitter
 
                     // Create real transaction
                     Transaction::create([
-                        'user_id' => $this->import->user_id,
+                        'user_id' => $this->bankStatementImport->user_id,
                         'date' => $importedTransaction->date,
                         'description' => $importedTransaction->description,
                         'amount' => $amount,
@@ -73,17 +74,17 @@ readonly class StatementImportCommitter
                 }
 
                 // Update import status
-                $this->import->update(['status' => BankStatementConfig::STATUS_COMMITTED]);
+                $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_COMMITTED]);
 
                 // Clean up CSV file for GDPR compliance
                 $this->cleanupCsvFile();
             });
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $exception) {
             logger()->error('Failed to commit statement import', [
-                'import_id' => $this->import->id,
-                'error' => $e->getMessage(),
+                'import_id' => $this->bankStatementImport->id,
+                'error' => $exception->getMessage(),
             ]);
 
             return false;
@@ -95,19 +96,19 @@ readonly class StatementImportCommitter
      */
     private function cleanupCsvFile(): void
     {
-        $filePath = "statements/{$this->import->id}.csv";
+        $filePath = sprintf('statements/%s.csv', $this->bankStatementImport->id);
 
         if (Storage::exists($filePath)) {
             try {
                 Storage::delete($filePath);
                 logger()->info('CSV file deleted for GDPR compliance', [
-                    'import_id' => $this->import->id,
-                    'user_id' => $this->import->user_id,
+                    'import_id' => $this->bankStatementImport->id,
+                    'user_id' => $this->bankStatementImport->user_id,
                 ]);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Log but don't fail the transaction - file cleanup is not critical
                 logger()->warning('Failed to delete CSV file after import', [
-                    'import_id' => $this->import->id,
+                    'import_id' => $this->bankStatementImport->id,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -116,10 +117,12 @@ readonly class StatementImportCommitter
 
     /**
      * Get summary statistics for the import
+     *
+     * @return array<string, mixed>
      */
     public function getSummary(): array
     {
-        $transactions = $this->import->importedTransactions;
+        $transactions = $this->bankStatementImport->importedTransactions;
 
         return [
             'total' => $transactions->count(),

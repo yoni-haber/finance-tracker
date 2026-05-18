@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Statements\StatementImportReview;
@@ -15,7 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class StatementImportReviewTest extends TestCase
+final class StatementImportReviewTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -128,7 +130,7 @@ class StatementImportReviewTest extends TestCase
 
         $transaction->refresh();
         $this->assertEquals('UPDATED DESCRIPTION', $transaction->description);
-        $this->assertEquals(150.00, $transaction->amount);
+        $this->assertEqualsWithDelta(150.00, $transaction->amount, PHP_FLOAT_EPSILON);
         $this->assertEquals($category->id, $transaction->category_id);
     }
 
@@ -167,7 +169,7 @@ class StatementImportReviewTest extends TestCase
             ->call('updateTransaction');
 
         $transaction->refresh();
-        $this->assertEquals(100.00, $transaction->amount); // Should be positive for credit card income
+        $this->assertEqualsWithDelta(100.00, $transaction->amount, PHP_FLOAT_EPSILON); // Should be positive for credit card income
     }
 
     public function test_updates_transaction_category(): void
@@ -236,7 +238,7 @@ class StatementImportReviewTest extends TestCase
         $this->assertCount(1, $transactions); // Only non-duplicate
 
         $transaction = $transactions->first();
-        $this->assertEquals(100.00, $transaction->amount);
+        $this->assertEqualsWithDelta(100.00, $transaction->amount, PHP_FLOAT_EPSILON);
         $this->assertTrue($transaction->category->is($category));
     }
 
@@ -375,8 +377,8 @@ class StatementImportReviewTest extends TestCase
         $this->assertEquals('MY PURCHASE', $transaction->description);
 
         // Hash must match what would be generated from the normalized (uppercased) description
-        $detector = new DuplicateDetector($user->id);
-        $expectedHash = $detector->generateTransactionHash($user->id, '2026-01-01', 100.00, 'MY PURCHASE');
+        $duplicateDetector = new DuplicateDetector($user->id);
+        $expectedHash = $duplicateDetector->generateTransactionHash($user->id, '2026-01-01', 100.00, 'MY PURCHASE');
         $this->assertEquals($expectedHash, $transaction->hash);
     }
 
@@ -406,8 +408,8 @@ class StatementImportReviewTest extends TestCase
         $this->assertEquals('TESCO EXTRA', $transaction->description);
 
         // Hash must be identical to what the parser would produce for the same raw description
-        $detector = new DuplicateDetector($user->id);
-        $expectedHash = $detector->generateTransactionHash($user->id, '2026-01-01', 100.00, 'TESCO EXTRA');
+        $duplicateDetector = new DuplicateDetector($user->id);
+        $expectedHash = $duplicateDetector->generateTransactionHash($user->id, '2026-01-01', 100.00, 'TESCO EXTRA');
         $this->assertEquals($expectedHash, $transaction->hash);
     }
 
@@ -548,7 +550,7 @@ class StatementImportReviewTest extends TestCase
             ->test(StatementImportReview::class, ['importId' => $import->id])
             ->call('updateType', $transaction->id, Transaction::TYPE_INCOME);
 
-        $this->assertEquals(100.00, $transaction->fresh()->amount);
+        $this->assertEqualsWithDelta(100.00, $transaction->fresh()->amount, PHP_FLOAT_EPSILON);
     }
 
     public function test_determine_transaction_type_for_credit_card_positive_amount_is_income(): void
@@ -573,13 +575,13 @@ class StatementImportReviewTest extends TestCase
 
         ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id]);
 
         // Change status after mount so the guard inside commitImport() is hit directly
         $import->update(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
-        $component->call('commitImport')
+        $testable->call('commitImport')
             ->assertHasErrors(['commit']);
     }
 

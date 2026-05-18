@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 readonly class TransactionRowParser
 {
     public function __construct(
-        private BankProfile $profile
+        private BankProfile $bankProfile,
     ) {}
 
     /**
@@ -19,18 +19,18 @@ readonly class TransactionRowParser
      */
     public function parseRow(array $row): ?array
     {
-        $columns = $this->profile->config['columns'] ?? [];
+        $columns = $this->bankProfile->config['columns'] ?? [];
 
         $date = $this->extractDate($row, $columns['date'] ?? null);
         $description = $this->extractDescription($row, $columns['description'] ?? null);
         $amount = $this->extractAmount($row, $columns);
 
-        if (! $date || ! $description || $amount === null) {
+        if (!$date instanceof Carbon || !$description || $amount === null) {
             return null;
         }
 
         // Apply statement type logic
-        if ($this->profile->isCreditCardStatement()) {
+        if ($this->bankProfile->isCreditCardStatement()) {
             $amount = -$amount; // Flip sign for credit cards
         }
 
@@ -44,6 +44,8 @@ readonly class TransactionRowParser
 
     /**
      * Extract date from row
+     *
+     * @param  array<int, mixed>  $row
      */
     private function extractDate(array $row, ?int $dateIndex): ?Carbon
     {
@@ -52,7 +54,7 @@ readonly class TransactionRowParser
         }
 
         $dateString = trim($row[$dateIndex] ?? '');
-        if (empty($dateString)) {
+        if ($dateString === '' || $dateString === '0') {
             return null;
         }
 
@@ -61,6 +63,8 @@ readonly class TransactionRowParser
 
     /**
      * Extract description from row
+     *
+     * @param  array<int, mixed>  $row
      */
     private function extractDescription(array $row, ?int $descriptionIndex): ?string
     {
@@ -70,11 +74,13 @@ readonly class TransactionRowParser
 
         $description = $this->normaliseDescription(trim($row[$descriptionIndex] ?? ''));
 
-        return empty($description) ? null : $description;
+        return $description === '' || $description === '0' ? null : $description;
     }
 
     /**
      * Extract amount from row
+     *
+     * @param  array<string, mixed>  $columns
      */
     private function extractAmount(array $row, array $columns): ?float
     {
@@ -93,8 +99,8 @@ readonly class TransactionRowParser
         $formats = BankStatementConfig::SUPPORTED_DATE_FORMATS;
 
         // Try profile-specific format first
-        if (isset($this->profile->config['date_format'])) {
-            array_unshift($formats, $this->profile->config['date_format']);
+        if (isset($this->bankProfile->config['date_format'])) {
+            array_unshift($formats, $this->bankProfile->config['date_format']);
         }
 
         foreach ($formats as $format) {
@@ -118,6 +124,8 @@ readonly class TransactionRowParser
 
     /**
      * Parse amount from row data
+     *
+     * @param  array<int, mixed>  $row
      */
     private function parseAmount(array $row, ?int $amountIndex, ?int $debitIndex, ?int $creditIndex): ?float
     {
@@ -145,7 +153,7 @@ readonly class TransactionRowParser
      */
     private function parseAmountString(string $amountString): ?float
     {
-        if (empty($amountString)) {
+        if ($amountString === '' || $amountString === '0') {
             return null;
         }
 
@@ -153,7 +161,7 @@ readonly class TransactionRowParser
         $amountString = preg_replace('/[£$€¥,\s]/', '', $amountString);
 
         // Handle negative amounts in parentheses
-        if (preg_match('/^\((.+)\)$/', $amountString, $matches)) {
+        if (preg_match('/^\((.+)\)$/', (string) $amountString, $matches)) {
             $amountString = '-'.$matches[1];
         }
 

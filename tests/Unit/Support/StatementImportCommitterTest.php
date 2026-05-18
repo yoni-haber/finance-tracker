@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit\Support;
 
 use App\Models\BankProfile;
@@ -13,9 +15,10 @@ use App\Support\StatementImportCommitter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 
-class StatementImportCommitterTest extends TestCase
+final class StatementImportCommitterTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -41,8 +44,8 @@ class StatementImportCommitterTest extends TestCase
             'is_duplicate' => true,
         ]);
 
-        $committer = new StatementImportCommitter($import);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result);
         $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);
@@ -53,7 +56,7 @@ class StatementImportCommitterTest extends TestCase
         $transaction = $transactions->first();
         $this->assertEquals('2026-01-01', $transaction->date->toDateString());
         $this->assertEquals('Test Transaction', $transaction->description);
-        $this->assertEquals(100.50, $transaction->amount);
+        $this->assertEqualsWithDelta(100.50, $transaction->amount, PHP_FLOAT_EPSILON);
         $this->assertTrue($transaction->category->is($category));
 
         $committedImported = ImportedTransaction::where('is_committed', true)->get();
@@ -79,8 +82,8 @@ class StatementImportCommitterTest extends TestCase
             'category_id' => null,
         ]);
 
-        $committer = new StatementImportCommitter($import);
-        $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $statementImportCommitter->commit();
 
         $transactions = Transaction::where('user_id', $user->id)->orderBy('amount', 'desc')->get();
         $this->assertCount(2, $transactions);
@@ -166,8 +169,8 @@ class StatementImportCommitterTest extends TestCase
             'is_duplicate' => false,
         ]);
 
-        $committer = new StatementImportCommitter($ccImport);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($ccImport);
+        $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result);
 
@@ -178,11 +181,11 @@ class StatementImportCommitterTest extends TestCase
         $income = $transactions->where('type', Transaction::TYPE_INCOME)->first();
 
         // CRITICAL: Both amounts should be positive in the transactions table
-        $this->assertEquals(100.00, $expense->amount); // Was -100, should be 100
+        $this->assertEqualsWithDelta(100.00, $expense->amount, PHP_FLOAT_EPSILON); // Was -100, should be 100
         $this->assertEquals(Transaction::TYPE_EXPENSE, $expense->type);
         $this->assertEquals('PURCHASE', $expense->description);
 
-        $this->assertEquals(50.00, $income->amount); // Should remain 50
+        $this->assertEqualsWithDelta(50.00, $income->amount, PHP_FLOAT_EPSILON); // Should remain 50
         $this->assertEquals(Transaction::TYPE_INCOME, $income->type);
         $this->assertEquals('PAYMENT', $income->description);
     }
@@ -193,8 +196,8 @@ class StatementImportCommitterTest extends TestCase
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
-        $committer = new StatementImportCommitter($import);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
 
         $this->assertFalse($result);
         $this->assertEquals(BankStatementConfig::STATUS_UPLOADED, $import->fresh()->status);
@@ -211,11 +214,11 @@ class StatementImportCommitterTest extends TestCase
             'is_duplicate' => false,
         ]);
 
-        $committer = new StatementImportCommitter($import);
+        $statementImportCommitter = new StatementImportCommitter($import);
 
         // Commit twice
-        $result1 = $committer->commit();
-        $result2 = $committer->commit();
+        $result1 = $statementImportCommitter->commit();
+        $result2 = $statementImportCommitter->commit();
 
         $this->assertTrue($result1);
         $this->assertTrue($result2);
@@ -239,8 +242,8 @@ class StatementImportCommitterTest extends TestCase
             'category_id' => 99999,
         ]);
 
-        $committer = new StatementImportCommitter($import);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
 
         $this->assertFalse($result);
         $this->assertCount(0, Transaction::where('user_id', $user->id)->get());
@@ -257,13 +260,13 @@ class StatementImportCommitterTest extends TestCase
         ImportedTransaction::factory()->for($import)->create(['is_duplicate' => false, 'is_committed' => false, 'amount' => 50.00]);
         ImportedTransaction::factory()->for($import)->create(['is_duplicate' => true, 'is_committed' => false, 'amount' => 75.00]);
 
-        $committer = new StatementImportCommitter($import);
-        $summary = $committer->getSummary();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $summary = $statementImportCommitter->getSummary();
 
         $this->assertEquals(3, $summary['total']);
         $this->assertEquals(1, $summary['duplicates']);
         $this->assertEquals(2, $summary['new_transactions']);
-        $this->assertEquals(150.00, $summary['total_amount']); // only non-duplicates
+        $this->assertEqualsWithDelta(150.00, $summary['total_amount'], PHP_FLOAT_EPSILON); // only non-duplicates
         $this->assertEquals(1, $summary['committed']);
     }
 
@@ -276,16 +279,16 @@ class StatementImportCommitterTest extends TestCase
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
         // Place a fake CSV file where the committer expects it
-        Storage::put("statements/{$import->id}.csv", 'fake,csv,content');
-        Storage::assertExists("statements/{$import->id}.csv");
+        Storage::put(sprintf('statements/%d.csv', $import->id), 'fake,csv,content');
+        Storage::assertExists(sprintf('statements/%d.csv', $import->id));
 
         ImportedTransaction::factory()->for($import)->create(['is_duplicate' => false, 'amount' => 10.00]);
 
-        $committer = new StatementImportCommitter($import);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result);
-        Storage::assertMissing("statements/{$import->id}.csv");
+        Storage::assertMissing(sprintf('statements/%d.csv', $import->id));
     }
 
     public function test_commit_succeeds_when_no_csv_file_exists(): void
@@ -298,8 +301,8 @@ class StatementImportCommitterTest extends TestCase
 
         ImportedTransaction::factory()->for($import)->create(['is_duplicate' => false, 'amount' => 10.00]);
 
-        $committer = new StatementImportCommitter($import);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result); // no file to delete is fine
         $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);
@@ -310,7 +313,7 @@ class StatementImportCommitterTest extends TestCase
         Log::spy();
         Storage::fake('local');
         Storage::shouldReceive('exists')->andReturn(true);
-        Storage::shouldReceive('delete')->andThrow(new \RuntimeException('Disk error'));
+        Storage::shouldReceive('delete')->andThrow(new RuntimeException('Disk error'));
 
         $user = User::factory()->create();
         $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
@@ -318,8 +321,8 @@ class StatementImportCommitterTest extends TestCase
 
         ImportedTransaction::factory()->for($import)->create(['is_duplicate' => false, 'amount' => 10.00]);
 
-        $committer = new StatementImportCommitter($import);
-        $result = $committer->commit();
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result);
         Log::shouldHaveReceived('warning')->once();

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Statements\BankProfileManager;
@@ -11,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class BankProfileManagerTest extends TestCase
+final class BankProfileManagerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -197,7 +199,7 @@ class BankProfileManagerTest extends TestCase
             ->set('form.statement_type', 'bank')
             ->set('form.date_column', 1)
             ->set('form.description_column', 2)
-            ->set('form.amount_column', null)
+            ->set('form.amount_column')
             ->set('form.date_format', 'd/m/Y')
             ->set('hasSeparateColumns', false)
             ->call('save')

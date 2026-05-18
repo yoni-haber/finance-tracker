@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 readonly class BankStatementImportProcessor
 {
     public function __construct(
-        private BankStatementImport $import
+        private BankStatementImport $bankStatementImport,
     ) {}
 
     /**
@@ -19,7 +19,7 @@ readonly class BankStatementImportProcessor
      */
     public function process(): bool
     {
-        if ($this->import->isParsed() || $this->import->isCommitted()) {
+        if ($this->bankStatementImport->isParsed() || $this->bankStatementImport->isCommitted()) {
             return true;
         }
 
@@ -27,50 +27,54 @@ readonly class BankStatementImportProcessor
         // Only STATUS_UPLOADED and STATUS_FAILED are claimable — STATUS_PARSING means
         // another worker already holds the claim, and we must not proceed concurrently.
         // STATUS_FAILED is included so a re-dispatched job can recover after total failure.
-        $claimed = BankStatementImport::where('id', $this->import->id)
+        $claimed = BankStatementImport::where('id', $this->bankStatementImport->id)
             ->whereIn('status', [BankStatementConfig::STATUS_UPLOADED, BankStatementConfig::STATUS_FAILED])
             ->update(['status' => BankStatementConfig::STATUS_PARSING]);
 
-        $this->import->refresh();
+        $this->bankStatementImport->refresh();
 
-        if (! $claimed) {
+        if (!$claimed) {
             // Another worker already claimed it, or it's in a non-processable state.
-            return $this->import->isParsed() || $this->import->isCommitted();
+            if ($this->bankStatementImport->isParsed()) {
+                return true;
+            }
+
+            return $this->bankStatementImport->isCommitted();
         }
 
-        $filePath = Storage::disk('local')->path("statements/{$this->import->id}.csv");
+        $filePath = Storage::disk('local')->path(sprintf('statements/%s.csv', $this->bankStatementImport->id));
 
-        if (! $this->import->bankProfile) {
+        if (!$this->bankStatementImport->bankProfile) {
             logger()->error('Bank statement parsing failed', [
-                'import_id' => $this->import->id,
+                'import_id' => $this->bankStatementImport->id,
                 'error' => 'Bank profile is required for parsing',
             ]);
-            $this->import->update(['status' => BankStatementConfig::STATUS_FAILED]);
+            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
 
             return false;
         }
 
         // Step 1: Read CSV file
-        $reader = new CsvFileReader($filePath, $this->import->bankProfile);
+        $csvFileReader = new CsvFileReader($filePath, $this->bankStatementImport->bankProfile);
         try {
-            $rows = $reader->readRows();
-        } catch (Exception $e) {
+            $rows = $csvFileReader->readRows();
+        } catch (Exception $exception) {
             logger()->error('Bank statement parsing failed', [
-                'import_id' => $this->import->id,
-                'error' => 'CSV file not found - '.$e->getMessage(),
+                'import_id' => $this->bankStatementImport->id,
+                'error' => 'CSV file not found - '.$exception->getMessage(),
             ]);
-            $this->import->update(['status' => BankStatementConfig::STATUS_FAILED]);
+            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
 
             return false;
         }
 
         // Step 2: Parse rows into transactions
-        $parser = new TransactionRowParser($this->import->bankProfile);
-        $transactions = $this->parseRows($rows, $parser);
+        $transactionRowParser = new TransactionRowParser($this->bankStatementImport->bankProfile);
+        $transactions = $this->parseRows($rows, $transactionRowParser);
 
         // Step 3: Add hashes and detect duplicates
-        $detector = new DuplicateDetector($this->import->user_id);
-        $detector->detectDuplicates($transactions);
+        $duplicateDetector = new DuplicateDetector($this->bankStatementImport->user_id);
+        $duplicateDetector->detectDuplicates($transactions);
 
         // Step 4: Save imported transactions and mark parsed — both in one transaction
         // so a crash between the two operations cannot leave the import in an inconsistent state.
@@ -82,16 +86,16 @@ readonly class BankStatementImportProcessor
     /**
      * Parse CSV rows into transaction data
      */
-    private function parseRows($rows, TransactionRowParser $parser)
+    private function parseRows(\Illuminate\Support\Collection $rows, TransactionRowParser $transactionRowParser)
     {
-        return $rows->map(function ($row) use ($parser) {
+        return $rows->map(function (array $row) use ($transactionRowParser): ?array {
             try {
-                return $parser->parseRow($row);
-            } catch (Exception $e) {
+                return $transactionRowParser->parseRow($row);
+            } catch (Exception $exception) {
                 logger()->warning('Failed to parse CSV row', [
-                    'import_id' => $this->import->id,
+                    'import_id' => $this->bankStatementImport->id,
                     'row' => $row,
-                    'error' => $e->getMessage(),
+                    'error' => $exception->getMessage(),
                 ]);
 
                 return null;
@@ -105,33 +109,31 @@ readonly class BankStatementImportProcessor
      * Any existing rows are deleted first so re-processing after STATUS_FAILED
      * cannot produce duplicate staged transactions.
      */
-    private function saveImportedTransactions($transactions): void
+    private function saveImportedTransactions(\Illuminate\Support\Collection $transactions): void
     {
-        DB::transaction(function () use ($transactions) {
+        DB::transaction(function () use ($transactions): void {
             // Clear any rows from a previous failed attempt before re-inserting.
-            $this->import->importedTransactions()->delete();
+            $this->bankStatementImport->importedTransactions()->delete();
 
             $transactions->chunk(BankStatementConfig::TRANSACTION_CHUNK_SIZE)
-                ->each(function ($chunk) {
-                    $data = $chunk->map(function ($transaction) {
-                        return [
-                            'import_id' => $this->import->id,
-                            'date' => $transaction['date'],
-                            'description' => $transaction['description'],
-                            'amount' => $transaction['amount'],
-                            'hash' => $transaction['hash'],
-                            'original_hash' => $transaction['hash'],
-                            'is_duplicate' => $transaction['is_duplicate'],
-                            'external_id' => $transaction['external_id'] ?? null,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    })->toArray();
+                ->each(function ($chunk): void {
+                    $data = $chunk->map(fn ($transaction): array => [
+                        'import_id' => $this->bankStatementImport->id,
+                        'date' => $transaction['date'],
+                        'description' => $transaction['description'],
+                        'amount' => $transaction['amount'],
+                        'hash' => $transaction['hash'],
+                        'original_hash' => $transaction['hash'],
+                        'is_duplicate' => $transaction['is_duplicate'],
+                        'external_id' => $transaction['external_id'] ?? null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ])->toArray();
 
-                    $this->import->importedTransactions()->insert($data);
+                    $this->bankStatementImport->importedTransactions()->insert($data);
                 });
 
-            $this->import->update(['status' => BankStatementConfig::STATUS_PARSED]);
+            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_PARSED]);
         });
     }
 }

@@ -45,6 +45,9 @@ class BankProfileManager extends Component
         ]);
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function rules(): array
     {
         return [
@@ -60,6 +63,9 @@ class BankProfileManager extends Component
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function validationAttributes(): array
     {
         return [
@@ -133,15 +139,15 @@ class BankProfileManager extends Component
             'columns' => array_filter([
                 'date' => $this->form['date_column'] - 1,
                 'description' => $this->form['description_column'] - 1,
-                'amount' => ! $this->hasSeparateColumns && $this->form['amount_column'] ? $this->form['amount_column'] - 1 : null,
+                'amount' => !$this->hasSeparateColumns && $this->form['amount_column'] ? $this->form['amount_column'] - 1 : null,
                 'debit' => $this->hasSeparateColumns && $this->form['debit_column'] ? $this->form['debit_column'] - 1 : null,
                 'credit' => $this->hasSeparateColumns && $this->form['credit_column'] ? $this->form['credit_column'] - 1 : null,
-            ], fn ($value) => $value !== null),
+            ], fn (int|float|null $value): bool => $value !== null),
             'date_format' => $this->form['date_format'],
             'has_header' => (bool) $this->form['has_header'],
         ];
 
-        if ($this->editingProfile) {
+        if ($this->editingProfile instanceof BankProfile) {
             $this->editingProfile->update([
                 'name' => $this->form['name'],
                 'statement_type' => $this->form['statement_type'],

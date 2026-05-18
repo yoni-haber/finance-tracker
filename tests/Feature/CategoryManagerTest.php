@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Categories\CategoryManager;
@@ -12,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class CategoryManagerTest extends TestCase
+final class CategoryManagerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -26,9 +28,7 @@ class CategoryManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
-            ->assertViewHas('incomeParents', function ($parents) use ($ownIncome) {
-                return $parents->count() === 1 && $parents->first()->id === $ownIncome->id;
-            });
+            ->assertViewHas('incomeParents', fn ($parents): bool => $parents->count() === 1 && $parents->first()->id === $ownIncome->id);
     }
 
     public function test_render_income_and_expense_sections_are_separate(): void

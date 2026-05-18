@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
@@ -8,27 +10,27 @@ use Laravel\Fortify\Features;
 use Livewire\Volt\Volt as LivewireVolt;
 use Tests\TestCase;
 
-class AuthenticationTest extends TestCase
+final class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_login_screen_can_be_rendered(): void
     {
-        $response = $this->get(route('login'));
+        $testResponse = $this->get(route('login'));
 
-        $response->assertStatus(200);
+        $testResponse->assertStatus(200);
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->withoutTwoFactor()->create();
 
-        $response = LivewireVolt::test('auth.login')
+        $testable = LivewireVolt::test('auth.login')
             ->set('email', $user->email)
             ->set('password', 'password')
             ->call('login');
 
-        $response
+        $testable
             ->assertHasNoErrors()
             ->assertRedirect(route('dashboard', absolute: false));
 
@@ -39,19 +41,19 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = LivewireVolt::test('auth.login')
+        $testable = LivewireVolt::test('auth.login')
             ->set('email', $user->email)
             ->set('password', 'wrong-password')
             ->call('login');
 
-        $response->assertHasErrors('email');
+        $testable->assertHasErrors('email');
 
         $this->assertGuest();
     }
 
     public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge(): void
     {
-        if (! Features::canManageTwoFactorAuthentication()) {
+        if (!Features::canManageTwoFactorAuthentication()) {
             $this->markTestSkipped('Two-factor authentication is not enabled.');
         }
 
@@ -68,13 +70,13 @@ class AuthenticationTest extends TestCase
             'two_factor_confirmed_at' => now(),
         ])->save();
 
-        $response = LivewireVolt::test('auth.login')
+        $testable = LivewireVolt::test('auth.login')
             ->set('email', $user->email)
             ->set('password', 'password')
             ->call('login');
 
-        $response->assertRedirect(route('two-factor.login'));
-        $response->assertSessionHas('login.id', $user->id);
+        $testable->assertRedirect(route('two-factor.login'));
+        $testable->assertSessionHas('login.id', $user->id);
         $this->assertGuest();
     }
 
@@ -82,9 +84,9 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post(route('logout'));
+        $testResponse = $this->actingAs($user)->post(route('logout'));
 
-        $response->assertRedirect(route('home'));
+        $testResponse->assertRedirect(route('home'));
 
         $this->assertGuest();
     }

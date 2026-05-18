@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Jobs\ParseBankStatementJob;
@@ -12,9 +14,10 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 
-class ParseBankStatementJobTest extends TestCase
+final class ParseBankStatementJobTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -35,11 +38,11 @@ class ParseBankStatementJobTest extends TestCase
         // Create CSV file
         $csvContent = "01/01/2026,Test Transaction,100.50\n02/01/2026,Another Transaction,-50.25";
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", $csvContent);
+        Storage::put(sprintf('statements/%d.csv', $import->id), $csvContent);
 
         // Execute job
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         // Check import status
         $import->refresh();
@@ -52,16 +55,16 @@ class ParseBankStatementJobTest extends TestCase
         $firstTransaction = $transactions->first();
         $this->assertEquals('2026-01-01', $firstTransaction->date->toDateString());
         $this->assertEquals('TEST TRANSACTION', $firstTransaction->description);
-        $this->assertEquals(100.50, $firstTransaction->amount);
+        $this->assertEqualsWithDelta(100.50, $firstTransaction->amount, PHP_FLOAT_EPSILON);
         $this->assertFalse($firstTransaction->is_duplicate);
     }
 
     public function test_handles_missing_import_gracefully(): void
     {
-        $job = new ParseBankStatementJob(99999); // Non-existent import
+        $parseBankStatementJob = new ParseBankStatementJob(99999); // Non-existent import
 
         $this->expectException(ModelNotFoundException::class);
-        $job->handle();
+        $parseBankStatementJob->handle();
     }
 
     public function test_handles_missing_csv_file(): void
@@ -72,8 +75,8 @@ class ParseBankStatementJobTest extends TestCase
 
         Storage::fake('local'); // File doesn't exist
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         $import->refresh();
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->status);
@@ -93,10 +96,10 @@ class ParseBankStatementJobTest extends TestCase
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", '01/01/2026,Test,100');
+        Storage::put(sprintf('statements/%d.csv', $import->id), '01/01/2026,Test,100');
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         $import->refresh();
         $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->status); // Final status after successful parsing
@@ -116,13 +119,13 @@ class ParseBankStatementJobTest extends TestCase
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", '01/01/2026,Test Transaction,100.50');
+        Storage::put(sprintf('statements/%d.csv', $import->id), '01/01/2026,Test Transaction,100.50');
 
-        $job = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
 
         // Run twice
-        $job->handle();
-        $job->handle();
+        $parseBankStatementJob->handle();
+        $parseBankStatementJob->handle();
 
         // Should not create duplicate transactions
         $this->assertCount(1, $import->fresh()->importedTransactions);
@@ -139,18 +142,16 @@ class ParseBankStatementJobTest extends TestCase
 
         ParseBankStatementJob::dispatch($import->id);
 
-        Queue::assertPushed(ParseBankStatementJob::class, function ($job) use ($import) {
-            return $job->importId === $import->id;
-        });
+        Queue::assertPushed(ParseBankStatementJob::class, fn ($job): bool => $job->importId === $import->id);
     }
 
     public function test_job_properties_are_set_correctly(): void
     {
-        $job = new ParseBankStatementJob(123);
+        $parseBankStatementJob = new ParseBankStatementJob(123);
 
-        $this->assertEquals(123, $job->importId);
-        $this->assertEquals(60, $job->timeout);
-        $this->assertEquals(3, $job->tries);
+        $this->assertSame(123, $parseBankStatementJob->importId);
+        $this->assertSame(60, $parseBankStatementJob->timeout);
+        $this->assertSame(3, $parseBankStatementJob->tries);
     }
 
     public function test_handles_invalid_csv_data(): void
@@ -169,10 +170,10 @@ class ParseBankStatementJobTest extends TestCase
         // Create CSV with invalid data
         $csvContent = 'invalid-date,Test Transaction,not-a-number';
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", $csvContent);
+        Storage::put(sprintf('statements/%d.csv', $import->id), $csvContent);
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         $import->refresh();
         // Parser should complete successfully but skip invalid rows
@@ -200,13 +201,14 @@ class ParseBankStatementJobTest extends TestCase
         for ($i = 1; $i <= 1000; $i++) {
             $lines[] = sprintf('%02d/01/2026,Transaction %d,%d.00', ($i % 28) + 1, $i, $i * 10);
         }
+
         $csvContent = implode("\n", $lines);
 
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", $csvContent);
+        Storage::put(sprintf('statements/%d.csv', $import->id), $csvContent);
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         $import->refresh();
         $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->status);
@@ -229,10 +231,10 @@ class ParseBankStatementJobTest extends TestCase
         // CSV with special characters
         $csvContent = "01/01/2026,Café Purchase,€25.50\n02/01/2026,Résumé Printing,£10.00";
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", $csvContent);
+        Storage::put(sprintf('statements/%d.csv', $import->id), $csvContent);
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         $import->refresh();
         $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->status);
@@ -262,10 +264,10 @@ class ParseBankStatementJobTest extends TestCase
         ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
 
         Storage::fake('local');
-        Storage::put("statements/{$import->id}.csv", '01/01/2026,Test,100');
+        Storage::put(sprintf('statements/%d.csv', $import->id), '01/01/2026,Test,100');
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle(); // handle() is now void — no return value to assert
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle(); // handle() is now void — no return value to assert
 
         $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
 
@@ -279,8 +281,8 @@ class ParseBankStatementJobTest extends TestCase
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->failed(new \RuntimeException('Something went wrong'));
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->failed(new RuntimeException('Something went wrong'));
 
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->fresh()->status);
     }
@@ -289,10 +291,10 @@ class ParseBankStatementJobTest extends TestCase
     {
         $this->expectNotToPerformAssertions();
 
-        $job = new ParseBankStatementJob(99999);
+        $parseBankStatementJob = new ParseBankStatementJob(99999);
 
         // Should not throw — import simply does not exist
-        $job->failed(new \RuntimeException('Boom'));
+        $parseBankStatementJob->failed(new RuntimeException('Boom'));
     }
 
     public function test_skips_committed_imports(): void
@@ -306,8 +308,8 @@ class ParseBankStatementJobTest extends TestCase
 
         Storage::fake('local');
 
-        $job = new ParseBankStatementJob($import->id);
-        $job->handle();
+        $parseBankStatementJob = new ParseBankStatementJob($import->id);
+        $parseBankStatementJob->handle();
 
         // Status should be unchanged — committed imports are skipped
         $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);

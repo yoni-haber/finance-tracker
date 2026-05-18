@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Models\Budget;
@@ -11,7 +13,7 @@ use App\Support\TransactionReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class BudgetComparisonTest extends TestCase
+final class BudgetComparisonTest extends TestCase
 {
     use RefreshDatabase;
 

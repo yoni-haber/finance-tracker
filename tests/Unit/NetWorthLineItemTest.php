@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\NetWorthLineItem;
@@ -7,7 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class NetWorthLineItemTest extends TestCase
+final class NetWorthLineItemTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -16,7 +18,7 @@ class NetWorthLineItemTest extends TestCase
         /** @var NetWorthLineItem $lineItem */
         $lineItem = NetWorthLineItem::factory()->create(['amount' => '123.456']);
 
-        $this->assertSame(123.46, (float) $lineItem->amount);
+        $this->assertEqualsWithDelta(123.46, (float) $lineItem->amount, PHP_FLOAT_EPSILON);
     }
 
     public function test_net_worth_line_item_belongs_to_a_user(): void

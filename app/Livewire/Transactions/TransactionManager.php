@@ -95,7 +95,7 @@ class TransactionManager extends Component
             ->when($this->filterType, fn ($items) => $items->where('type', $this->filterType))
             ->sortByDesc('date');
 
-        return view('livewire.transactions.manager', compact('transactions', 'formCategories', 'filterCategories', 'filterSubCategories'));
+        return view('livewire.transactions.manager', ['transactions' => $transactions, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
     }
 
     public function save(): void
@@ -103,7 +103,7 @@ class TransactionManager extends Component
         $data = $this->validate($this->rules());
         $data['user_id'] = Auth::id();
 
-        if (! $data['is_recurring']) {
+        if (!$data['is_recurring']) {
             $data['frequency'] = null;
             $data['recurring_until'] = null;
         }
@@ -112,7 +112,7 @@ class TransactionManager extends Component
             $transaction = Transaction::where('user_id', $data['user_id'])
                 ->find($this->transactionId);
 
-            if (! $transaction) {
+            if (!$transaction) {
                 $this->addError('save', 'Transaction not found.');
 
                 return;
@@ -195,14 +195,14 @@ class TransactionManager extends Component
 
     public function updatedIsRecurring(bool $value): void
     {
-        if (! $value) {
+        if (!$value) {
             $this->frequency = null;
             $this->recurring_until = null;
 
             return;
         }
 
-        if (! $this->frequency) {
+        if (!$this->frequency) {
             $this->frequency = 'monthly';
         }
     }
@@ -223,6 +223,9 @@ class TransactionManager extends Component
         $this->resetErrorBag();
     }
 
+    /**
+     * @return array<string, string[]|\Illuminate\Validation\Rules\Exists[]|string[]>
+     */
     protected function rules(): array
     {
         return [

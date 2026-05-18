@@ -41,7 +41,7 @@ class ReportsHub extends Component
     {
         $userId = Auth::id() ?? abort(401);
 
-        if (! array_key_exists($this->range, $this->rangeOptions())) {
+        if (!array_key_exists($this->range, $this->rangeOptions())) {
             $this->range = '12_months';
         }
 
@@ -50,6 +50,9 @@ class ReportsHub extends Component
         $this->dispatch('reports-chart-data', chartData: $this->chartData);
     }
 
+    /**
+     * @return array<string, list<(float | string)>>
+     */
     protected function chartDataForRange(string $range, int $userId): array
     {
         $labels = [];
@@ -73,9 +76,12 @@ class ReportsHub extends Component
             $expenses[] = (float) $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount');
         }
 
-        return compact('labels', 'income', 'expenses');
+        return ['labels' => $labels, 'income' => $income, 'expenses' => $expenses];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function buildNetWorthChartData(int $userId): array
     {
         $entries = NetWorthEntry::where('user_id', $userId)
@@ -85,10 +91,13 @@ class ReportsHub extends Component
 
         return [
             'labels' => $entries->pluck('date')->map(fn ($date) => $date->format('M d, Y'))->all(),
-            'netWorth' => $entries->pluck('net_worth')->map(fn ($value) => (float) $value)->all(),
+            'netWorth' => $entries->pluck('net_worth')->map(fn ($value): float => (float) $value)->all(),
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function rangeOptions(): array
     {
         return [
