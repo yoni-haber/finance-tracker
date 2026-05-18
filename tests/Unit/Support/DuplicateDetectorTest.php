@@ -19,8 +19,6 @@ final class DuplicateDetectorTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ─── generateTransactionHash ─────────────────────────────────────────────
-
     public function test_generate_transaction_hash_is_deterministic(): void
     {
         $duplicateDetector = new DuplicateDetector(1);
@@ -50,8 +48,6 @@ final class DuplicateDetectorTest extends TestCase
 
         $this->assertSame($hashFromString, $hashFromCarbon);
     }
-
-    // ─── detectDuplicates ────────────────────────────────────────────────────
 
     public function test_detect_duplicates_marks_unique_hash_as_not_duplicate(): void
     {

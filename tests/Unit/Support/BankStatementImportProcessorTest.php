@@ -145,7 +145,7 @@ final class BankStatementImportProcessorTest extends TestCase
 
         // Generate hash for the existing transaction
         $duplicateDetector = new DuplicateDetector($user->id);
-        $hash = $duplicateDetector->generateTransactionHash($user->id, $existingTransaction->date, $existingTransaction->amount, $existingTransaction->description);
+        $hash = $duplicateDetector->generateTransactionHash($user->id, $existingTransaction->date, (float) $existingTransaction->amount, $existingTransaction->description);
         $existingTransaction->update(['hash' => $hash]);
 
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
