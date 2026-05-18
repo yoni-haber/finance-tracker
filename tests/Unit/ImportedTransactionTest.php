@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\BankProfile;
@@ -10,7 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class ImportedTransactionTest extends TestCase
+final class ImportedTransactionTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -27,7 +29,7 @@ class ImportedTransactionTest extends TestCase
 
     public function test_imported_transaction_has_required_fillable_fields(): void
     {
-        $transaction = new ImportedTransaction;
+        $importedTransaction = new ImportedTransaction();
         $expectedFillable = [
             'import_id',
             'date',
@@ -41,7 +43,7 @@ class ImportedTransactionTest extends TestCase
             'is_committed',
         ];
 
-        $this->assertSame($expectedFillable, $transaction->getFillable());
+        $this->assertSame($expectedFillable, $importedTransaction->getFillable());
     }
 
     public function test_imported_transaction_casts_fields_correctly(): void

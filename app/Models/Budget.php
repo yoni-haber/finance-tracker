@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\BudgetFactory;
 use Eloquent;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Override;
 
 /**
  * @property int $id
@@ -41,18 +43,21 @@ use Illuminate\Support\Carbon;
  *
  * @mixin Eloquent
  */
+#[Fillable([
+    'user_id',
+    'category_id',
+    'month',
+    'year',
+    'amount',
+])]
 class Budget extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'user_id',
-        'category_id',
-        'month',
-        'year',
-        'amount',
-    ];
-
+    /**
+     * @return array<string, string>
+     */
+    #[Override]
     protected function casts(): array
     {
         return [

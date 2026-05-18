@@ -3,8 +3,12 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Carbon\Month;
+use Carbon\WeekDay;
 use Database\Factories\TransactionFactory;
+use DateTimeInterface;
 use Eloquent;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon as SupportCarbon;
 use Illuminate\Support\Collection;
+use Override;
 
 /**
  * @property int $id
@@ -57,6 +62,18 @@ use Illuminate\Support\Collection;
  *
  * @mixin Eloquent
  */
+#[Fillable([
+    'user_id',
+    'category_id',
+    'type',
+    'amount',
+    'date',
+    'is_recurring',
+    'frequency',
+    'recurring_until',
+    'description',
+    'hash',
+])]
 class Transaction extends Model
 {
     use HasFactory;
@@ -65,19 +82,10 @@ class Transaction extends Model
 
     const string TYPE_EXPENSE = 'expense';
 
-    protected $fillable = [
-        'user_id',
-        'category_id',
-        'type',
-        'amount',
-        'date',
-        'is_recurring',
-        'frequency',
-        'recurring_until',
-        'description',
-        'hash',
-    ];
-
+    /**
+     * @return array<string, string>
+     */
+    #[Override]
     protected function casts(): array
     {
         return [
@@ -143,7 +151,7 @@ class Transaction extends Model
          * NON-RECURRING TRANSACTION
          * Return the transaction only if its date falls within the month
          */
-        if (! $this->is_recurring) {
+        if (!$this->is_recurring) {
             return $this->date->between($monthStart, $monthEnd)
                 ? collect([$this->replicateForDate($this->date, false)])
                 : collect();
@@ -162,9 +170,9 @@ class Transaction extends Model
          * - the transaction date is after the last recurrence date
          */
         if (
-            ! $this->frequency ||
-            ($recurringEnd && $monthStart->greaterThan($recurringEnd)) ||
-            ($recurringEnd && $this->date->greaterThan($recurringEnd))
+            !$this->frequency ||
+            ($recurringEnd instanceof Carbon && $monthStart->greaterThan($recurringEnd)) ||
+            ($recurringEnd instanceof Carbon && $this->date->greaterThan($recurringEnd))
         ) {
             return collect();
         }
@@ -174,7 +182,7 @@ class Transaction extends Model
          * - end of the month
          * - recurring_until (if defined)
          */
-        $generationEnd = $recurringEnd && $recurringEnd->lessThan($monthEnd)
+        $generationEnd = $recurringEnd instanceof Carbon && $recurringEnd->lessThan($monthEnd)
             ? $recurringEnd
             : $monthEnd;
 
@@ -184,7 +192,7 @@ class Transaction extends Model
          */
         $skippedDates = $this->occurrenceExceptions
             ->pluck('date')
-            ->map(fn ($date) => Carbon::parse($date)->toDateString())
+            ->map(fn (DateTimeInterface|WeekDay|Month|string|int|float|null $date): string => Carbon::parse($date)->toDateString())
             ->flip(); // enables O(1) lookups
 
         // Frequency → interval mapping
@@ -195,7 +203,7 @@ class Transaction extends Model
         ];
 
         // If the frequency is invalid, return empty
-        if (! isset($intervals[$this->frequency])) {
+        if (!isset($intervals[$this->frequency])) {
             return collect();
         }
 
@@ -211,10 +219,10 @@ class Transaction extends Model
             // Include only occurrences inside the target month and not skipped
             if (
                 $transactionDate->between($monthStart, $monthEnd) &&
-                ! $skippedDates->has($dateKey)
+                !$skippedDates->has($dateKey)
             ) {
                 $occurrences->push(
-                    $this->replicateForDate($transactionDate)
+                    $this->replicateForDate($transactionDate),
                 );
             }
 
@@ -241,11 +249,11 @@ class Transaction extends Model
      *
      * @param  bool  $isProjected  Whether this occurrence is derived from recurrence rules
      */
-    protected function replicateForDate(SupportCarbon $date, bool $isProjected = true): self
+    protected function replicateForDate(SupportCarbon $supportCarbon, bool $isProjected = true): self
     {
         $clone = $this->replicate();
         $clone->id = $this->id;
-        $clone->date = $date;
+        $clone->date = $supportCarbon;
         $clone->setAttribute('projected', $isProjected);
         $clone->setRelation('category', $this->category);
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Dashboard;
@@ -12,14 +14,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class DashboardTest extends TestCase
+final class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_guests_are_redirected_to_the_login_page(): void
     {
-        $response = $this->get(route('dashboard'));
-        $response->assertRedirect(route('login'));
+        $testResponse = $this->get(route('dashboard'));
+        $testResponse->assertRedirect(route('login'));
     }
 
     public function test_authenticated_users_can_visit_the_dashboard(): void
@@ -27,8 +29,8 @@ class DashboardTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        $response = $this->get(route('dashboard'));
-        $response->assertStatus(200);
+        $testResponse = $this->get(route('dashboard'));
+        $testResponse->assertStatus(200);
     }
 
     public function test_mount_sets_current_month_and_year(): void
@@ -86,14 +88,14 @@ class DashboardTest extends TestCase
             ],
         ]);
 
-        $component = Livewire::actingAs($user)->test(Dashboard::class);
+        $testable = Livewire::actingAs($user)->test(Dashboard::class);
 
-        $component
+        $testable
             ->assertViewHas('income', '2500.00')
             ->assertViewHas('expenses', '250.00')
             ->assertViewHas('net', '2250.00');
 
-        $component->assertViewHas('budgetSummaries', function ($summaries) {
+        $testable->assertViewHas('budgetSummaries', function ($summaries): bool {
             $groceries = $summaries->firstWhere('category', 'Groceries');
 
             return $groceries['budget'] === '500.00'
@@ -102,7 +104,7 @@ class DashboardTest extends TestCase
                 && $groceries['overspent'] === false;
         });
 
-        $component->assertViewHas('incomeCategoryBreakdown', function ($breakdown) {
+        $testable->assertViewHas('incomeCategoryBreakdown', function ($breakdown): bool {
             $salary = collect($breakdown)->firstWhere('category', 'Salary');
             $uncategorised = collect($breakdown)->firstWhere('category', 'Uncategorised');
 
@@ -110,7 +112,7 @@ class DashboardTest extends TestCase
                 && $uncategorised['total'] === '500.00';
         });
 
-        $component->assertViewHas('expenseCategoryBreakdown', function ($breakdown) {
+        $testable->assertViewHas('expenseCategoryBreakdown', function ($breakdown): bool {
             $groceries = collect($breakdown)->firstWhere('category', 'Groceries');
             $uncategorised = collect($breakdown)->firstWhere('category', 'Uncategorised');
 
@@ -145,7 +147,7 @@ class DashboardTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)
-            ->assertViewHas('budgetSummaries', function ($summaries) {
+            ->assertViewHas('budgetSummaries', function ($summaries): bool {
                 $groceries = $summaries->firstWhere('category', 'Groceries');
 
                 return $groceries['actual'] === '200.00'
@@ -180,7 +182,7 @@ class DashboardTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)
-            ->assertViewHas('budgetSummaries', function ($summaries) {
+            ->assertViewHas('budgetSummaries', function ($summaries): bool {
                 $food = $summaries->firstWhere('category', 'Food');
 
                 // Subcategory transaction must count towards the parent budget actual.
@@ -219,7 +221,7 @@ class DashboardTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)
-            ->assertViewHas('expenseCategoryBreakdown', function ($breakdown) {
+            ->assertViewHas('expenseCategoryBreakdown', function ($breakdown): bool {
                 $food = collect($breakdown)->firstWhere('category', 'Food');
                 $groceries = collect($breakdown)->firstWhere('category', 'Groceries');
 

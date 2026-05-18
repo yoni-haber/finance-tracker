@@ -6,6 +6,7 @@ use App\Jobs\ParseBankStatementJob;
 use App\Models\BankProfile;
 use App\Models\BankStatementImport;
 use App\Support\BankStatementConfig;
+use Exception;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -41,7 +42,7 @@ class StatementImportManager extends Component
             ->first();
 
         // Enable polling if there's an active import that's not yet parsed
-        $this->polling = $this->currentImport &&
+        $this->polling = $this->currentImport instanceof BankStatementImport &&
                         ($this->currentImport->isUploaded() || $this->currentImport->isParsing());
     }
 
@@ -54,6 +55,9 @@ class StatementImportManager extends Component
         ]);
     }
 
+    /**
+     * @return array<string, string[]>
+     */
     protected function rules(): array
     {
         return [
@@ -72,7 +76,7 @@ class StatementImportManager extends Component
 
     public function checkImportStatus(): void
     {
-        if ($this->currentImport) {
+        if ($this->currentImport instanceof BankStatementImport) {
             $this->currentImport->refresh();
 
             // Stop polling once parsing is complete or failed
@@ -100,7 +104,7 @@ class StatementImportManager extends Component
             ]);
 
             // Store the file with a predictable name for the parser
-            $this->csvFile->storeAs('statements', "{$import->id}.csv", 'local');
+            $this->csvFile->storeAs('statements', $import->id.'.csv', 'local');
 
             // Dispatch the parsing job
             ParseBankStatementJob::dispatch($import->id);
@@ -110,13 +114,13 @@ class StatementImportManager extends Component
             $this->reset(['csvFile', 'bankProfileId']);
 
             session()->flash('status', 'Bank statement uploaded successfully. Processing will begin shortly.');
-        } catch (\Exception $e) {
+        } catch (Exception $exception) {
             logger()->error('Failed to upload bank statement', [
                 'user_id' => Auth::id(),
                 'bank_profile_id' => $this->bankProfileId,
                 'filename' => $this->csvFile?->getClientOriginalName(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
             ]);
 
             $this->addError('csvFile', 'Failed to upload file. Please try again.');
@@ -125,13 +129,13 @@ class StatementImportManager extends Component
 
     public function cancelImport(): void
     {
-        if (! $this->currentImport || $this->currentImport->isCommitted()) {
+        if (!$this->currentImport instanceof BankStatementImport || $this->currentImport->isCommitted()) {
             return;
         }
 
         try {
             // Clean up the stored file if it exists
-            Storage::delete("statements/{$this->currentImport->id}.csv");
+            Storage::delete(sprintf('statements/%d.csv', $this->currentImport->id));
 
             // Delete any imported transactions (staged data)
             $this->currentImport->importedTransactions()->delete();
@@ -144,13 +148,13 @@ class StatementImportManager extends Component
 
             session()->flash('status', 'Import deleted successfully.');
 
-        } catch (\Exception $e) {
+        } catch (Exception $exception) {
             logger()->error('Failed to delete import', [
                 'import_id' => $this->currentImport->id,
                 'user_id' => Auth::id(),
                 'import_status' => $this->currentImport->status,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
             ]);
 
             session()->flash('error', 'Failed to delete import. Please try again.');
@@ -159,7 +163,7 @@ class StatementImportManager extends Component
 
     public function proceedToReview(): void
     {
-        if ($this->currentImport && $this->currentImport->isParsed()) {
+        if ($this->currentImport instanceof BankStatementImport && $this->currentImport->isParsed()) {
             $this->redirect(route('statements.review', $this->currentImport->id));
         }
     }

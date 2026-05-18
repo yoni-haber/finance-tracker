@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Jobs\ParseBankStatementJob;
@@ -9,15 +11,18 @@ use App\Models\BankStatementImport;
 use App\Models\ImportedTransaction;
 use App\Models\User;
 use App\Support\BankStatementConfig;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use ReflectionAttribute;
+use ReflectionClass;
 use Tests\TestCase;
 
-class StatementImportManagerTest extends TestCase
+final class StatementImportManagerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -145,18 +150,18 @@ class StatementImportManagerTest extends TestCase
             ->parsing()
             ->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->set('currentImport', $import);
 
         // Change status in database
         $import->update(['status' => BankStatementConfig::STATUS_PARSED]);
 
-        $component->call('checkImportStatus')
+        $testable->call('checkImportStatus')
             ->assertSet('polling', false);
 
         // Verify the component's currentImport reflects the updated status
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $component->get('currentImport')->fresh()->status);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $testable->get('currentImport')->fresh()->status);
     }
 
     public function test_check_import_status_stops_polling_when_parsed(): void
@@ -170,7 +175,7 @@ class StatementImportManagerTest extends TestCase
             ->parsing()
             ->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->set('currentImport', $import)
             ->set('polling', true);
@@ -178,7 +183,7 @@ class StatementImportManagerTest extends TestCase
         // Update import status to parsed
         $import->update(['status' => BankStatementConfig::STATUS_PARSED]);
 
-        $component->call('checkImportStatus')
+        $testable->call('checkImportStatus')
             ->assertSet('polling', false);
     }
 
@@ -193,7 +198,7 @@ class StatementImportManagerTest extends TestCase
             ->parsing()
             ->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->set('currentImport', $import)
             ->set('polling', true);
@@ -201,7 +206,7 @@ class StatementImportManagerTest extends TestCase
         // Update import status to failed
         $import->update(['status' => BankStatementConfig::STATUS_FAILED]);
 
-        $component->call('checkImportStatus')
+        $testable->call('checkImportStatus')
             ->assertSet('polling', false);
     }
 
@@ -211,7 +216,7 @@ class StatementImportManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
-            ->set('currentImport', null)
+            ->set('currentImport')
             ->call('checkImportStatus')
             ->assertSet('polling', false);
     }
@@ -322,12 +327,10 @@ class StatementImportManagerTest extends TestCase
         $this->assertEquals('bank', $import->statement_type);
 
         // Check file was stored
-        Storage::disk('local')->assertExists("statements/{$import->id}.csv");
+        Storage::disk('local')->assertExists(sprintf('statements/%s.csv', $import->id));
 
         // Check job was dispatched
-        Queue::assertPushed(ParseBankStatementJob::class, function ($job) use ($import) {
-            return $job->importId === $import->id;
-        });
+        Queue::assertPushed(ParseBankStatementJob::class, fn ($job): bool => $job->importId === $import->id);
     }
 
     public function test_upload_statement_sets_credit_card_statement_type(): void
@@ -392,7 +395,7 @@ class StatementImportManagerTest extends TestCase
 
         // Force an exception by making the ParseBankStatementJob::dispatch fail
         Queue::shouldReceive('dispatch')
-            ->andThrow(new \Exception('Job dispatch failed'));
+            ->andThrow(new Exception('Job dispatch failed'));
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
@@ -408,7 +411,7 @@ class StatementImportManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
-            ->set('currentImport', null)
+            ->set('currentImport')
             ->call('cancelImport')
             ->assertSet('currentImport', null)
             ->assertSet('polling', false);
@@ -447,7 +450,7 @@ class StatementImportManagerTest extends TestCase
             ->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
         // Create a file for the import
-        Storage::disk('local')->put("statements/{$import->id}.csv", 'test,data');
+        Storage::disk('local')->put(sprintf('statements/%d.csv', $import->id), 'test,data');
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
@@ -460,7 +463,7 @@ class StatementImportManagerTest extends TestCase
         $this->assertDatabaseMissing('bank_statement_imports', ['id' => $import->id]);
 
         // Check file was deleted
-        Storage::disk('local')->assertMissing("statements/{$import->id}.csv");
+        Storage::disk('local')->assertMissing(sprintf('statements/%d.csv', $import->id));
     }
 
     public function test_cancel_import_deletes_parsed_import_and_transactions(): void
@@ -480,7 +483,7 @@ class StatementImportManagerTest extends TestCase
         $transaction1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
         $transaction2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
 
-        Storage::disk('local')->put("statements/{$import->id}.csv", 'test,data');
+        Storage::disk('local')->put(sprintf('statements/%d.csv', $import->id), 'test,data');
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
@@ -495,7 +498,7 @@ class StatementImportManagerTest extends TestCase
         $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction2->id]);
 
         // Check file was deleted
-        Storage::disk('local')->assertMissing("statements/{$import->id}.csv");
+        Storage::disk('local')->assertMissing(sprintf('statements/%d.csv', $import->id));
     }
 
     public function test_cancel_import_completes_successfully(): void
@@ -525,12 +528,12 @@ class StatementImportManagerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
-            ->set('currentImport', null)
+            ->set('currentImport')
             ->call('proceedToReview');
 
-        $this->assertNull($response->effects['redirect'] ?? null);
+        $this->assertNull($testable->effects['redirect'] ?? null);
     }
 
     public function test_proceed_to_review_with_unparsed_import(): void
@@ -543,12 +546,12 @@ class StatementImportManagerTest extends TestCase
             ->for($bankProfile, 'bankProfile')
             ->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
-        $response = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->set('currentImport', $import)
             ->call('proceedToReview');
 
-        $this->assertNull($response->effects['redirect'] ?? null);
+        $this->assertNull($testable->effects['redirect'] ?? null);
     }
 
     public function test_proceed_to_review_with_parsed_import_redirects(): void
@@ -579,10 +582,10 @@ class StatementImportManagerTest extends TestCase
         $otherUser = User::factory()->create();
         BankProfile::factory()->for($otherUser)->create(['name' => 'Other User Bank']);
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class);
 
-        $bankProfiles = $component->viewData('bankProfiles');
+        $bankProfiles = $testable->viewData('bankProfiles');
 
         $this->assertCount(2, $bankProfiles);
         $this->assertTrue($bankProfiles->contains('name', 'User Bank 1'));
@@ -598,10 +601,10 @@ class StatementImportManagerTest extends TestCase
         BankProfile::factory()->for($user)->create(['name' => 'A Bank']);
         BankProfile::factory()->for($user)->create(['name' => 'M Bank']);
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class);
 
-        $bankProfiles = $component->viewData('bankProfiles');
+        $bankProfiles = $testable->viewData('bankProfiles');
 
         $this->assertEquals('A Bank', $bankProfiles->first()->name);
         $this->assertEquals('Z Bank', $bankProfiles->last()->name);
@@ -609,34 +612,35 @@ class StatementImportManagerTest extends TestCase
 
     public function test_component_uses_correct_layout_and_title(): void
     {
-        $component = new StatementImportManager;
+        $statementImportManager = new StatementImportManager();
 
-        $reflection = new \ReflectionClass($component);
-        $attributes = $reflection->getAttributes();
+        $reflectionClass = new ReflectionClass($statementImportManager);
+        $attributes = $reflectionClass->getAttributes();
 
         $layoutAttribute = null;
         $titleAttribute = null;
 
         foreach ($attributes as $attribute) {
-            if ($attribute->getName() === 'Livewire\\Attributes\\Layout') {
+            if ($attribute->getName() === \Livewire\Attributes\Layout::class) {
                 $layoutAttribute = $attribute;
             }
-            if ($attribute->getName() === 'Livewire\\Attributes\\Title') {
+
+            if ($attribute->getName() === \Livewire\Attributes\Title::class) {
                 $titleAttribute = $attribute;
             }
         }
 
-        $this->assertNotNull($layoutAttribute);
-        $this->assertNotNull($titleAttribute);
-        $this->assertEquals(['components.layouts.app'], $layoutAttribute->getArguments());
-        $this->assertEquals(['Import Bank Statement'], $titleAttribute->getArguments());
+        $this->assertInstanceOf(ReflectionAttribute::class, $layoutAttribute);
+        $this->assertInstanceOf(ReflectionAttribute::class, $titleAttribute);
+        $this->assertSame(['components.layouts.app'], $layoutAttribute->getArguments());
+        $this->assertSame(['Import Bank Statement'], $titleAttribute->getArguments());
     }
 
     public function test_component_has_with_file_uploads_trait(): void
     {
-        $component = new StatementImportManager;
+        $statementImportManager = new StatementImportManager();
 
-        $this->assertContains('Livewire\\WithFileUploads', class_uses($component));
+        $this->assertContains(\Livewire\WithFileUploads::class, class_uses($statementImportManager));
     }
 
     public function test_rules_method_validates_with_authenticated_user(): void
@@ -645,12 +649,12 @@ class StatementImportManagerTest extends TestCase
 
         Auth::login($user);
 
-        $component = new StatementImportManager;
+        $statementImportManager = new StatementImportManager();
 
         // Use reflection to access protected method
-        $reflection = new \ReflectionClass($component);
-        $rulesMethod = $reflection->getMethod('rules');
-        $rules = $rulesMethod->invoke($component);
+        $reflectionClass = new ReflectionClass($statementImportManager);
+        $reflectionMethod = $reflectionClass->getMethod('rules');
+        $rules = $reflectionMethod->invoke($statementImportManager);
 
         $this->assertArrayHasKey('csvFile', $rules);
         $this->assertArrayHasKey('bankProfileId', $rules);
@@ -662,12 +666,12 @@ class StatementImportManagerTest extends TestCase
 
     public function test_public_properties_have_correct_default_values(): void
     {
-        $component = new StatementImportManager;
+        $statementImportManager = new StatementImportManager();
 
-        $this->assertNull($component->csvFile);
-        $this->assertNull($component->bankProfileId);
-        $this->assertNull($component->currentImport);
-        $this->assertFalse($component->polling);
+        $this->assertNull($statementImportManager->csvFile);
+        $this->assertNull($statementImportManager->bankProfileId);
+        $this->assertNotInstanceOf(BankStatementImport::class, $statementImportManager->currentImport);
+        $this->assertFalse($statementImportManager->polling);
     }
 
     public function test_validation_error_messages_for_file_upload(): void

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\NetWorth\NetWorthTracker;
@@ -10,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class NetWorthTrackerTest extends TestCase
+final class NetWorthTrackerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -33,11 +35,11 @@ class NetWorthTrackerTest extends TestCase
         /** @var null|NetWorthEntry $entry */
         $entry = NetWorthEntry::first();
 
-        $this->assertNotNull($entry);
+        $this->assertInstanceOf(NetWorthEntry::class, $entry);
         $this->assertEquals('2024-05-10', $entry->date->toDateString());
-        $this->assertSame(150.0, (float) $entry->assets);
-        $this->assertSame(40.0, (float) $entry->liabilities);
-        $this->assertSame(110.0, (float) $entry->net_worth);
+        $this->assertEqualsWithDelta(150.0, (float) $entry->assets, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(40.0, (float) $entry->liabilities, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(110.0, (float) $entry->net_worth, PHP_FLOAT_EPSILON);
 
         $this->assertDatabaseHas('net_worth_line_items', [
             'net_worth_entry_id' => $entry->id,
@@ -94,9 +96,9 @@ class NetWorthTrackerTest extends TestCase
         /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::first();
         $this->assertSame($firstEntryId, $entry->id);
-        $this->assertSame(2000.0, (float) $entry->assets);
-        $this->assertSame(500.0, (float) $entry->liabilities);
-        $this->assertSame(1500.0, (float) $entry->net_worth);
+        $this->assertEqualsWithDelta(2000.0, (float) $entry->assets, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(500.0, (float) $entry->liabilities, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(1500.0, (float) $entry->net_worth, PHP_FLOAT_EPSILON);
     }
 
     public function test_save_adds_error_when_entry_id_not_found(): void
@@ -138,9 +140,9 @@ class NetWorthTrackerTest extends TestCase
 
         /** @var NetWorthEntry $updated */
         $updated = $entry->fresh();
-        $this->assertSame(3000.0, (float) $updated->assets);
-        $this->assertSame(1000.0, (float) $updated->liabilities);
-        $this->assertSame(2000.0, (float) $updated->net_worth);
+        $this->assertEqualsWithDelta(3000.0, (float) $updated->assets, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(1000.0, (float) $updated->liabilities, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(2000.0, (float) $updated->net_worth, PHP_FLOAT_EPSILON);
     }
 
     public function test_edit_loads_entry_with_line_items_into_component_properties(): void
@@ -371,7 +373,7 @@ class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('assetLines', [['category' => 'Cash', 'amount' => '100.00']])
             ->call('saveAssetLine', 99); // index 99 does not exist
@@ -379,58 +381,58 @@ class NetWorthTrackerTest extends TestCase
         // Array must remain untouched
         $this->assertSame(
             [['category' => 'Cash', 'amount' => '100.00']],
-            $component->get('assetLines')
+            $testable->get('assetLines'),
         );
         // editingAssetIndex is still cleared by saveAssetLine
-        $component->assertSet('editingAssetIndex', null);
+        $testable->assertSet('editingAssetIndex', null);
     }
 
     public function test_save_liability_line_does_nothing_when_index_does_not_exist(): void
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('liabilityLines', [['category' => 'Loan', 'amount' => '500.00']])
             ->call('saveLiabilityLine', 99); // index 99 does not exist
 
         $this->assertSame(
             [['category' => 'Loan', 'amount' => '500.00']],
-            $component->get('liabilityLines')
+            $testable->get('liabilityLines'),
         );
-        $component->assertSet('editingLiabilityIndex', null);
+        $testable->assertSet('editingLiabilityIndex', null);
     }
 
     public function test_calculated_net_worth_is_positive_when_assets_exceed_liabilities(): void
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('assetLines', [['category' => 'Cash', 'amount' => '5000.00']])
             ->set('liabilityLines', [['category' => 'Debt', 'amount' => '2000.00']]);
 
-        $this->assertSame('3,000.00', $component->get('calculatedNetWorth'));
-        $this->assertSame(3000.0, $component->get('calculatedNetWorthValue'));
+        $this->assertSame('3,000.00', $testable->get('calculatedNetWorth'));
+        $this->assertEqualsWithDelta(3000.0, $testable->get('calculatedNetWorthValue'), PHP_FLOAT_EPSILON);
     }
 
     public function test_calculated_net_worth_style_returns_emerald_when_positive_and_rose_when_negative(): void
     {
         $user = User::factory()->create();
 
-        $positive = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('assetLines', [['category' => 'Cash', 'amount' => '1000.00']])
             ->set('liabilityLines', [['category' => 'Debt', 'amount' => '500.00']]);
 
-        $this->assertStringContainsString('emerald', $positive->get('calculatedNetWorthStyle'));
+        $this->assertStringContainsString('emerald', (string) $testable->get('calculatedNetWorthStyle'));
 
         $negative = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('assetLines', [['category' => 'Cash', 'amount' => '500.00']])
             ->set('liabilityLines', [['category' => 'Debt', 'amount' => '1000.00']]);
 
-        $this->assertStringContainsString('rose', $negative->get('calculatedNetWorthStyle'));
+        $this->assertStringContainsString('rose', (string) $negative->get('calculatedNetWorthStyle'));
     }
 
     public function test_reset_form_clears_all_fields_to_defaults(): void

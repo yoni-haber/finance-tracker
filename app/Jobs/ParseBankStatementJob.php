@@ -10,21 +10,19 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 class ParseBankStatementJob implements ShouldQueue
 {
-    use InteractsWithQueue, Queueable, SerializesModels;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public int $tries = BankStatementConfig::JOB_MAX_TRIES;
 
     public int $timeout = BankStatementConfig::JOB_TIMEOUT_SECONDS;
 
-    public int $importId;
-
-    public function __construct(int $importId)
-    {
-        $this->importId = $importId;
-    }
+    public function __construct(public int $importId) {}
 
     /**
      * Execute the job.
@@ -39,7 +37,7 @@ class ParseBankStatementJob implements ShouldQueue
     {
         $import = BankStatementImport::find($this->importId);
 
-        if (! $import) {
+        if (!$import) {
             throw new ModelNotFoundException('Bank statement import not found');
         }
 
@@ -52,8 +50,8 @@ class ParseBankStatementJob implements ShouldQueue
             return;
         }
 
-        $processor = new BankStatementImportProcessor($import);
-        $success = $processor->process();
+        $bankStatementImportProcessor = new BankStatementImportProcessor($import);
+        $success = $bankStatementImportProcessor->process();
 
         if ($success) {
             logger()->info('Bank statement parsed successfully', ['import_id' => $this->importId]);
@@ -65,7 +63,7 @@ class ParseBankStatementJob implements ShouldQueue
     /**
      * Handle a job failure after all retries are exhausted.
      */
-    public function failed(\Throwable $exception): void
+    public function failed(Throwable $throwable): void
     {
         $import = BankStatementImport::find($this->importId);
 
@@ -73,7 +71,7 @@ class ParseBankStatementJob implements ShouldQueue
 
         logger()->error('Bank statement parsing job failed permanently', [
             'import_id' => $this->importId,
-            'error' => $exception->getMessage(),
+            'error' => $throwable->getMessage(),
         ]);
     }
 }

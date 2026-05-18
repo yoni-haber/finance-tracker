@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Budgets\BudgetManager;
@@ -11,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class BudgetManagerTest extends TestCase
+final class BudgetManagerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -94,7 +96,7 @@ class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('category_id', null)
+            ->set('category_id')
             ->set('month', 5)
             ->set('year', 2025)
             ->set('amount', '100.00')
@@ -318,11 +320,9 @@ class BudgetManagerTest extends TestCase
             ->set('filterMonth', 1)
             ->set('filterYear', 2025)
             ->set('filterCategory', $catA->id)
-            ->assertViewHas('budgets', function ($budgets) use ($catA, $catB) {
-                return $budgets->count() === 1
-                    && $budgets->first()->category_id === $catA->id
-                    && $budgets->doesntContain('category_id', $catB->id);
-            });
+            ->assertViewHas('budgets', fn ($budgets): bool => $budgets->count() === 1
+                && $budgets->first()->category_id === $catA->id
+                && $budgets->doesntContain('category_id', $catB->id));
     }
 
     public function test_render_filters_by_month_and_year(): void
@@ -345,12 +345,10 @@ class BudgetManagerTest extends TestCase
             ->test(BudgetManager::class)
             ->set('filterMonth', 2)
             ->set('filterYear', 2025)
-            ->set('filterCategory', null)
-            ->assertViewHas('budgets', function ($budgets) use ($budgetFeb, $budgetMar) {
-                return $budgets->count() === 1
-                    && $budgets->first()->id === $budgetFeb->id
-                    && $budgets->doesntContain('id', $budgetMar->id);
-            });
+            ->set('filterCategory')
+            ->assertViewHas('budgets', fn ($budgets): bool => $budgets->count() === 1
+                && $budgets->first()->id === $budgetFeb->id
+                && $budgets->doesntContain('id', $budgetMar->id));
     }
 
     public function test_copy_from_previous_month_creates_missing_budgets(): void
@@ -539,7 +537,7 @@ class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('category_id', null)
+            ->set('category_id')
             ->set('month', 5)
             ->set('year', 2025)
             ->set('amount', '100.00')

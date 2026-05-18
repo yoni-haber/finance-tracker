@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Livewire\Transactions\TransactionManager;
@@ -12,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class RecurringTransactionTest extends TestCase
+final class RecurringTransactionTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -30,7 +32,7 @@ class RecurringTransactionTest extends TestCase
         $transactions = TransactionReport::projectedForMonth($user->id, 3, 2024);
 
         $this->assertCount(5, $transactions->where('type', Transaction::TYPE_EXPENSE));
-        $this->assertSame(125.0, $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount'));
+        $this->assertEqualsWithDelta(125.0, $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount'), PHP_FLOAT_EPSILON);
     }
 
     public function test_delete_rejects_invalid_occurrence_date(): void

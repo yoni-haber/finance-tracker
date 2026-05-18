@@ -18,6 +18,7 @@
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.7",
+        "driftingly/rector-laravel": "^2.3",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2.2",
@@ -27,7 +28,8 @@
         "nunomaduro/collision": "^8.6",
         "phpstan/phpstan": "^2.1",
         "phpunit/php-code-coverage": "^14.0",
-        "phpunit/phpunit": "^13.0"
+        "phpunit/phpunit": "^13.0",
+        "rector/rector": "^2.4"
     },
     "autoload": {
         "psr-4": {

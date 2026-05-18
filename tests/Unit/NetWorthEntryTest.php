@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\NetWorthEntry;
@@ -8,7 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class NetWorthEntryTest extends TestCase
+final class NetWorthEntryTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -46,8 +48,8 @@ class NetWorthEntryTest extends TestCase
             'net_worth' => '1000.333',
         ]);
 
-        $this->assertSame(1500.57, (float) $entry->assets);
-        $this->assertSame(500.23, (float) $entry->liabilities);
-        $this->assertSame(1000.33, (float) $entry->net_worth);
+        $this->assertEqualsWithDelta(1500.57, (float) $entry->assets, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(500.23, (float) $entry->liabilities, PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(1000.33, (float) $entry->net_worth, PHP_FLOAT_EPSILON);
     }
 }

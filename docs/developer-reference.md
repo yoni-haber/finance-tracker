@@ -15,6 +15,7 @@ Run `make help` for a full list of targets.
 | `make test` | Run PHPUnit test suite                                           |
 | `make pint` | Fix code style                                                   |
 | `make phpstan` | Run static analysis                                              |
+| `make rector` | Apply automated refactoring with Rector                          |
 | `make migrate` | Run outstanding migrations                                       |
 | `make fresh` | Wipe the DB and re-run all migrations, and seed                     |
 | `make logs` | Tail Laravel logs via Pail                                       |
@@ -119,6 +120,12 @@ make pint
 
 # Run static analysis (PHPStan)
 make phpstan
+
+# Apply automated refactoring with Rector
+make rector
+
+# Preview Rector changes without applying them
+./vendor/bin/sail exec laravel.test vendor/bin/rector --dry-run
 
 # Run tests with code coverage (requires PCOV — included in the image)
 ./vendor/bin/sail artisan test --coverage

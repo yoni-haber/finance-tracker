@@ -21,8 +21,14 @@ class NetWorthTracker extends Component
 {
     public string $date;
 
+    /**
+     * @var array<mixed, array<string, string>>
+     */
     public array $assetLines = [];
 
+    /**
+     * @var array<mixed, array<string, string>>
+     */
     public array $liabilityLines = [];
 
     public string $newAssetCategory = '';
@@ -81,7 +87,7 @@ class NetWorthTracker extends Component
             'net_worth' => $assetTotal - $liabilityTotal,
         ];
 
-        if (! $this->entryId) {
+        if (!$this->entryId) {
             $existingEntry = NetWorthEntry::where('user_id', Auth::id())
                 ->whereDate('date', $data['date'])
                 ->first();
@@ -96,14 +102,14 @@ class NetWorthTracker extends Component
         if ($this->entryId) {
             $entry = NetWorthEntry::where('user_id', $data['user_id'])->find($this->entryId);
 
-            if (! $entry) {
+            if (!$entry) {
                 $this->addError('save', 'Net worth entry not found.');
 
                 return;
             }
         }
 
-        DB::transaction(function () use (&$entry, $data, $validated) {
+        DB::transaction(function () use (&$entry, $data, $validated): void {
             if ($entry) {
                 $entry->update($data);
             } else {
@@ -134,14 +140,14 @@ class NetWorthTracker extends Component
         $this->date = $entry->date->toDateString();
         $assetLines = $entry->lineItems
             ->where('type', 'asset')
-            ->map(fn ($item) => [
+            ->map(fn ($item): array => [
                 'category' => $item->category,
                 'amount' => number_format((float) $item->amount, 2, '.', ''),
             ])->values()->all();
 
         $liabilityLines = $entry->lineItems
             ->where('type', 'liability')
-            ->map(fn ($item) => [
+            ->map(fn ($item): array => [
                 'category' => $item->category,
                 'amount' => number_format((float) $item->amount, 2, '.', ''),
             ])->values()->all();
@@ -199,6 +205,9 @@ class NetWorthTracker extends Component
         $this->resetErrorBag();
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function rules(): array
     {
         return [
@@ -209,25 +218,25 @@ class NetWorthTracker extends Component
     protected function lineItemRules(string $property): array
     {
         return [
-            "$property" => 'array',
-            "$property.*.category" => 'required|string|max:255',
-            "$property.*.amount" => 'required|numeric|min:0',
+            $property => 'array',
+            $property.'.*.category' => 'required|string|max:255',
+            $property.'.*.amount' => 'required|numeric|min:0',
         ];
     }
 
     protected function sumLines(array $lines): float
     {
         return collect($lines)
-            ->sum(fn ($line) => (float) $line['amount']);
+            ->sum(fn ($line): float => (float) $line['amount']);
     }
 
-    protected function syncLineItems(NetWorthEntry $entry, array $lines, string $type): void
+    protected function syncLineItems(NetWorthEntry $netWorthEntry, array $lines, string $type): void
     {
-        $entry->lineItems()->where('type', $type)->delete();
+        $netWorthEntry->lineItems()->where('type', $type)->delete();
 
         $payload = collect($lines)
-            ->filter(fn ($line) => trim((string) $line['category']) !== '')
-            ->map(fn ($line) => [
+            ->filter(fn ($line): bool => trim((string) $line['category']) !== '')
+            ->map(fn ($line): array => [
                 'user_id' => Auth::id(),
                 'type' => $type,
                 'category' => trim((string) $line['category']),
@@ -235,7 +244,7 @@ class NetWorthTracker extends Component
             ])->all();
 
         if ($payload) {
-            $entry->lineItems()->createMany($payload);
+            $netWorthEntry->lineItems()->createMany($payload);
         }
     }
 
@@ -325,7 +334,7 @@ class NetWorthTracker extends Component
 
     protected function formatLineAmount(string $property, int $index): void
     {
-        if (! isset($this->{$property}[$index])) {
+        if (!isset($this->{$property}[$index])) {
             return;
         }
 
@@ -333,7 +342,7 @@ class NetWorthTracker extends Component
             (float) $this->{$property}[$index]['amount'],
             2,
             '.',
-            ''
+            '',
         );
     }
 }

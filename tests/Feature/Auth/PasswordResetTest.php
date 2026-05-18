@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
@@ -9,15 +11,15 @@ use Illuminate\Support\Facades\Notification;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
 
-class PasswordResetTest extends TestCase
+final class PasswordResetTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_reset_password_link_screen_can_be_rendered(): void
     {
-        $response = $this->get(route('password.request'));
+        $testResponse = $this->get(route('password.request'));
 
-        $response->assertStatus(200);
+        $testResponse->assertStatus(200);
     }
 
     public function test_reset_password_link_can_be_requested(): void
@@ -43,10 +45,10 @@ class PasswordResetTest extends TestCase
             ->set('email', $user->email)
             ->call('sendPasswordResetLink');
 
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
-            $response = $this->get(route('password.reset', $notification->token));
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification): true {
+            $testResponse = $this->get(route('password.reset', $notification->token));
 
-            $response->assertStatus(200);
+            $testResponse->assertStatus(200);
 
             return true;
         });
@@ -62,14 +64,14 @@ class PasswordResetTest extends TestCase
             ->set('email', $user->email)
             ->call('sendPasswordResetLink');
 
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
-            $response = Volt::test('auth.reset-password', ['token' => $notification->token])
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user): true {
+            $testable = Volt::test('auth.reset-password', ['token' => $notification->token])
                 ->set('email', $user->email)
                 ->set('password', 'password')
                 ->set('password_confirmation', 'password')
                 ->call('resetPassword');
 
-            $response
+            $testable
                 ->assertHasNoErrors()
                 ->assertRedirect(route('login', absolute: false));
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\Transaction;
@@ -8,15 +10,15 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TransactionExceptionTest extends TestCase
+final class TransactionExceptionTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_casts_configures_date_as_date(): void
     {
-        $model = new TransactionException;
+        $transactionException = new TransactionException();
 
-        $this->assertSame('date', $model->getCasts()['date']);
+        $this->assertSame('date', $transactionException->getCasts()['date']);
     }
 
     public function test_transaction_relation_returns_parent_transaction(): void

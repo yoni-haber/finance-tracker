@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -61,7 +62,7 @@ class BudgetManager extends Component
             ->orderBy('name')
             ->get();
 
-        return view('livewire.budgets.manager', compact('budgets', 'categories'));
+        return view('livewire.budgets.manager', ['budgets' => $budgets, 'categories' => $categories]);
     }
 
     public function save(): void
@@ -78,7 +79,7 @@ class BudgetManager extends Component
         if ($this->budgetId) {
             $budget = Budget::where('user_id', $data['user_id'])->find($this->budgetId);
 
-            if (! $budget) {
+            if (!$budget) {
                 $this->addError('save', 'Budget not found.');
 
                 return;
@@ -137,7 +138,7 @@ class BudgetManager extends Component
         if ($sourceBudgets->isEmpty()) {
             session()->flash('copy_status', 'No budgets found for '.
                 $sourceDate->format('F Y').
-                ' to copy.'
+                ' to copy.',
             );
 
             return;
@@ -153,8 +154,8 @@ class BudgetManager extends Component
         $copied = 0;
         $skipped = 0;
 
-        foreach ($sourceBudgets as $source) {
-            if (in_array($source->category_id, $existingCategoryIds)) {
+        foreach ($sourceBudgets as $sourceBudget) {
+            if (in_array($sourceBudget->category_id, $existingCategoryIds)) {
                 $skipped++;
 
                 continue;
@@ -162,10 +163,10 @@ class BudgetManager extends Component
 
             Budget::create([
                 'user_id' => $userId,
-                'category_id' => $source->category_id,
+                'category_id' => $sourceBudget->category_id,
                 'month' => $this->filterMonth,
                 'year' => $this->filterYear,
-                'amount' => $source->amount,
+                'amount' => $sourceBudget->amount,
             ]);
 
             $copied++;
@@ -174,9 +175,9 @@ class BudgetManager extends Component
         $targetLabel = Carbon::create($this->filterYear, $this->filterMonth, 1)->format('F Y');
         $sourceLabel = $sourceDate->format('F Y');
 
-        $message = "Copied {$copied} budget(s) from {$sourceLabel} to {$targetLabel}.";
+        $message = sprintf('Copied %d budget(s) from %s to %s.', $copied, $sourceLabel, $targetLabel);
         if ($skipped > 0) {
-            $message .= " {$skipped} skipped (already existed).";
+            $message .= sprintf(' %d skipped (already existed).', $skipped);
         }
 
         session()->flash('copy_status', $message);
@@ -192,6 +193,9 @@ class BudgetManager extends Component
         $this->resetErrorBag();
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     private function budgetExists(array $data): bool
     {
         return Budget::where('user_id', $data['user_id'])
@@ -202,6 +206,9 @@ class BudgetManager extends Component
             ->exists();
     }
 
+    /**
+     * @return array<string, Exists[]|string[]|string[]>
+     */
     protected function rules(): array
     {
         return [

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Models\Category;
@@ -9,7 +11,7 @@ use App\Support\TransactionReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class MonthlySummaryTest extends TestCase
+final class MonthlySummaryTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -32,7 +34,7 @@ class MonthlySummaryTest extends TestCase
 
         $transactions = TransactionReport::projectedForMonth($user->id, 2, 2024);
 
-        $this->assertSame(500.0, $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount'));
-        $this->assertSame(200.0, $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount'));
+        $this->assertEqualsWithDelta(500.0, $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount'), PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(200.0, $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount'), PHP_FLOAT_EPSILON);
     }
 }

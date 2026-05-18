@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\Category;
@@ -10,7 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TransactionTest extends TestCase
+final class TransactionTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -36,7 +38,7 @@ class TransactionTest extends TestCase
 
         $this->assertSame(
             [$user->id],
-            Transaction::forUser($user->id)->pluck('user_id')->unique()->all()
+            Transaction::forUser($user->id)->pluck('user_id')->unique()->all(),
         );
 
         $this->assertTrue(Transaction::income()->whereKey($februaryIncome->id)->exists());
@@ -46,12 +48,12 @@ class TransactionTest extends TestCase
 
         $this->assertCount(
             1,
-            Transaction::forUser($user->id)->forMonthYear(1, 2024)->forCategory($food->id)->get()
+            Transaction::forUser($user->id)->forMonthYear(1, 2024)->forCategory($food->id)->get(),
         );
 
         $this->assertCount(
             1,
-            Transaction::forUser($user->id)->forMonthYear(1, 2024)->forCategory(null)->get()
+            Transaction::forUser($user->id)->forMonthYear(1, 2024)->forCategory(null)->get(),
         );
     }
 
