@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Carbon\Month;
+use Carbon\WeekDay;
 use Database\Factories\TransactionFactory;
 use DateTimeInterface;
 use Eloquent;
@@ -190,7 +192,7 @@ class Transaction extends Model
          */
         $skippedDates = $this->occurrenceExceptions
             ->pluck('date')
-            ->map(fn (DateTimeInterface|\Carbon\WeekDay|\Carbon\Month|string|int|float|null $date): string => Carbon::parse($date)->toDateString())
+            ->map(fn (DateTimeInterface|WeekDay|Month|string|int|float|null $date): string => Carbon::parse($date)->toDateString())
             ->flip(); // enables O(1) lookups
 
         // Frequency → interval mapping

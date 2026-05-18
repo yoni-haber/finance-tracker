@@ -10,6 +10,7 @@ use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -224,7 +225,7 @@ class TransactionManager extends Component
     }
 
     /**
-     * @return array<string, string[]|\Illuminate\Validation\Rules\Exists[]|string[]>
+     * @return array<string, string[]|Exists[]|string[]>
      */
     protected function rules(): array
     {

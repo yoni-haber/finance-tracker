@@ -6,6 +6,7 @@ use App\Models\Category;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\In;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -59,7 +60,7 @@ class CategoryManager extends Component
     }
 
     /**
-     * @return array<string, string[]|\Illuminate\Validation\Rules\In[]|string[]>
+     * @return array<string, string[]|In[]|string[]>
      */
     protected function rules(): array
     {

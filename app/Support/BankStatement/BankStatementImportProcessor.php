@@ -5,6 +5,7 @@ namespace App\Support\BankStatement;
 use App\Models\BankStatementImport;
 use App\Support\BankStatementConfig;
 use Exception;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -86,7 +87,7 @@ readonly class BankStatementImportProcessor
     /**
      * Parse CSV rows into transaction data
      */
-    private function parseRows(\Illuminate\Support\Collection $rows, TransactionRowParser $transactionRowParser)
+    private function parseRows(Collection $rows, TransactionRowParser $transactionRowParser)
     {
         return $rows->map(function (array $row) use ($transactionRowParser): ?array {
             try {
@@ -109,7 +110,7 @@ readonly class BankStatementImportProcessor
      * Any existing rows are deleted first so re-processing after STATUS_FAILED
      * cannot produce duplicate staged transactions.
      */
-    private function saveImportedTransactions(\Illuminate\Support\Collection $transactions): void
+    private function saveImportedTransactions(Collection $transactions): void
     {
         DB::transaction(function () use ($transactions): void {
             // Clear any rows from a previous failed attempt before re-inserting.

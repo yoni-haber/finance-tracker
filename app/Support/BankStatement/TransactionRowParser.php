@@ -45,7 +45,7 @@ readonly class TransactionRowParser
     /**
      * Extract date from row
      *
-     * @param  array<int, mixed>  $row
+     * @param array<int, mixed> $row
      */
     private function extractDate(array $row, ?int $dateIndex): ?Carbon
     {
@@ -64,7 +64,7 @@ readonly class TransactionRowParser
     /**
      * Extract description from row
      *
-     * @param  array<int, mixed>  $row
+     * @param array<int, mixed> $row
      */
     private function extractDescription(array $row, ?int $descriptionIndex): ?string
     {
@@ -80,7 +80,7 @@ readonly class TransactionRowParser
     /**
      * Extract amount from row
      *
-     * @param  array<string, mixed>  $columns
+     * @param array<string, mixed> $columns
      */
     private function extractAmount(array $row, array $columns): ?float
     {
@@ -125,7 +125,7 @@ readonly class TransactionRowParser
     /**
      * Parse amount from row data
      *
-     * @param  array<int, mixed>  $row
+     * @param array<int, mixed> $row
      */
     private function parseAmount(array $row, ?int $amountIndex, ?int $debitIndex, ?int $creditIndex): ?float
     {

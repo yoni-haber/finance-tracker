@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -193,7 +194,7 @@ class BudgetManager extends Component
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param array<string, mixed> $data
      */
     private function budgetExists(array $data): bool
     {
@@ -206,7 +207,7 @@ class BudgetManager extends Component
     }
 
     /**
-     * @return array<string, \Illuminate\Validation\Rules\Exists[]|string[]|string[]>
+     * @return array<string, Exists[]|string[]|string[]>
      */
     protected function rules(): array
     {

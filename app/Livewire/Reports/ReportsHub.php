@@ -51,7 +51,7 @@ class ReportsHub extends Component
     }
 
     /**
-     * @return array<string, list<(float | string)>>
+     * @return array<string, list<(float|string)>>
      */
     protected function chartDataForRange(string $range, int $userId): array
     {
