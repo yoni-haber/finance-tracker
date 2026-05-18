@@ -215,6 +215,7 @@ class NetWorthTracker extends Component
         ];
     }
 
+    /** @return string[] */
     protected function lineItemRules(string $property): array
     {
         return [
@@ -224,22 +225,28 @@ class NetWorthTracker extends Component
         ];
     }
 
+    /**
+     * @param array<mixed, array<string, string>> $lines
+     */
     protected function sumLines(array $lines): float
     {
         return collect($lines)
             ->sum(fn ($line): float => (float) $line['amount']);
     }
 
+    /**
+     * @param array<mixed, array<string, string>> $lines
+     */
     protected function syncLineItems(NetWorthEntry $netWorthEntry, array $lines, string $type): void
     {
         $netWorthEntry->lineItems()->where('type', $type)->delete();
 
         $payload = collect($lines)
-            ->filter(fn ($line): bool => trim((string) $line['category']) !== '')
+            ->filter(fn ($line): bool => trim($line['category']) !== '')
             ->map(fn ($line): array => [
                 'user_id' => Auth::id(),
                 'type' => $type,
-                'category' => trim((string) $line['category']),
+                'category' => trim($line['category']),
                 'amount' => (float) $line['amount'],
             ])->all();
 

@@ -14,6 +14,7 @@ use Livewire\Component;
 #[Title('Bank Profile Manager')]
 class BankProfileManager extends Component
 {
+    /** @var array<string, mixed> */
     public array $form = [];
 
     public bool $showCreateForm = false;

@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Support\BankStatement\DuplicateDetector;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Collection;
 use Tests\TestCase;
 
 final class DuplicateDetectorTest extends TestCase
@@ -54,13 +53,13 @@ final class DuplicateDetectorTest extends TestCase
         $user = User::factory()->create();
         $duplicateDetector = new DuplicateDetector($user->id);
 
-        $transactions = new Collection([
+        $transactions = [
             ['date' => '2024-01-15', 'amount' => 100.00, 'description' => 'Unique Transaction'],
-        ]);
+        ];
 
-        $duplicateDetector->detectDuplicates($transactions);
+        $transactions = $duplicateDetector->detectDuplicates($transactions);
 
-        $this->assertFalse($transactions->first()['is_duplicate']);
+        $this->assertFalse($transactions[0]['is_duplicate']);
     }
 
     public function test_detect_duplicates_marks_as_duplicate_when_hash_matches_transaction(): void
@@ -75,13 +74,13 @@ final class DuplicateDetectorTest extends TestCase
         $hash = $duplicateDetector->generateTransactionHash($user->id, $date, $amount, $description);
         Transaction::factory()->for($user)->create(['hash' => $hash, 'user_id' => $user->id]);
 
-        $transactions = new Collection([
+        $transactions = [
             ['date' => $date, 'amount' => $amount, 'description' => $description],
-        ]);
+        ];
 
-        $duplicateDetector->detectDuplicates($transactions);
+        $transactions = $duplicateDetector->detectDuplicates($transactions);
 
-        $this->assertTrue($transactions->first()['is_duplicate']);
+        $this->assertTrue($transactions[0]['is_duplicate']);
     }
 
     public function test_detect_duplicates_marks_as_duplicate_when_hash_matches_imported_transaction(): void
@@ -99,13 +98,13 @@ final class DuplicateDetectorTest extends TestCase
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
         ImportedTransaction::factory()->for($import)->create(['hash' => $hash]);
 
-        $transactions = new Collection([
+        $transactions = [
             ['date' => $date, 'amount' => $amount, 'description' => $description],
-        ]);
+        ];
 
-        $duplicateDetector->detectDuplicates($transactions);
+        $transactions = $duplicateDetector->detectDuplicates($transactions);
 
-        $this->assertTrue($transactions->first()['is_duplicate']);
+        $this->assertTrue($transactions[0]['is_duplicate']);
     }
 
     public function test_detect_duplicates_handles_empty_collection(): void
@@ -113,11 +112,11 @@ final class DuplicateDetectorTest extends TestCase
         $user = User::factory()->create();
         $duplicateDetector = new DuplicateDetector($user->id);
 
-        $transactions = new Collection([]);
+        $transactions = [];
 
-        $duplicateDetector->detectDuplicates($transactions);
+        $transactions = $duplicateDetector->detectDuplicates($transactions);
 
-        $this->assertTrue($transactions->isEmpty());
+        $this->assertSame([], $transactions);
     }
 
     // ─── isDuplicateExcluding ────────────────────────────────────────────────

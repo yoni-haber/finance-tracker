@@ -49,6 +49,7 @@ use Override;
 ])]
 class BankProfile extends Model
 {
+    /** @use HasFactory<BankProfileFactory> */
     use HasFactory;
 
     /**
@@ -62,11 +63,13 @@ class BankProfile extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<BankStatementImport, $this> */
     public function bankStatementImports(): HasMany
     {
         return $this->hasMany(BankStatementImport::class);

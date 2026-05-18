@@ -59,61 +59,72 @@ use Illuminate\Support\Carbon;
 ])]
 class Category extends Model
 {
+    /** @use HasFactory<CategoryFactory> */
     use HasFactory;
 
     const string TYPE_INCOME = 'income';
 
     const string TYPE_EXPENSE = 'expense';
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     /** Parent category (null for top-level categories). */
+    /** @return BelongsTo<Category, $this> */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'parent_id');
     }
 
     /** Direct subcategories (one level only). */
+    /** @return HasMany<Category, $this> */
     public function children(): HasMany
     {
         return $this->hasMany(Category::class, 'parent_id')->orderBy('name');
     }
 
+    /** @return HasMany<Transaction, $this> */
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
     }
 
+    /** @return HasMany<Budget, $this> */
     public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class);
     }
 
+    /** @param Builder<self> $builder */
     public function scopeForUser(Builder $builder, int $userId): void
     {
         $builder->where('user_id', $userId);
     }
 
+    /** @param Builder<self> $builder */
     public function scopeIncome(Builder $builder): void
     {
         $builder->where('type', self::TYPE_INCOME);
     }
 
+    /** @param Builder<self> $builder */
     public function scopeExpense(Builder $builder): void
     {
         $builder->where('type', self::TYPE_EXPENSE);
     }
 
     /** Top-level categories (no parent). */
+    /** @param Builder<self> $builder */
     public function scopeParents(Builder $builder): void
     {
         $builder->whereNull('parent_id');
     }
 
     /** Subcategories (have a parent). */
+    /** @param Builder<self> $builder */
     public function scopeSubcategories(Builder $builder): void
     {
         $builder->whereNotNull('parent_id');

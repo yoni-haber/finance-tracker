@@ -8,8 +8,10 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 
+/** @extends Factory<NetWorthLineItem> */
 class NetWorthLineItemFactory extends Factory
 {
+    /** @var class-string<NetWorthLineItem> */
     protected $model = NetWorthLineItem::class;
 
     public function definition(): array

@@ -52,6 +52,7 @@ use Override;
 ])]
 class Budget extends Model
 {
+    /** @use HasFactory<BudgetFactory> */
     use HasFactory;
 
     /**
@@ -67,16 +68,19 @@ class Budget extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
+    /** @return HasMany<Transaction, $this> */
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class, 'category_id', 'category_id')

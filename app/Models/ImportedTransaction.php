@@ -65,6 +65,7 @@ use Override;
 ])]
 class ImportedTransaction extends Model
 {
+    /** @use HasFactory<ImportedTransactionFactory> */
     use HasFactory;
 
     /**
@@ -81,23 +82,36 @@ class ImportedTransaction extends Model
         ];
     }
 
+    /** @return BelongsTo<BankStatementImport, $this> */
     public function bankStatementImport(): BelongsTo
     {
         return $this->belongsTo(BankStatementImport::class, 'import_id');
     }
 
-    public function scopeNotDuplicate($query)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeNotDuplicate(Builder $builder): Builder
     {
-        return $query->where('is_duplicate', false);
+        return $builder->where('is_duplicate', false);
     }
 
-    public function scopeNotCommitted($query)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeNotCommitted(Builder $builder): Builder
     {
-        return $query->where('is_committed', false);
+        return $builder->where('is_committed', false);
     }
 
-    public function scopeCommittable($query)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeCommittable(Builder $builder): Builder
     {
-        return $query->notDuplicate()->notCommitted();
+        return $builder->notDuplicate()->notCommitted();
     }
 }

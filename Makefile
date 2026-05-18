@@ -45,7 +45,7 @@ pint: ## Fix code style with Laravel Pint
 	$(SAIL) exec $(APP_SERVICE) vendor/bin/pint
 
 phpstan: ## Run PHPStan static analysis
-	$(SAIL) exec $(APP_SERVICE) vendor/bin/phpstan
+	$(SAIL) exec $(APP_SERVICE) vendor/bin/phpstan --memory-limit=1G
 
 rector: ## Apply automated refactoring with Rector
 	$(SAIL) exec $(APP_SERVICE) vendor/bin/rector

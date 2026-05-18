@@ -4,10 +4,12 @@ namespace App\Support\BankStatement;
 
 use App\Models\BankStatementImport;
 use App\Support\BankStatementConfig;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 readonly class BankStatementImportProcessor
 {
@@ -71,11 +73,13 @@ readonly class BankStatementImportProcessor
 
         // Step 2: Parse rows into transactions
         $transactionRowParser = new TransactionRowParser($this->bankStatementImport->bankProfile);
-        $transactions = $this->parseRows($rows, $transactionRowParser);
+        $transactions = $this->parseRows($rows->all(), $transactionRowParser);
 
         // Step 3: Add hashes and detect duplicates
         $duplicateDetector = new DuplicateDetector($this->bankStatementImport->user_id);
-        $duplicateDetector->detectDuplicates($transactions);
+
+        /** @var Collection<int, array{date: Carbon, description: string, amount: float, external_id: null, hash: string, is_duplicate: bool}> $transactions */
+        $transactions = collect($duplicateDetector->detectDuplicates($transactions->all()));
 
         // Step 4: Save imported transactions and mark parsed — both in one transaction
         // so a crash between the two operations cannot leave the import in an inconsistent state.
@@ -86,10 +90,13 @@ readonly class BankStatementImportProcessor
 
     /**
      * Parse CSV rows into transaction data
+     *
+     * @param array<int, array<int, string|null>> $rows
+     * @return Collection<int, array{date: Carbon, description: string, amount: float, external_id: null}>
      */
-    private function parseRows(Collection $rows, TransactionRowParser $transactionRowParser)
+    private function parseRows(array $rows, TransactionRowParser $transactionRowParser): Collection
     {
-        return $rows->map(function (array $row) use ($transactionRowParser): ?array {
+        return collect($rows)->map(function (array $row) use ($transactionRowParser): ?array {
             try {
                 return $transactionRowParser->parseRow($row);
             } catch (Exception $exception) {
@@ -109,6 +116,10 @@ readonly class BankStatementImportProcessor
      * all within a single transaction so the two operations are atomic.
      * Any existing rows are deleted first so re-processing after STATUS_FAILED
      * cannot produce duplicate staged transactions.
+     *
+     * @param Collection<int, array{date: Carbon, description: string, amount: float, external_id: null, hash: string, is_duplicate: bool}> $transactions
+     *
+     * @throws Throwable
      */
     private function saveImportedTransactions(Collection $transactions): void
     {
@@ -126,7 +137,7 @@ readonly class BankStatementImportProcessor
                         'hash' => $transaction['hash'],
                         'original_hash' => $transaction['hash'],
                         'is_duplicate' => $transaction['is_duplicate'],
-                        'external_id' => $transaction['external_id'] ?? null,
+                        'external_id' => $transaction['external_id'],
                         'created_at' => now(),
                         'updated_at' => now(),
                     ])->toArray();

@@ -39,7 +39,7 @@ use Override;
  *
  * @method static Builder<static>|Transaction expense()
  * @method static TransactionFactory factory($count = null, $state = [])
- * @method static Builder<static>|Transaction forCategory(array|int|null $categoryId)
+ * @method static Builder<static>|Transaction forCategory(array<int, int>|int|null $categoryId)
  * @method static Builder<static>|Transaction forMonthYear(int $month, int $year)
  * @method static Builder<static>|Transaction forUser(int $userId)
  * @method static Builder<static>|Transaction income()
@@ -76,6 +76,7 @@ use Override;
 ])]
 class Transaction extends Model
 {
+    /** @use HasFactory<TransactionFactory> */
     use HasFactory;
 
     const string TYPE_INCOME = 'income';
@@ -96,51 +97,76 @@ class Transaction extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
+    /** @return HasMany<TransactionException, $this> */
     public function occurrenceExceptions(): HasMany
     {
         return $this->hasMany(TransactionException::class);
     }
 
-    public function scopeForUser($query, int $userId)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeForUser(Builder $builder, int $userId): Builder
     {
-        return $query->where('user_id', $userId);
+        return $builder->where('user_id', $userId);
     }
 
-    public function scopeIncome($query)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeIncome(Builder $builder): Builder
     {
-        return $query->where('type', self::TYPE_INCOME);
+        return $builder->where('type', self::TYPE_INCOME);
     }
 
-    public function scopeExpense($query)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeExpense(Builder $builder): Builder
     {
-        return $query->where('type', self::TYPE_EXPENSE);
+        return $builder->where('type', self::TYPE_EXPENSE);
     }
 
-    public function scopeForMonthYear($query, int $month, int $year)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeForMonthYear(Builder $builder, int $month, int $year): Builder
     {
-        return $query->whereMonth('date', $month)->whereYear('date', $year);
+        return $builder->whereMonth('date', $month)->whereYear('date', $year);
     }
 
-    public function scopeForCategory($query, int|array|null $categoryId)
+    /**
+     * @param Builder<self> $builder
+     * @param array<int, int>|int|null $categoryId
+     * @return Builder<self>
+     */
+    public function scopeForCategory(Builder $builder, int|array|null $categoryId): Builder
     {
         if (is_array($categoryId)) {
-            return $query->whereIn('category_id', $categoryId);
+            return $builder->whereIn('category_id', $categoryId);
         }
 
-        return $categoryId ? $query->where('category_id', $categoryId) : $query;
+        return $categoryId ? $builder->where('category_id', $categoryId) : $builder;
     }
 
     /** Returns all the dates that the current transaction should appear in a given month. */
+    /** @return Collection<int, self> */
     public function projectOccurrencesForMonth(int $month, int $year): Collection
     {
         // Target month window

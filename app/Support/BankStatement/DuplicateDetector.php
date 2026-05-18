@@ -5,7 +5,7 @@ namespace App\Support\BankStatement;
 use App\Models\ImportedTransaction;
 use App\Models\Transaction;
 use App\Support\BankStatementConfig;
-use Illuminate\Support\Collection;
+use Carbon\Carbon;
 
 readonly class DuplicateDetector
 {
@@ -15,10 +15,13 @@ readonly class DuplicateDetector
 
     /**
      * Detect and mark duplicates in transaction collection
+     *
+     * @param list<array{date: Carbon|string, description: string, amount: float, external_id?: string|null}> $transactions
+     * @return list<array{date: Carbon|string, description: string, amount: float, external_id?: string|null, hash: string, is_duplicate: bool}>
      */
-    public function detectDuplicates(Collection &$transactions): void
+    public function detectDuplicates(array $transactions): array
     {
-        $transactions = $transactions->map(function (array $transaction): array {
+        return collect($transactions)->map(function (array $transaction): array {
             $hash = $this->generateTransactionHash(
                 $this->userId,
                 $transaction['date'],
@@ -30,13 +33,13 @@ readonly class DuplicateDetector
             $transaction['is_duplicate'] = $this->isDuplicate($hash);
 
             return $transaction;
-        });
+        })->values()->all();
     }
 
     /**
      * Generate unique hash for transaction
      */
-    public function generateTransactionHash(int $userId, $date, float $amount, string $description): string
+    public function generateTransactionHash(int $userId, Carbon|string $date, float $amount, string $description): string
     {
         $dateString = is_string($date) ? $date : $date->toDateString();
         $amountString = number_format($amount, BankStatementConfig::AMOUNT_DECIMAL_PLACES, '.', '');

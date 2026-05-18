@@ -29,6 +29,15 @@ class StatementImportReview extends Component
 
     public ?int $deletingTransactionId = null;
 
+    /**
+     * @var array{
+     *     description?: string,
+     *     amount?: string,
+     *     date?: string,
+     *     type?: string,
+     *     category_id?: int|null
+     * }
+     */
     public array $editForm = [];
 
     public function mount(int $importId): void

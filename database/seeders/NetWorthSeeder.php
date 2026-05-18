@@ -26,6 +26,7 @@ class NetWorthSeeder extends Seeder
         });
     }
 
+    /** @param array<string, float> $lineItemDefinitions */
     private function seedEntriesForUser(User $user, array $lineItemDefinitions): void
     {
         $now = Carbon::now();
