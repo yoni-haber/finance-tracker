@@ -53,13 +53,16 @@ use Illuminate\Support\Carbon;
 ])]
 class BankStatementImport extends Model
 {
+    /** @use HasFactory<BankStatementImportFactory> */
     use HasFactory;
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<BankProfile, $this> */
     public function bankProfile(): BelongsTo
     {
         return $this->belongsTo(BankProfile::class);
@@ -71,9 +74,13 @@ class BankStatementImport extends Model
         return $this->hasMany(ImportedTransaction::class, 'import_id');
     }
 
-    public function scopeForUser($query, int $userId)
+    /**
+     * @param Builder<self> $builder
+     * @return Builder<self>
+     */
+    public function scopeForUser(Builder $builder, int $userId): Builder
     {
-        return $query->where('user_id', $userId);
+        return $builder->where('user_id', $userId);
     }
 
     public function isUploaded(): bool

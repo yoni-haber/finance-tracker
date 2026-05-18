@@ -17,6 +17,10 @@ readonly class CsvFileReader
 
     /**
      * Read CSV file and return filtered rows
+     *
+     * @return Collection<int, array<int, string|null>>
+     *
+     * @throws Exception
      */
     public function readRows(): Collection
     {

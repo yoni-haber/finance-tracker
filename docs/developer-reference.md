@@ -121,6 +121,9 @@ make pint
 # Run static analysis (PHPStan)
 make phpstan
 
+# Run static analysis with higher memory limit (inside container)
+vendor/bin/phpstan analyse app --memory-limit=1G
+
 # Apply automated refactoring with Rector
 make rector
 

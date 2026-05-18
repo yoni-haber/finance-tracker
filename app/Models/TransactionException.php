@@ -38,6 +38,7 @@ use Override;
 ])]
 class TransactionException extends Model
 {
+    /** @use HasFactory<TransactionExceptionFactory> */
     use HasFactory;
 
     /**
@@ -51,6 +52,7 @@ class TransactionException extends Model
         ];
     }
 
+    /** @return BelongsTo<Transaction, $this> */
     public function transaction(): BelongsTo
     {
         return $this->belongsTo(Transaction::class);

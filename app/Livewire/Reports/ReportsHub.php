@@ -17,8 +17,10 @@ class ReportsHub extends Component
 {
     public string $range = '12_months';
 
+    /** @var array<string, list<(float|string)>> */
     public array $chartData = [];
 
+    /** @var array<string, mixed> */
     public array $netWorthChartData = [];
 
     public function mount(): void

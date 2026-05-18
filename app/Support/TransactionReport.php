@@ -11,7 +11,8 @@ class TransactionReport
      * Retrieves all transactions (including recurring ones expanded into their occurrences)
      * for a given user, month, and year, optionally filtered by category.
      *
-     * @return Collection<Transaction>
+     * @param array<int, int>|int|null $categoryId
+     * @return Collection<int, Transaction>
      */
     public static function projectedForMonth(int $userId, int $month, int $year, int|array|null $categoryId = null): Collection
     {

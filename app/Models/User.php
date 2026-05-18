@@ -80,7 +80,9 @@ use Override;
 ])]
 class User extends Authenticatable
 {
+    /** @use HasFactory<UserFactory> */
     use HasFactory;
+
     use Notifiable;
     use TwoFactorAuthenticatable;
 
@@ -110,36 +112,43 @@ class User extends Authenticatable
             ->implode('');
     }
 
+    /** @return HasMany<Transaction, $this> */
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
     }
 
+    /** @return HasMany<Category, $this> */
     public function categories(): HasMany
     {
         return $this->hasMany(Category::class);
     }
 
+    /** @return HasMany<Budget, $this> */
     public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class);
     }
 
+    /** @return HasMany<NetWorthEntry, $this> */
     public function netWorthEntries(): HasMany
     {
         return $this->hasMany(NetWorthEntry::class);
     }
 
+    /** @return HasMany<NetWorthLineItem, $this> */
     public function netWorthLineItems(): HasMany
     {
         return $this->hasMany(NetWorthLineItem::class);
     }
 
+    /** @return HasMany<BankStatementImport, $this> */
     public function bankStatementImports(): HasMany
     {
         return $this->hasMany(BankStatementImport::class);
     }
 
+    /** @return HasMany<BankProfile, $this> */
     public function bankProfiles(): HasMany
     {
         return $this->hasMany(BankProfile::class);

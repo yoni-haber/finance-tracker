@@ -69,6 +69,7 @@ class UserAndFinanceSeeder extends Seeder
         );
     }
 
+    /** @return array<string, Category> */
     private function seedCategories(User $user): array
     {
         return $this->createHierarchy($user, [
@@ -90,6 +91,9 @@ class UserAndFinanceSeeder extends Seeder
     /**
      * Create a typed parent/subcategory hierarchy for a user.
      * Returns a flat map keyed as "Parent" for parents and "Parent.Child" for subcategories.
+     *
+     * @param array{'income'?: array<string, list<string>>, 'expense'?: array<string, list<string>>} $hierarchy
+     * @return array<string, Category>
      */
     private function createHierarchy(User $user, array $hierarchy): array
     {
@@ -116,6 +120,10 @@ class UserAndFinanceSeeder extends Seeder
         return $map;
     }
 
+    /**
+     * @param array<string, Category> $categories
+     * @param list<array{category: string, month: int, year: int, amount: float}> $budgetDefinitions
+     */
     private function seedBudgets(User $user, array $categories, array $budgetDefinitions): void
     {
         foreach ($budgetDefinitions as $definition) {
@@ -131,6 +139,7 @@ class UserAndFinanceSeeder extends Seeder
         }
     }
 
+    /** @param array<string, Category> $categories */
     private function seedTransactions(User $user, array $categories): void
     {
         $now = Carbon::now();
@@ -242,7 +251,7 @@ class UserAndFinanceSeeder extends Seeder
                     'description' => $data['description'],
                 ],
                 [
-                    'category_id' => $data['category']?->id,
+                    'category_id' => $data['category']->id,
                     'type' => $data['type'],
                     'is_recurring' => $data['is_recurring'],
                     'frequency' => $data['frequency'],

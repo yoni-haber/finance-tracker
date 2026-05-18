@@ -48,6 +48,7 @@ use Override;
 ])]
 class NetWorthLineItem extends Model
 {
+    /** @use HasFactory<NetWorthLineItemFactory> */
     use HasFactory;
 
     /**
@@ -61,11 +62,13 @@ class NetWorthLineItem extends Model
         ];
     }
 
+    /** @return BelongsTo<NetWorthEntry, $this> */
     public function netWorthEntry(): BelongsTo
     {
         return $this->belongsTo(NetWorthEntry::class, 'net_worth_entry_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

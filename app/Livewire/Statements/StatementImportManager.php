@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 #[Layout('components.layouts.app')]
@@ -21,7 +22,7 @@ class StatementImportManager extends Component
 {
     use WithFileUploads;
 
-    public $csvFile;
+    public ?TemporaryUploadedFile $csvFile = null;
 
     public ?int $bankProfileId = null;
 

@@ -16,6 +16,9 @@ readonly class TransactionRowParser
 
     /**
      * Parse a single CSV row into transaction data
+     *
+     * @param array<int, string|null> $row
+     * @return array{date: Carbon, description: string, amount: float, external_id: null}|null
      */
     public function parseRow(array $row): ?array
     {
@@ -80,6 +83,7 @@ readonly class TransactionRowParser
     /**
      * Extract amount from row
      *
+     * @param array<int, string|null> $row
      * @param array<string, mixed> $columns
      */
     private function extractAmount(array $row, array $columns): ?float

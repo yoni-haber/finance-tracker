@@ -7,8 +7,10 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 
+/** @extends Factory<NetWorthEntry> */
 class NetWorthEntryFactory extends Factory
 {
+    /** @var class-string<NetWorthEntry> */
     protected $model = NetWorthEntry::class;
 
     public function definition(): array
