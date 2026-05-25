@@ -1,8 +1,8 @@
 SAIL = ./vendor/bin/sail
 APP_SERVICE := $(shell [ -f .env ] && grep -E '^APP_SERVICE=' .env 2>/dev/null | head -n1 | cut -d'=' -f2- || echo laravel.test)
 
-.PHONY: help setup up down restart shell artisan test pint phpstan rector \
-        migrate fresh logs build rebuild npm-dev npm-build docker-check
+.PHONY: help setup up down restart shell artisan composer test pint phpstan rector \
+        migrate fresh logs build rebuild reset npm-dev npm-build docker-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -11,10 +11,15 @@ help: ## Show this help
 docker-check:
 	@docker info > /dev/null 2>&1 || (echo "\n❌  Docker is not running. Please start Docker Desktop and try again.\n" && exit 1)
 
-setup: docker-check ## First-time project setup (build image, run migrations, install deps)
-	@command -v composer >/dev/null 2>&1 || (echo "\n❌  Composer is not installed on the host. See README for bootstrap instructions.\n" && exit 1)
-	composer install
+setup: docker-check ## First-time project setup — only Docker required, no host PHP/Composer needed
 	@test -f .env || cp .env.example .env
+	@echo "→ Installing PHP dependencies inside a temporary Docker container…"
+	@docker run --rm \
+		-u "$$(id -u):$$(id -g)" \
+		-v "$(CURDIR):/app" \
+		-w /app \
+		-e HOME=/tmp \
+		composer:2 install --no-interaction --prefer-dist --no-progress --no-scripts --ignore-platform-reqs
 	$(SAIL) up -d --build
 	$(SAIL) artisan key:generate
 	$(SAIL) artisan migrate
@@ -37,6 +42,9 @@ shell: ## Open a Bash shell in the app container
 
 artisan: ## Run an Artisan command, e.g. make artisan cmd="route:list"
 	$(SAIL) artisan $(cmd)
+
+composer: ## Run a Composer command, e.g. make composer cmd="require vendor/package"
+	$(SAIL) composer $(cmd)
 
 test: ## Run the full PHPUnit test suite
 	$(SAIL) composer test
@@ -67,6 +75,10 @@ rebuild: docker-check ## Rebuild containers from scratch and open a shell in the
 	$(SAIL) build --no-cache
 	$(SAIL) up -d
 	$(SAIL) shell
+
+reset: docker-check ## Destroy all containers and volumes, then run setup from scratch
+	$(SAIL) down -v
+	make setup
 
 npm-dev: ## Start the Vite dev server (HMR)
 	$(SAIL) npm run dev
