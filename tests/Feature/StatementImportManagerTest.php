@@ -17,7 +17,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Livewire;
+use Livewire\WithFileUploads;
 use ReflectionAttribute;
 use ReflectionClass;
 use Tests\TestCase;
@@ -621,11 +625,11 @@ final class StatementImportManagerTest extends TestCase
         $titleAttribute = null;
 
         foreach ($attributes as $attribute) {
-            if ($attribute->getName() === \Livewire\Attributes\Layout::class) {
+            if ($attribute->getName() === Layout::class) {
                 $layoutAttribute = $attribute;
             }
 
-            if ($attribute->getName() === \Livewire\Attributes\Title::class) {
+            if ($attribute->getName() === Title::class) {
                 $titleAttribute = $attribute;
             }
         }
@@ -640,7 +644,7 @@ final class StatementImportManagerTest extends TestCase
     {
         $statementImportManager = new StatementImportManager();
 
-        $this->assertContains(\Livewire\WithFileUploads::class, class_uses($statementImportManager));
+        $this->assertContains(WithFileUploads::class, class_uses($statementImportManager));
     }
 
     public function test_rules_method_validates_with_authenticated_user(): void
@@ -668,7 +672,7 @@ final class StatementImportManagerTest extends TestCase
     {
         $statementImportManager = new StatementImportManager();
 
-        $this->assertNull($statementImportManager->csvFile);
+        $this->assertNotInstanceOf(TemporaryUploadedFile::class, $statementImportManager->csvFile);
         $this->assertNull($statementImportManager->bankProfileId);
         $this->assertNotInstanceOf(BankStatementImport::class, $statementImportManager->currentImport);
         $this->assertFalse($statementImportManager->polling);

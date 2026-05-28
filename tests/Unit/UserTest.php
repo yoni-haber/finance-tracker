@@ -67,12 +67,12 @@ final class UserTest extends TestCase
     public function test_user_has_many_net_worth_line_items(): void
     {
         $user = User::factory()->create();
-        /** @var NetWorthEntry $model */
-        $model = $user->netWorthEntries()->create(['date' => '2024-01-01', 'assets' => 1000, 'liabilities' => 200, 'net_worth' => 800]);
+        /** @var NetWorthEntry $netWorthEntry */
+        $netWorthEntry = $user->netWorthEntries()->create(['date' => '2024-01-01', 'assets' => 1000, 'liabilities' => 200, 'net_worth' => 800]);
 
         $user->netWorthLineItems()->createMany([
-            ['net_worth_entry_id' => $model->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => 800],
-            ['net_worth_entry_id' => $model->id, 'type' => 'liability', 'category' => 'Credit Card', 'amount' => 200],
+            ['net_worth_entry_id' => $netWorthEntry->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => 800],
+            ['net_worth_entry_id' => $netWorthEntry->id, 'type' => 'liability', 'category' => 'Credit Card', 'amount' => 200],
         ]);
 
         $this->assertCount(2, $user->netWorthLineItems);
