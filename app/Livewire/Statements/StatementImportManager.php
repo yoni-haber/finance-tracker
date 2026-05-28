@@ -93,7 +93,7 @@ class StatementImportManager extends Component
     {
         $this->validate();
 
-        if ($this->csvFile === null) {
+        if (!$this->csvFile instanceof TemporaryUploadedFile) {
             return;
         }
 

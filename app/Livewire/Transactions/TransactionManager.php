@@ -168,7 +168,7 @@ class TransactionManager extends Component
 
             try {
                 $parsedDate = Carbon::createFromFormat('Y-m-d', $occurrenceDate, config('app.timezone'));
-                assert($parsedDate !== null);
+                assert($parsedDate instanceof Carbon);
             } catch (InvalidFormatException) {
                 $this->addError('delete', 'Invalid occurrence date.');
 

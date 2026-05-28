@@ -53,7 +53,7 @@ final class ParseBankStatementJobTest extends TestCase
         $this->assertCount(2, $transactions);
 
         $firstTransaction = $transactions->first();
-        $this->assertNotNull($firstTransaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $firstTransaction);
         $this->assertEquals('2026-01-01', $firstTransaction->date->toDateString());
         $this->assertEquals('TEST TRANSACTION', $firstTransaction->description);
         $this->assertEqualsWithDelta(100.50, $firstTransaction->amount, PHP_FLOAT_EPSILON);
@@ -248,8 +248,8 @@ final class ParseBankStatementJobTest extends TestCase
         // Check special characters are handled
         $firstTx = $transactions->first();
         $lastTx = $transactions->last();
-        $this->assertNotNull($firstTx);
-        $this->assertNotNull($lastTx);
+        $this->assertInstanceOf(ImportedTransaction::class, $firstTx);
+        $this->assertInstanceOf(ImportedTransaction::class, $lastTx);
         $this->assertStringContainsString('CAFÉ', $firstTx->description);
         $this->assertStringContainsString('RÉSUMÉ', $lastTx->description);
     }

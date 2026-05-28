@@ -68,11 +68,11 @@ final class TransactionTest extends TestCase
 
         $this->assertCount(1, $occurrences);
         $occurrence = $occurrences->first();
-        $this->assertNotNull($occurrence);
+        $this->assertInstanceOf(Transaction::class, $occurrence);
         $this->assertFalse($occurrence->getAttribute('projected'));
         $this->assertSame('2024-02-10', $occurrence->date->toDateString());
-        $this->assertNotNull($transaction->category);
-        $this->assertNotNull($occurrence->category);
+        $this->assertInstanceOf(Category::class, $transaction->category);
+        $this->assertInstanceOf(Category::class, $occurrence->category);
         $this->assertSame($transaction->category->id, $occurrence->category->id);
     }
 
@@ -144,7 +144,7 @@ final class TransactionTest extends TestCase
         $this->assertTrue($marchOccurrences->isEmpty());
         $this->assertCount(1, $februaryOccurrences);
         $febOccurrence = $februaryOccurrences->first();
-        $this->assertNotNull($febOccurrence);
+        $this->assertInstanceOf(Transaction::class, $febOccurrence);
         $this->assertTrue($febOccurrence->getAttribute('projected'));
         $this->assertSame('2024-02-15', $febOccurrence->date->toDateString());
     }
@@ -229,7 +229,7 @@ final class TransactionTest extends TestCase
 
         $this->assertCount(2, $occurrences);
         $lastOccurrence = $occurrences->last();
-        $this->assertNotNull($lastOccurrence);
+        $this->assertInstanceOf(Transaction::class, $lastOccurrence);
         $this->assertSame('2024-01-12', $lastOccurrence->date->toDateString());
     }
 }

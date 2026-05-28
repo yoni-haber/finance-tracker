@@ -569,7 +569,7 @@ final class NetWorthTrackerTest extends TestCase
 
         $this->assertDatabaseCount('net_worth_entries', 1);
         $freshEntry = $entry->fresh();
-        $this->assertNotNull($freshEntry);
+        $this->assertInstanceOf(NetWorthEntry::class, $freshEntry);
         $this->assertCount(2, $freshEntry->lineItems()->where('type', 'asset')->get());
         $this->assertCount(1, $freshEntry->lineItems()->where('type', 'liability')->get());
         $this->assertDatabaseMissing('net_worth_line_items', ['category' => 'Old Savings']);

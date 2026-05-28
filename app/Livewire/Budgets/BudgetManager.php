@@ -129,7 +129,7 @@ class BudgetManager extends Component
 
         // Compute source month/year (one month before filter)
         $sourceDateBase = Carbon::create($this->filterYear, $this->filterMonth, 1);
-        assert($sourceDateBase !== null);
+        assert($sourceDateBase instanceof Carbon);
         $sourceDate = $sourceDateBase->subMonth();
         $sourceMonth = (int) $sourceDate->month;
         $sourceYear = (int) $sourceDate->year;
@@ -177,7 +177,7 @@ class BudgetManager extends Component
         }
 
         $targetLabelDate = Carbon::create($this->filterYear, $this->filterMonth, 1);
-        assert($targetLabelDate !== null);
+        assert($targetLabelDate instanceof Carbon);
         $targetLabel = $targetLabelDate->format('F Y');
         $sourceLabel = $sourceDate->format('F Y');
 

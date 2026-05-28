@@ -230,8 +230,8 @@ final class BankStatementImportTest extends TestCase
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $payment = $transactions->where('description', 'PAYMENT')->first();
 
-        $this->assertNotNull($purchase);
-        $this->assertNotNull($payment);
+        $this->assertInstanceOf(ImportedTransaction::class, $purchase);
+        $this->assertInstanceOf(ImportedTransaction::class, $payment);
         $this->assertEquals(-100.00, $purchase->amount);  // Positive becomes negative
         $this->assertEqualsWithDelta(50.00, $payment->amount, PHP_FLOAT_EPSILON);     // Negative becomes positive
     }
@@ -261,8 +261,8 @@ final class BankStatementImportTest extends TestCase
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $deposit = $transactions->where('description', 'DEPOSIT')->first();
 
-        $this->assertNotNull($purchase);
-        $this->assertNotNull($deposit);
+        $this->assertInstanceOf(ImportedTransaction::class, $purchase);
+        $this->assertInstanceOf(ImportedTransaction::class, $deposit);
         $this->assertEquals(-100.00, $purchase->amount);
         $this->assertEqualsWithDelta(150.00, $deposit->amount, PHP_FLOAT_EPSILON);
     }
@@ -287,7 +287,7 @@ final class BankStatementImportTest extends TestCase
         $freshImport = $import->fresh();
         $this->assertNotNull($freshImport);
         $transaction = $freshImport->importedTransactions->first();
-        $this->assertNotNull($transaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $transaction);
         $this->assertEquals('2024-01-01', $transaction->date->toDateString());
     }
 
@@ -323,7 +323,7 @@ final class BankStatementImportTest extends TestCase
         $freshImport = $import->fresh();
         $this->assertNotNull($freshImport);
         $importedTransaction = $freshImport->importedTransactions->first();
-        $this->assertNotNull($importedTransaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $importedTransaction);
         $this->assertTrue($importedTransaction->is_duplicate);
     }
 

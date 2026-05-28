@@ -102,8 +102,8 @@ final class BudgetTest extends TestCase
         $this->assertCount(2, $transactions);
         $firstTx = $transactions->first();
         $lastTx = $transactions->last();
-        $this->assertNotNull($firstTx);
-        $this->assertNotNull($lastTx);
+        $this->assertInstanceOf(Transaction::class, $firstTx);
+        $this->assertInstanceOf(Transaction::class, $lastTx);
         $this->assertTrue($firstTx->is($categoryTransaction));
         $this->assertTrue($lastTx->is($anotherCategoryTransaction));
     }

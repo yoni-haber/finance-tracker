@@ -122,7 +122,7 @@ final class ImportedTransactionTest extends TestCase
 
         $this->assertCount(1, $notDuplicateTransactions);
         $notDuplicate = $notDuplicateTransactions->first();
-        $this->assertNotNull($notDuplicate);
+        $this->assertInstanceOf(ImportedTransaction::class, $notDuplicate);
         $this->assertFalse($notDuplicate->is_duplicate);
     }
 
@@ -139,7 +139,7 @@ final class ImportedTransactionTest extends TestCase
 
         $this->assertCount(1, $notCommittedTransactions);
         $notCommitted = $notCommittedTransactions->first();
-        $this->assertNotNull($notCommitted);
+        $this->assertInstanceOf(ImportedTransaction::class, $notCommitted);
         $this->assertFalse($notCommitted->is_committed);
     }
 
@@ -157,7 +157,7 @@ final class ImportedTransactionTest extends TestCase
 
         $this->assertCount(1, $committableTransactions);
         $committable = $committableTransactions->first();
-        $this->assertNotNull($committable);
+        $this->assertInstanceOf(ImportedTransaction::class, $committable);
         $this->assertFalse($committable->is_duplicate);
         $this->assertFalse($committable->is_committed);
     }

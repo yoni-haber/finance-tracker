@@ -52,7 +52,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertCount(2, $transactions);
 
         $firstTransaction = $transactions->first();
-        $this->assertNotNull($firstTransaction);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $firstTransaction);
         $this->assertEquals('2026-01-01', $firstTransaction->date->toDateString());
         $this->assertEquals('TEST TRANSACTION', $firstTransaction->description);
         $this->assertEqualsWithDelta(100.50, $firstTransaction->amount, PHP_FLOAT_EPSILON);
@@ -88,8 +88,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $incomeTransaction = $transactions->where('amount', '>', 0)->first();
         $expenseTransaction = $transactions->where('amount', '<', 0)->first();
 
-        $this->assertNotNull($incomeTransaction);
-        $this->assertNotNull($expenseTransaction);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $incomeTransaction);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $expenseTransaction);
         $this->assertEqualsWithDelta(100.50, $incomeTransaction->amount, PHP_FLOAT_EPSILON);
         $this->assertEquals(-50.25, $expenseTransaction->amount);
     }
@@ -123,8 +123,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $payment = $transactions->where('description', 'PAYMENT')->first();
 
-        $this->assertNotNull($purchase);
-        $this->assertNotNull($payment);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $purchase);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $payment);
         // Credit card: positive CSV amount = purchase = expense (negative)
         $this->assertEquals(-100.50, $purchase->amount);
         // Credit card: negative CSV amount = payment = income (positive)
@@ -174,8 +174,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $duplicate = $transactions->where('description', 'EXISTING TRANSACTION')->first();
         $newTransaction = $transactions->where('description', 'NEW TRANSACTION')->first();
 
-        $this->assertNotNull($duplicate);
-        $this->assertNotNull($newTransaction);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $duplicate);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $newTransaction);
         $this->assertTrue($duplicate->is_duplicate);
         $this->assertFalse($newTransaction->is_duplicate);
     }
@@ -204,7 +204,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertTrue($result);
 
         $transaction = $import->importedTransactions->first();
-        $this->assertNotNull($transaction);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $transaction);
         $this->assertEquals('2026-01-04', $transaction->date->toDateString());
     }
 
@@ -417,7 +417,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $transactions = $freshImport->importedTransactions;
         $this->assertCount(1, $transactions);
         $firstTx = $transactions->first();
-        $this->assertNotNull($firstTx);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $firstTx);
         $this->assertEquals('TEST', $firstTx->description);
     }
 

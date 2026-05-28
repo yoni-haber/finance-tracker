@@ -173,7 +173,7 @@ class Transaction extends Model
     {
         // Target month window
         $monthStart = Carbon::create($year, $month);
-        assert($monthStart !== null);
+        assert($monthStart instanceof Carbon);
         $monthEnd = $monthStart->copy()->endOfMonth();
 
         /**
