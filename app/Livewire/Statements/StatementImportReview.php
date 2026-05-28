@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Livewire\Statements;
 
 use App\Models\BankStatementImport;
@@ -116,7 +118,7 @@ class StatementImportReview extends Component
         $this->editingTransactionId = $transactionId;
         $this->editForm = [
             'description' => $importedTransaction->description,
-            'amount' => (string) abs($importedTransaction->amount),
+            'amount' => (string) abs((float) $importedTransaction->amount),
             'date' => $importedTransaction->date->toDateString(),
             'type' => $this->determineTransactionType($importedTransaction),
             'category_id' => $importedTransaction->category_id,
@@ -198,8 +200,8 @@ class StatementImportReview extends Component
         $importedTransaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
         $amount = $type === Transaction::TYPE_EXPENSE
-            ? -abs($importedTransaction->amount)
-            : abs($importedTransaction->amount);
+            ? -abs((float) $importedTransaction->amount)
+            : abs((float) $importedTransaction->amount);
 
         $importedTransaction->update(['amount' => $amount]);
 

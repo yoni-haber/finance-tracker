@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Livewire\Budgets\BudgetManager;
 use App\Livewire\Categories\CategoryManager;
 use App\Livewire\Dashboard;

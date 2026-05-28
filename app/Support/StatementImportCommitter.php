@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Support;
 
 use App\Models\BankStatementImport;
@@ -40,7 +42,7 @@ readonly class StatementImportCommitter
                 foreach ($importedTransactions as $importedTransaction) {
                     // For credit cards, parser has already flipped signs for business logic,
                     // but Transaction table should store positive amounts for expenses
-                    $amount = $importedTransaction->amount;
+                    $amount = (float) $importedTransaction->amount;
 
                     if ($this->bankStatementImport->isCreditCardStatement()) {
                         // Credit card: flip back to positive amounts, determine type from original CSV logic
