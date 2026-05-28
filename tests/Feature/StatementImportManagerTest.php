@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Livewire;
 use ReflectionAttribute;
 use ReflectionClass;
@@ -668,7 +669,7 @@ final class StatementImportManagerTest extends TestCase
     {
         $statementImportManager = new StatementImportManager();
 
-        $this->assertNull($statementImportManager->csvFile);
+        $this->assertNotInstanceOf(TemporaryUploadedFile::class, $statementImportManager->csvFile);
         $this->assertNull($statementImportManager->bankProfileId);
         $this->assertNotInstanceOf(BankStatementImport::class, $statementImportManager->currentImport);
         $this->assertFalse($statementImportManager->polling);
