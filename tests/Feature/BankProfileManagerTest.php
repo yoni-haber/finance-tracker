@@ -352,6 +352,7 @@ final class BankProfileManagerTest extends TestCase
             ->assertHasNoErrors();
 
         $profile = BankProfile::where('name', 'No Header Bank')->where('user_id', $user->id)->first();
+        $this->assertNotNull($profile);
         $this->assertFalse($profile->config['has_header']);
     }
 

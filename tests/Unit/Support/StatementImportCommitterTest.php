@@ -48,15 +48,19 @@ final class StatementImportCommitterTest extends TestCase
         $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result);
-        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $fresh->status);
 
         $transactions = Transaction::where('user_id', $user->id)->get();
         $this->assertCount(1, $transactions);
 
         $transaction = $transactions->first();
+        $this->assertNotNull($transaction);
         $this->assertEquals('2026-01-01', $transaction->date->toDateString());
         $this->assertEquals('Test Transaction', $transaction->description);
         $this->assertEqualsWithDelta(100.50, $transaction->amount, PHP_FLOAT_EPSILON);
+        $this->assertNotNull($transaction->category);
         $this->assertTrue($transaction->category->is($category));
 
         $committedImported = ImportedTransaction::where('is_committed', true)->get();
@@ -88,8 +92,13 @@ final class StatementImportCommitterTest extends TestCase
         $transactions = Transaction::where('user_id', $user->id)->orderBy('amount', 'desc')->get();
         $this->assertCount(2, $transactions);
 
-        $this->assertTrue($transactions->first()->category->is($category));
-        $this->assertNull($transactions->last()->category_id);
+        $firstTx = $transactions->first();
+        $lastTx = $transactions->last();
+        $this->assertNotNull($firstTx);
+        $this->assertNotNull($firstTx->category);
+        $this->assertTrue($firstTx->category->is($category));
+        $this->assertNotNull($lastTx);
+        $this->assertNull($lastTx->category_id);
     }
 
     public function test_determines_transaction_type_based_on_amount_and_statement_type(): void
@@ -180,6 +189,8 @@ final class StatementImportCommitterTest extends TestCase
         $expense = $transactions->where('type', Transaction::TYPE_EXPENSE)->first();
         $income = $transactions->where('type', Transaction::TYPE_INCOME)->first();
 
+        $this->assertNotNull($expense);
+        $this->assertNotNull($income);
         // CRITICAL: Both amounts should be positive in the transactions table
         $this->assertEqualsWithDelta(100.00, $expense->amount, PHP_FLOAT_EPSILON); // Was -100, should be 100
         $this->assertEquals(Transaction::TYPE_EXPENSE, $expense->type);
@@ -200,7 +211,9 @@ final class StatementImportCommitterTest extends TestCase
         $result = $statementImportCommitter->commit();
 
         $this->assertFalse($result);
-        $this->assertEquals(BankStatementConfig::STATUS_UPLOADED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_UPLOADED, $fresh->status);
     }
 
     public function test_is_idempotent(): void
@@ -226,7 +239,9 @@ final class StatementImportCommitterTest extends TestCase
         // Should not create duplicate transactions
         $transactions = Transaction::where('user_id', $user->id)->get();
         $this->assertCount(1, $transactions);
-        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $fresh->status);
     }
 
     public function test_rolls_back_on_failure(): void
@@ -247,7 +262,9 @@ final class StatementImportCommitterTest extends TestCase
 
         $this->assertFalse($result);
         $this->assertCount(0, Transaction::where('user_id', $user->id)->get());
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
     }
 
     public function test_get_summary_returns_correct_counts(): void
@@ -305,7 +322,9 @@ final class StatementImportCommitterTest extends TestCase
         $result = $statementImportCommitter->commit();
 
         $this->assertTrue($result); // no file to delete is fine
-        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $fresh->status);
     }
 
     public function test_commit_succeeds_even_when_csv_delete_throws(): void

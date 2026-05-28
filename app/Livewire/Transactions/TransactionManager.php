@@ -59,7 +59,7 @@ class TransactionManager extends Component
 
     public function render(): View
     {
-        $userId = Auth::id();
+        $userId = (int) Auth::id();
 
         // Form categories: only those matching the currently selected type, grouped by parent.
         $formCategories = Category::forUser($userId)
@@ -139,7 +139,7 @@ class TransactionManager extends Component
 
     public function edit(int $transactionId): void
     {
-        $transaction = Transaction::forUser(Auth::id())->findOrFail($transactionId);
+        $transaction = Transaction::forUser((int) Auth::id())->findOrFail($transactionId);
 
         $this->transactionId = $transaction->id;
         $this->type = $transaction->type;
@@ -156,7 +156,7 @@ class TransactionManager extends Component
 
     public function delete(int $transactionId, ?string $occurrenceDate = null): void
     {
-        $transaction = Transaction::forUser(Auth::id())->findOrFail($transactionId);
+        $transaction = Transaction::forUser((int) Auth::id())->findOrFail($transactionId);
 
         if ($transaction->is_recurring) {
             if ($occurrenceDate === null) {
@@ -168,6 +168,7 @@ class TransactionManager extends Component
 
             try {
                 $parsedDate = Carbon::createFromFormat('Y-m-d', $occurrenceDate, config('app.timezone'));
+                assert($parsedDate instanceof Carbon);
             } catch (InvalidFormatException) {
                 $this->addError('delete', 'Invalid occurrence date.');
 

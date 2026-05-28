@@ -121,7 +121,9 @@ final class ImportedTransactionTest extends TestCase
         $notDuplicateTransactions = ImportedTransaction::notDuplicate()->get();
 
         $this->assertCount(1, $notDuplicateTransactions);
-        $this->assertFalse($notDuplicateTransactions->first()->is_duplicate);
+        $notDuplicate = $notDuplicateTransactions->first();
+        $this->assertInstanceOf(ImportedTransaction::class, $notDuplicate);
+        $this->assertFalse($notDuplicate->is_duplicate);
     }
 
     public function test_scope_not_committed(): void
@@ -136,7 +138,9 @@ final class ImportedTransactionTest extends TestCase
         $notCommittedTransactions = ImportedTransaction::notCommitted()->get();
 
         $this->assertCount(1, $notCommittedTransactions);
-        $this->assertFalse($notCommittedTransactions->first()->is_committed);
+        $notCommitted = $notCommittedTransactions->first();
+        $this->assertInstanceOf(ImportedTransaction::class, $notCommitted);
+        $this->assertFalse($notCommitted->is_committed);
     }
 
     public function test_scope_committable(): void
@@ -152,7 +156,9 @@ final class ImportedTransactionTest extends TestCase
         $committableTransactions = ImportedTransaction::committable()->get();
 
         $this->assertCount(1, $committableTransactions);
-        $this->assertFalse($committableTransactions->first()->is_duplicate);
-        $this->assertFalse($committableTransactions->first()->is_committed);
+        $committable = $committableTransactions->first();
+        $this->assertInstanceOf(ImportedTransaction::class, $committable);
+        $this->assertFalse($committable->is_duplicate);
+        $this->assertFalse($committable->is_committed);
     }
 }

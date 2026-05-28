@@ -35,9 +35,9 @@ class Dashboard extends Component
 
     public function render(): View
     {
-        $userId = Auth::id();
+        $userId = (int) Auth::id();
 
-        if (!$userId) {
+        if ($userId === 0) {
             return view('livewire.dashboard', [
                 'income' => 0,
                 'expenses' => 0,
@@ -71,7 +71,9 @@ class Dashboard extends Component
             ->get();
 
         $now = now();
-        $periodEnd = Carbon::create($this->year, $this->month)->endOfMonth();
+        $periodEndDate = Carbon::create($this->year, $this->month);
+        assert($periodEndDate instanceof Carbon);
+        $periodEnd = $periodEndDate->endOfMonth();
 
         if ($now->isSameMonth($periodEnd)) {
             $periodEnd = $now->copy()->endOfDay();

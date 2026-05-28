@@ -53,6 +53,7 @@ final class ParseBankStatementJobTest extends TestCase
         $this->assertCount(2, $transactions);
 
         $firstTransaction = $transactions->first();
+        $this->assertInstanceOf(ImportedTransaction::class, $firstTransaction);
         $this->assertEquals('2026-01-01', $firstTransaction->date->toDateString());
         $this->assertEquals('TEST TRANSACTION', $firstTransaction->description);
         $this->assertEqualsWithDelta(100.50, $firstTransaction->amount, PHP_FLOAT_EPSILON);
@@ -128,8 +129,10 @@ final class ParseBankStatementJobTest extends TestCase
         $parseBankStatementJob->handle();
 
         // Should not create duplicate transactions
-        $this->assertCount(1, $import->fresh()->importedTransactions);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $this->assertCount(1, $freshImport->importedTransactions);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $freshImport->status);
     }
 
     public function test_can_be_queued(): void
@@ -243,8 +246,12 @@ final class ParseBankStatementJobTest extends TestCase
         $this->assertCount(2, $transactions);
 
         // Check special characters are handled
-        $this->assertStringContainsString('CAFÉ', $transactions->first()->description);
-        $this->assertStringContainsString('RÉSUMÉ', $transactions->last()->description);
+        $firstTx = $transactions->first();
+        $lastTx = $transactions->last();
+        $this->assertInstanceOf(ImportedTransaction::class, $firstTx);
+        $this->assertInstanceOf(ImportedTransaction::class, $lastTx);
+        $this->assertStringContainsString('CAFÉ', $firstTx->description);
+        $this->assertStringContainsString('RÉSUMÉ', $lastTx->description);
     }
 
     public function test_skips_already_parsed_imports(): void
@@ -269,10 +276,12 @@ final class ParseBankStatementJobTest extends TestCase
         $parseBankStatementJob = new ParseBankStatementJob($import->id);
         $parseBankStatementJob->handle(); // handle() is now void — no return value to assert
 
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $freshImport->status);
 
         // Should not create additional transactions
-        $this->assertCount(1, $import->fresh()->importedTransactions);
+        $this->assertCount(1, $freshImport->importedTransactions);
     }
 
     public function test_failed_marks_import_as_failed(): void
@@ -284,7 +293,9 @@ final class ParseBankStatementJobTest extends TestCase
         $parseBankStatementJob = new ParseBankStatementJob($import->id);
         $parseBankStatementJob->failed(new RuntimeException('Something went wrong'));
 
-        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->fresh()->status);
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $freshImport->status);
     }
 
     public function test_failed_is_a_no_op_when_import_not_found(): void
@@ -312,6 +323,8 @@ final class ParseBankStatementJobTest extends TestCase
         $parseBankStatementJob->handle();
 
         // Status should be unchanged — committed imports are skipped
-        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $import->fresh()->status);
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $this->assertEquals(BankStatementConfig::STATUS_COMMITTED, $freshImport->status);
     }
 }

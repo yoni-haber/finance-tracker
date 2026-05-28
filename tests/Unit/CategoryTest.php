@@ -31,6 +31,7 @@ final class CategoryTest extends TestCase
         $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
         $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
 
+        $this->assertInstanceOf(Category::class, $child->parent);
         $this->assertTrue($child->parent->is($parent));
         $this->assertTrue($parent->children->contains($child));
     }
@@ -48,7 +49,7 @@ final class CategoryTest extends TestCase
         Transaction::factory()->count(3)->for($user)->for($category)->create(['type' => 'expense']);
 
         $this->assertCount(3, $category->transactions);
-        $this->assertTrue($category->transactions->every(fn ($t) => $t->category->is($category)));
+        $this->assertTrue($category->transactions->every(fn ($t): bool => $t->category !== null && $t->category->is($category)));
     }
 
     public function test_category_has_many_budgets(): void

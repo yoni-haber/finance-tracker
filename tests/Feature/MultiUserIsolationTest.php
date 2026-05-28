@@ -55,7 +55,9 @@ final class MultiUserIsolationTest extends TestCase
             ->call('save')
             ->assertHasErrors('save');
 
-        $this->assertEqualsWithDelta(50.00, (float) $otherBudget->fresh()->amount, PHP_FLOAT_EPSILON);
+        $freshBudget = $otherBudget->fresh();
+        $this->assertNotNull($freshBudget);
+        $this->assertEqualsWithDelta(50.00, (float) $freshBudget->amount, PHP_FLOAT_EPSILON);
         $this->assertDatabaseMissing('budgets', [
             'id' => $otherBudget->id,
             'user_id' => $user->id,

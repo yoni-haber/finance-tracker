@@ -18,6 +18,10 @@ class BankProfileSeeder extends Seeder
         // Get the first user to assign these sample profiles to
         $firstUser = User::first();
 
+        if ($firstUser === null) {
+            return;
+        }
+
         $profiles = [
             [
                 'name' => 'UK Bank - Standard Format',

@@ -44,12 +44,15 @@ final class BankStatementImportProcessorTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
 
         $transactions = $import->importedTransactions;
         $this->assertCount(2, $transactions);
 
         $firstTransaction = $transactions->first();
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $firstTransaction);
         $this->assertEquals('2026-01-01', $firstTransaction->date->toDateString());
         $this->assertEquals('TEST TRANSACTION', $firstTransaction->description);
         $this->assertEqualsWithDelta(100.50, $firstTransaction->amount, PHP_FLOAT_EPSILON);
@@ -85,6 +88,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $incomeTransaction = $transactions->where('amount', '>', 0)->first();
         $expenseTransaction = $transactions->where('amount', '<', 0)->first();
 
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $incomeTransaction);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $expenseTransaction);
         $this->assertEqualsWithDelta(100.50, $incomeTransaction->amount, PHP_FLOAT_EPSILON);
         $this->assertEquals(-50.25, $expenseTransaction->amount);
     }
@@ -118,6 +123,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $payment = $transactions->where('description', 'PAYMENT')->first();
 
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $purchase);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $payment);
         // Credit card: positive CSV amount = purchase = expense (negative)
         $this->assertEquals(-100.50, $purchase->amount);
         // Credit card: negative CSV amount = payment = income (positive)
@@ -145,7 +152,9 @@ final class BankStatementImportProcessorTest extends TestCase
 
         // Generate hash for the existing transaction
         $duplicateDetector = new DuplicateDetector($user->id);
-        $hash = $duplicateDetector->generateTransactionHash($user->id, $existingTransaction->date, (float) $existingTransaction->amount, $existingTransaction->description);
+        $description = $existingTransaction->description;
+        $this->assertNotNull($description);
+        $hash = $duplicateDetector->generateTransactionHash($user->id, $existingTransaction->date, (float) $existingTransaction->amount, $description);
         $existingTransaction->update(['hash' => $hash]);
 
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
@@ -165,6 +174,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $duplicate = $transactions->where('description', 'EXISTING TRANSACTION')->first();
         $newTransaction = $transactions->where('description', 'NEW TRANSACTION')->first();
 
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $duplicate);
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $newTransaction);
         $this->assertTrue($duplicate->is_duplicate);
         $this->assertFalse($newTransaction->is_duplicate);
     }
@@ -193,6 +204,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertTrue($result);
 
         $transaction = $import->importedTransactions->first();
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $transaction);
         $this->assertEquals('2026-01-04', $transaction->date->toDateString());
     }
 
@@ -218,7 +230,9 @@ final class BankStatementImportProcessorTest extends TestCase
 
         // Even invalid CSV shouldn't crash - it should return true but create no transactions
         $this->assertTrue($result);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
 
         // Should not create any transactions
         $this->assertCount(0, $import->importedTransactions);
@@ -238,7 +252,9 @@ final class BankStatementImportProcessorTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertFalse($result);
-        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
 
         // Assert that the error was logged with the expected message
         Log::shouldHaveReceived('error')
@@ -274,7 +290,9 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertTrue($result2);
 
         // Should not create duplicate imported transactions
-        $this->assertCount(1, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertCount(1, $fresh->importedTransactions);
     }
 
     public function test_fails_when_bank_profile_missing(): void
@@ -294,7 +312,9 @@ final class BankStatementImportProcessorTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertFalse($result);
-        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
         $this->assertCount(0, $import->importedTransactions);
 
         Log::shouldHaveReceived('error')
@@ -327,8 +347,10 @@ final class BankStatementImportProcessorTest extends TestCase
 
         // STATUS_PARSING is treated as "already claimed by another worker" — skip, not an error.
         $this->assertFalse($result);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSING, $import->fresh()->status);
-        $this->assertCount(0, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSING, $fresh->status);
+        $this->assertCount(0, $fresh->importedTransactions);
     }
 
     public function test_can_reprocess_after_failed_status(): void
@@ -352,8 +374,10 @@ final class BankStatementImportProcessorTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
-        $this->assertCount(1, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
+        $this->assertCount(1, $fresh->importedTransactions);
     }
 
     public function test_reprocessing_after_failed_clears_orphaned_rows(): void
@@ -388,9 +412,13 @@ final class BankStatementImportProcessorTest extends TestCase
         $bankStatementImportProcessor->process();
 
         // Orphaned rows cleared; only the freshly parsed row should exist.
-        $transactions = $import->fresh()->importedTransactions;
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $transactions = $freshImport->importedTransactions;
         $this->assertCount(1, $transactions);
-        $this->assertEquals('TEST', $transactions->first()->description);
+        $firstTx = $transactions->first();
+        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $firstTx);
+        $this->assertEquals('TEST', $firstTx->description);
     }
 
     public function test_handles_missing_amount_columns(): void
@@ -414,7 +442,9 @@ final class BankStatementImportProcessorTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
 
         // Should not create any transactions because amount is null
         $this->assertCount(0, $import->importedTransactions);

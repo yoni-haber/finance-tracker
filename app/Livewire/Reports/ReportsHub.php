@@ -27,7 +27,7 @@ class ReportsHub extends Component
 
     public function mount(): void
     {
-        $userId = Auth::id() ?? abort(401);
+        $userId = (int) (Auth::id() ?? abort(401));
         $this->chartData = $this->chartDataForRange($this->range, $userId);
         $this->netWorthChartData = $this->buildNetWorthChartData($userId);
     }
@@ -43,7 +43,7 @@ class ReportsHub extends Component
 
     public function updatedRange(): void
     {
-        $userId = Auth::id() ?? abort(401);
+        $userId = (int) (Auth::id() ?? abort(401));
 
         if (!array_key_exists($this->range, $this->rangeOptions())) {
             $this->range = '12_months';

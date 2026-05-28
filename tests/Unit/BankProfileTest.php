@@ -57,7 +57,7 @@ final class BankProfileTest extends TestCase
         $this->assertCount(3, $profile->bankStatementImports);
         $this->assertTrue(
             $profile->bankStatementImports->every(
-                fn ($import) => $import->bankProfile->is($profile),
+                fn ($import): bool => $import->bankProfile !== null && $import->bankProfile->is($profile),
             ),
         );
     }

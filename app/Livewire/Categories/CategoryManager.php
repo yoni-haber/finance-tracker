@@ -33,7 +33,7 @@ class CategoryManager extends Component
 
     public function render(): View
     {
-        $userId = Auth::id();
+        $userId = (int) Auth::id();
 
         $incomeParents = Category::forUser($userId)
             ->income()
@@ -77,7 +77,7 @@ class CategoryManager extends Component
     {
         $this->validate($this->rules());
 
-        $userId = Auth::id();
+        $userId = (int) Auth::id();
 
         // Validate parent: must be own expense/income parent (no parent itself).
         if ($this->parentId !== null) {
@@ -141,7 +141,7 @@ class CategoryManager extends Component
 
     public function edit(int $categoryId): void
     {
-        $category = Category::forUser(Auth::id())->findOrFail($categoryId);
+        $category = Category::forUser((int) Auth::id())->findOrFail($categoryId);
 
         $this->categoryId = $category->id;
         $this->name = $category->name;
@@ -153,7 +153,7 @@ class CategoryManager extends Component
 
     public function confirmDelete(int $categoryId): void
     {
-        $category = Category::forUser(Auth::id())
+        $category = Category::forUser((int) Auth::id())
             ->with('children')
             ->find($categoryId);
 
@@ -186,7 +186,7 @@ class CategoryManager extends Component
             return;
         }
 
-        $category = Category::forUser(Auth::id())
+        $category = Category::forUser((int) Auth::id())
             ->with('children')
             ->find($this->deletingId);
 

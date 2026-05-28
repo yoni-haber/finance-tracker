@@ -46,7 +46,7 @@ class StatementImportReview extends Component
     {
         try {
             $this->import = BankStatementImport::with(['bankProfile'])
-                ->forUser(Auth::id())
+                ->forUser((int) Auth::id())
                 ->findOrFail($importId);
         } catch (ModelNotFoundException) {
             $this->redirectRoute('statements.import');
@@ -77,7 +77,7 @@ class StatementImportReview extends Component
         return view('livewire.statements.import-review', [
             'transactions' => $transactions,
             'summary' => $summary,
-            'categories' => Category::forUser(Auth::id())
+            'categories' => Category::forUser((int) Auth::id())
                 ->parents()
                 ->with('children')
                 ->orderBy('name')
@@ -100,6 +100,7 @@ class StatementImportReview extends Component
                 Rule::exists('categories', 'id')->where('user_id', Auth::id()),
                 function ($attribute, $value, $fail): void {
                     if ($value) {
+                        /** @var Category|null $category */
                         $category = Category::find($value);
                         if ($category && $category->type !== ($this->editForm['type'] ?? null)) {
                             $fail(sprintf('This category is for %s transactions.', $category->type));
@@ -132,16 +133,16 @@ class StatementImportReview extends Component
         /** @var ImportedTransaction $importedTransaction */
         $importedTransaction = $this->import->importedTransactions()->findOrFail($this->editingTransactionId);
 
-        $normalizedDescription = Str::squish(Str::upper($this->editForm['description']));
+        $normalizedDescription = Str::squish(Str::upper($this->editForm['description'] ?? ''));
 
-        $amount = $this->editForm['type'] === Transaction::TYPE_EXPENSE
-            ? -abs((float) $this->editForm['amount'])
-            : abs((float) $this->editForm['amount']);
+        $amount = ($this->editForm['type'] ?? '') === Transaction::TYPE_EXPENSE
+            ? -abs((float) ($this->editForm['amount'] ?? 0))
+            : abs((float) ($this->editForm['amount'] ?? 0));
 
         $importedTransaction->update([
             'description' => $normalizedDescription,
             'amount' => $amount,
-            'date' => $this->editForm['date'],
+            'date' => $this->editForm['date'] ?? '',
             'category_id' => $this->editForm['category_id'] ?? null,
         ]);
 
@@ -149,7 +150,7 @@ class StatementImportReview extends Component
         $duplicateDetector = new DuplicateDetector($this->import->user_id);
         $hash = $duplicateDetector->generateTransactionHash(
             $this->import->user_id,
-            $this->editForm['date'],
+            $this->editForm['date'] ?? '',
             $amount,
             $normalizedDescription,
         );
