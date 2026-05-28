@@ -46,7 +46,7 @@ class BudgetManager extends Component
 
     public function render(): View
     {
-        $userId = Auth::id();
+        $userId = (int) Auth::id();
 
         $budgets = Budget::with('category')
             ->where('user_id', $userId)
@@ -125,10 +125,12 @@ class BudgetManager extends Component
 
     public function copyFromPreviousMonth(): void
     {
-        $userId = Auth::id();
+        $userId = (int) Auth::id();
 
         // Compute source month/year (one month before filter)
-        $sourceDate = Carbon::create($this->filterYear, $this->filterMonth, 1)->subMonth();
+        $sourceDateBase = Carbon::create($this->filterYear, $this->filterMonth, 1);
+        assert($sourceDateBase !== null);
+        $sourceDate = $sourceDateBase->subMonth();
         $sourceMonth = (int) $sourceDate->month;
         $sourceYear = (int) $sourceDate->year;
 
@@ -174,7 +176,9 @@ class BudgetManager extends Component
             $copied++;
         }
 
-        $targetLabel = Carbon::create($this->filterYear, $this->filterMonth, 1)->format('F Y');
+        $targetLabelDate = Carbon::create($this->filterYear, $this->filterMonth, 1);
+        assert($targetLabelDate !== null);
+        $targetLabel = $targetLabelDate->format('F Y');
         $sourceLabel = $sourceDate->format('F Y');
 
         $message = sprintf('Copied %d budget(s) from %s to %s.', $copied, $sourceLabel, $targetLabel);

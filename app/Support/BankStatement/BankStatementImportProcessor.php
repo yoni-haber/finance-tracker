@@ -81,7 +81,7 @@ readonly class BankStatementImportProcessor
         $duplicateDetector = new DuplicateDetector($this->bankStatementImport->user_id);
 
         /** @var Collection<int, array{date: Carbon, description: string, amount: float, external_id: null, hash: string, is_duplicate: bool}> $transactions */
-        $transactions = collect($duplicateDetector->detectDuplicates($transactions->all()));
+        $transactions = collect($duplicateDetector->detectDuplicates(array_values($transactions->all())));
 
         // Step 4: Save imported transactions and mark parsed — both in one transaction
         // so a crash between the two operations cannot leave the import in an inconsistent state.

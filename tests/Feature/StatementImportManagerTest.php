@@ -358,6 +358,7 @@ final class StatementImportManagerTest extends TestCase
             ->assertHasNoErrors();
 
         $import = BankStatementImport::where('user_id', $user->id)->first();
+        $this->assertNotNull($import);
         $this->assertEquals('credit_card', $import->statement_type);
     }
 

@@ -23,6 +23,7 @@ final class BudgetTest extends TestCase
             'year' => 2024,
         ])->fresh();
 
+        $this->assertNotNull($budget);
         $this->assertSame('150.50', $budget->amount);
         $this->assertSame(3, $budget->month);
         $this->assertSame(2024, $budget->year);
@@ -99,7 +100,11 @@ final class BudgetTest extends TestCase
         $transactions = $budget->transactions;
 
         $this->assertCount(2, $transactions);
-        $this->assertTrue($transactions->first()->is($categoryTransaction));
-        $this->assertTrue($transactions->last()->is($anotherCategoryTransaction));
+        $firstTx = $transactions->first();
+        $lastTx = $transactions->last();
+        $this->assertNotNull($firstTx);
+        $this->assertNotNull($lastTx);
+        $this->assertTrue($firstTx->is($categoryTransaction));
+        $this->assertTrue($lastTx->is($anotherCategoryTransaction));
     }
 }

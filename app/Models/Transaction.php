@@ -173,6 +173,7 @@ class Transaction extends Model
     {
         // Target month window
         $monthStart = Carbon::create($year, $month);
+        assert($monthStart !== null);
         $monthEnd = $monthStart->copy()->endOfMonth();
 
         /**
@@ -235,6 +236,7 @@ class Transaction extends Model
             return collect();
         }
 
+        $intervalFn = $intervals[$this->frequency];
         $occurrences = collect();
         $transactionDate = $this->date->copy();
 
@@ -255,7 +257,7 @@ class Transaction extends Model
             }
 
             // Advance to the next recurrence
-            $intervals[$this->frequency]($transactionDate);
+            $intervalFn($transactionDate);
         }
 
         return $occurrences;

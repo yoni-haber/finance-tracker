@@ -238,7 +238,9 @@ final class StatementImportReviewTest extends TestCase
         $this->assertCount(1, $transactions); // Only non-duplicate
 
         $transaction = $transactions->first();
+        $this->assertNotNull($transaction);
         $this->assertEqualsWithDelta(100.00, $transaction->amount, PHP_FLOAT_EPSILON);
+        $this->assertNotNull($transaction->category);
         $this->assertTrue($transaction->category->is($category));
     }
 
@@ -506,7 +508,9 @@ final class StatementImportReviewTest extends TestCase
             ->test(StatementImportReview::class, ['importId' => $import->id])
             ->call('updateCategory', $transaction->id, null);
 
-        $this->assertNull($transaction->fresh()->category_id);
+        $freshTx = $transaction->fresh();
+        $this->assertNotNull($freshTx);
+        $this->assertNull($freshTx->category_id);
     }
 
     public function test_update_category_rejects_another_users_category(): void
@@ -524,7 +528,9 @@ final class StatementImportReviewTest extends TestCase
             ->call('updateCategory', $transaction->id, $otherCategory->id)
             ->assertHasErrors(['categoryId']);
 
-        $this->assertNull($transaction->fresh()->category_id);
+        $freshTx = $transaction->fresh();
+        $this->assertNotNull($freshTx);
+        $this->assertNull($freshTx->category_id);
     }
 
     public function test_mount_redirects_when_import_is_not_parsed(): void
@@ -550,7 +556,9 @@ final class StatementImportReviewTest extends TestCase
             ->test(StatementImportReview::class, ['importId' => $import->id])
             ->call('updateType', $transaction->id, Transaction::TYPE_INCOME);
 
-        $this->assertEqualsWithDelta(100.00, $transaction->fresh()->amount, PHP_FLOAT_EPSILON);
+        $freshTx = $transaction->fresh();
+        $this->assertNotNull($freshTx);
+        $this->assertEqualsWithDelta(100.00, $freshTx->amount, PHP_FLOAT_EPSILON);
     }
 
     public function test_determine_transaction_type_for_credit_card_positive_amount_is_income(): void

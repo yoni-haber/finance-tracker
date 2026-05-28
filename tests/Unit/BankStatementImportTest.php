@@ -181,7 +181,9 @@ final class BankStatementImportTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertFalse($result);
-        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
     }
 
     public function test_processor_fails_when_bank_profile_missing(): void
@@ -197,7 +199,9 @@ final class BankStatementImportTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertFalse($result);
-        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->fresh()->status);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
     }
 
     public function test_processor_successfully_parses_credit_card_statement(): void
@@ -217,13 +221,17 @@ final class BankStatementImportTest extends TestCase
 
         $this->assertTrue($result);
 
-        $transactions = $import->fresh()->importedTransactions;
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $transactions = $freshImport->importedTransactions;
         $this->assertCount(2, $transactions);
 
         // Credit card transactions should have flipped amounts
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $payment = $transactions->where('description', 'PAYMENT')->first();
 
+        $this->assertNotNull($purchase);
+        $this->assertNotNull($payment);
         $this->assertEquals(-100.00, $purchase->amount);  // Positive becomes negative
         $this->assertEqualsWithDelta(50.00, $payment->amount, PHP_FLOAT_EPSILON);     // Negative becomes positive
     }
@@ -245,12 +253,16 @@ final class BankStatementImportTest extends TestCase
 
         $this->assertTrue($result);
 
-        $transactions = $import->fresh()->importedTransactions;
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $transactions = $freshImport->importedTransactions;
         $this->assertCount(2, $transactions);
 
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $deposit = $transactions->where('description', 'DEPOSIT')->first();
 
+        $this->assertNotNull($purchase);
+        $this->assertNotNull($deposit);
         $this->assertEquals(-100.00, $purchase->amount);
         $this->assertEqualsWithDelta(150.00, $deposit->amount, PHP_FLOAT_EPSILON);
     }
@@ -272,7 +284,10 @@ final class BankStatementImportTest extends TestCase
 
         $this->assertTrue($result);
 
-        $transaction = $import->fresh()->importedTransactions->first();
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $transaction = $freshImport->importedTransactions->first();
+        $this->assertNotNull($transaction);
         $this->assertEquals('2024-01-01', $transaction->date->toDateString());
     }
 
@@ -305,7 +320,10 @@ final class BankStatementImportTest extends TestCase
         $bankStatementImportProcessor = new BankStatementImportProcessor($import);
         $bankStatementImportProcessor->process();
 
-        $importedTransaction = $import->fresh()->importedTransactions->first();
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $importedTransaction = $freshImport->importedTransactions->first();
+        $this->assertNotNull($importedTransaction);
         $this->assertTrue($importedTransaction->is_duplicate);
     }
 
@@ -331,7 +349,9 @@ final class BankStatementImportTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertCount(2, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertCount(2, $fresh->importedTransactions);
     }
 
     public function test_processor_skips_empty_rows(): void
@@ -350,7 +370,9 @@ final class BankStatementImportTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertCount(2, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertCount(2, $fresh->importedTransactions);
     }
 
     public function test_processor_handles_invalid_amounts(): void
@@ -369,7 +391,9 @@ final class BankStatementImportTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertCount(2, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertCount(2, $fresh->importedTransactions);
     }
 
     public function test_processor_handles_currency_symbols_in_amounts(): void
@@ -389,7 +413,9 @@ final class BankStatementImportTest extends TestCase
 
         $this->assertTrue($result);
 
-        $transactions = $import->fresh()->importedTransactions;
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $transactions = $freshImport->importedTransactions;
         $this->assertCount(3, $transactions);
 
         $amounts = $transactions->pluck('amount')->sort()->values()->toArray();
@@ -416,7 +442,9 @@ final class BankStatementImportTest extends TestCase
 
         $this->assertTrue($result);
 
-        $transactions = $import->fresh()->importedTransactions;
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $transactions = $freshImport->importedTransactions;
         $descriptions = $transactions->pluck('description')->toArray();
 
         $this->assertContains('TEST TRANSACTION', $descriptions);
@@ -449,7 +477,9 @@ final class BankStatementImportTest extends TestCase
         $result = $bankStatementImportProcessor->process();
 
         $this->assertTrue($result);
-        $this->assertCount(3, $import->fresh()->importedTransactions);
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertCount(3, $fresh->importedTransactions);
     }
 
     protected function createCsvFile(int $importId, string $content): void

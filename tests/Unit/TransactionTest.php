@@ -67,9 +67,13 @@ final class TransactionTest extends TestCase
         $occurrences = $transaction->projectOccurrencesForMonth(2, 2024);
 
         $this->assertCount(1, $occurrences);
-        $this->assertFalse($occurrences->first()->getAttribute('projected'));
-        $this->assertSame('2024-02-10', $occurrences->first()->date->toDateString());
-        $this->assertSame($transaction->category->id, $occurrences->first()->category->id);
+        $occurrence = $occurrences->first();
+        $this->assertNotNull($occurrence);
+        $this->assertFalse($occurrence->getAttribute('projected'));
+        $this->assertSame('2024-02-10', $occurrence->date->toDateString());
+        $this->assertNotNull($transaction->category);
+        $this->assertNotNull($occurrence->category);
+        $this->assertSame($transaction->category->id, $occurrence->category->id);
     }
 
     public function test_non_recurring_transaction_outside_month_returns_empty(): void
@@ -139,8 +143,10 @@ final class TransactionTest extends TestCase
 
         $this->assertTrue($marchOccurrences->isEmpty());
         $this->assertCount(1, $februaryOccurrences);
-        $this->assertTrue($februaryOccurrences->first()->getAttribute('projected'));
-        $this->assertSame('2024-02-15', $februaryOccurrences->first()->date->toDateString());
+        $febOccurrence = $februaryOccurrences->first();
+        $this->assertNotNull($febOccurrence);
+        $this->assertTrue($febOccurrence->getAttribute('projected'));
+        $this->assertSame('2024-02-15', $febOccurrence->date->toDateString());
     }
 
     public function test_recurring_without_frequency_returns_empty(): void
@@ -222,6 +228,8 @@ final class TransactionTest extends TestCase
         $occurrences = $transaction->projectOccurrencesForMonth(1, 2024);
 
         $this->assertCount(2, $occurrences);
-        $this->assertSame('2024-01-12', $occurrences->last()->date->toDateString());
+        $lastOccurrence = $occurrences->last();
+        $this->assertNotNull($lastOccurrence);
+        $this->assertSame('2024-01-12', $lastOccurrence->date->toDateString());
     }
 }

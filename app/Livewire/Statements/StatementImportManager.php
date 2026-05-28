@@ -35,7 +35,7 @@ class StatementImportManager extends Component
     public function mount(): void
     {
         // Check for any pending imports for this user
-        $this->currentImport = BankStatementImport::forUser(Auth::id())
+        $this->currentImport = BankStatementImport::forUser((int) Auth::id())
             ->whereIn('status', [
                 BankStatementConfig::STATUS_UPLOADED,
                 BankStatementConfig::STATUS_PARSING,
@@ -93,6 +93,10 @@ class StatementImportManager extends Component
     {
         $this->validate();
 
+        if ($this->csvFile === null) {
+            return;
+        }
+
         try {
             // Get the selected bank profile to determine statement type (ensure it belongs to user)
             $bankProfile = BankProfile::where('user_id', Auth::id())->findOrFail($this->bankProfileId);
@@ -121,7 +125,7 @@ class StatementImportManager extends Component
             logger()->error('Failed to upload bank statement', [
                 'user_id' => Auth::id(),
                 'bank_profile_id' => $this->bankProfileId,
-                'filename' => $this->csvFile?->getClientOriginalName(),
+                'filename' => $this->csvFile->getClientOriginalName(),
                 'error' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
             ]);
