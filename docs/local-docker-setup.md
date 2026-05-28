@@ -4,22 +4,16 @@
 
 ## Why Docker?
 
-Before this change, running the project locally meant installing and managing several
-tools directly on your machine:
-
-- PHP 8.4 (exact version)
-- Composer
-- Node 22 (exact version)
-- npm
-- MySQL
-
-If you worked on multiple projects with different PHP versions, you would need a version
-manager like `asdf` or `phpenv` to switch between them.
+Running the project locally without Docker would mean installing and managing the
+correct PHP version, Composer, Node, npm, and MySQL directly on your machine — and
+keeping them in sync with every project you work on.
 
 **Docker solves this by packaging the entire environment — the right PHP version,
 all the right system libraries, the queue worker — into containers that run the same
 way on every machine.** Once Docker Desktop is installed and running, everything else
-is handled for you.
+is handled automatically, including the initial Composer bootstrap.
+
+**Prerequisites:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it.
 
 ---
 
@@ -176,7 +170,7 @@ Key commands:
 
 | Command | What it runs internally |
 |---|---|
-| `make setup` | Checks for Composer, `composer install`, copies `.env.example` → `.env` (if missing), then `sail up --build`, `artisan key:generate`, `artisan migrate`, `artisan storage:link`, `npm install`, `npm run build` |
+| `make setup` | Copies `.env.example` → `.env` (if missing), installs PHP deps via a temporary `composer:2` Docker container, then `sail up --build`, `artisan key:generate`, `artisan migrate`, `artisan storage:link`, `npm install`, `npm run build` |
 | `make up` | `sail up -d` (start containers in the background) |
 | `make down` | `sail down` (stop containers) |
 | `make shell` | `sail shell` (open a bash shell inside the app container) |
@@ -186,11 +180,12 @@ Key commands:
 | `make logs` | `sail artisan pail` (tail log output) |
 | `make build` | Rebuilds the Docker image without layer cache (`sail build --no-cache`) |
 | `make rebuild` | Tears everything down, rebuilds from scratch, starts back up, and opens a shell — use this after Dockerfile changes when you want to verify the new image immediately |
+| `make reset` | Destroys all containers and named volumes, then runs `make setup` again from scratch |
+| `make composer cmd="..."` | Runs a Composer command inside the container, e.g. `make composer cmd="require vendor/package"` |
 
-The Makefile also has a **`docker-check` preflight step** on `setup` and `up` that
+The Makefile has a **`docker-check` preflight step** on `setup` and `up` that
 runs `docker info` first. If Docker Desktop is not running it prints a clear error
-message. The `setup` target additionally checks that Composer is available on the
-host before proceeding.
+message.
 
 ---
 
@@ -286,36 +281,34 @@ every test.
 
 When you run `make setup` for the first time, here is what happens step by step:
 
-1. **Composer check** — verifies that Composer is available on the host. If not,
-   it prints a clear error and stops.
-
-2. **`composer install`** — runs on your host machine (the only step that does).
-   This downloads Laravel Sail (among other packages) into `vendor/`, which is
-   needed before Docker can take over.
-
-3. **`.env` copy** — if no `.env` file exists yet, it is copied from `.env.example`
+1. **`.env` copy** — if no `.env` file exists yet, it is copied from `.env.example`
    so the app has working defaults.
 
-4. **`sail up -d --build`** — Docker reads `compose.yaml`, builds the PHP 8.4 image
+2. **PHP dependency bootstrap** — runs `composer install` inside a temporary
+   `composer:2` Docker container that is immediately discarded after use. This
+   downloads Laravel Sail (among other packages) into `vendor/`, which is needed
+   before the Sail command is available. No host PHP or Composer is required.
+
+3. **`sail up -d --build`** — Docker reads `compose.yaml`, builds the PHP 8.4 image
    from `docker/8.4/Dockerfile` (this takes a few minutes the first time), and
    starts three containers: `laravel.test`, `mysql`, and `mailpit`. The MySQL
-   container also runs its init script to create the `finance_tracker_testing`
+   container also runs its SQL init script to create the `finance_tracker_testing`
    database for the test suite. The `-d` flag runs them in the background so your
    terminal is free.
 
-5. **`sail artisan key:generate`** — runs `php artisan key:generate` *inside* the
+4. **`sail artisan key:generate`** — runs `php artisan key:generate` *inside* the
    `laravel.test` container. This writes `APP_KEY` into your `.env` file.
 
-6. **`sail artisan migrate`** — runs inside the container, connects to the MySQL
+5. **`sail artisan migrate`** — runs inside the container, connects to the MySQL
    service, and runs all migrations against the `finance_tracker` database.
 
-7. **`sail artisan storage:link`** — creates the `public/storage` → `storage/app/public`
+6. **`sail artisan storage:link`** — creates the `public/storage` → `storage/app/public`
    symlink so publicly accessible file uploads work correctly.
 
-8. **`sail npm install`** — runs `npm install` inside the container, downloading
+7. **`sail npm install`** — runs `npm install` inside the container, downloading
    front-end dependencies into `node_modules/`.
 
-9. **`sail npm run build`** — compiles front-end assets (CSS, JS) into `public/build/`.
+8. **`sail npm run build`** — compiles front-end assets (CSS, JS) into `public/build/`.
    This one-off production build is what makes the app load correctly when visiting
    the URL after setup, since `public/build/` is gitignored and must be generated
    locally.
@@ -370,3 +363,56 @@ This stops and removes the containers, but your code and `vendor/` folder are on
 your host machine via the bind mount, and your MySQL data is stored in the
 `sail-mysql` named Docker volume — so nothing is lost. Next time you run `make up`,
 everything picks up where it left off.
+
+**How do I completely reset the environment (wipe the database)?**
+
+```bash
+make reset
+```
+
+This runs `sail down -v` (which removes containers and the named MySQL volume) and
+then re-runs `make setup` from scratch. Use this if migrations are in an inconsistent
+state or you want a clean slate.
+
+---
+
+## Troubleshooting
+
+**`make setup` fails with "permission denied" on the Composer Docker step**
+
+On Linux, the `composer:2` container runs as your host user (`id -u`/`id -g`). If
+your user ID is `0` (root), drop the `-u` flag or run as a non-root user.
+
+**The app container exits immediately after `sail up`**
+
+Check that `.env` exists and `APP_KEY` is set. If you skipped `make setup`, run:
+```bash
+make artisan cmd="key:generate"
+make migrate
+```
+
+**MySQL container stays unhealthy and the app never starts**
+
+The app container waits for MySQL to pass its health check before starting. Common
+causes:
+- Another process is already using port 3306 on your host — change `FORWARD_DB_PORT`
+  in `.env` to a free port.
+- The `sail-mysql` volume contains data from an incompatible MySQL version — run
+  `make reset` to wipe it.
+
+**Port 8080 is already in use**
+
+Change `APP_PORT` in `.env` to a free port (e.g. `APP_PORT=8081`), then `make down && make up`.
+
+**`vendor/bin/sail: No such file or directory`**
+
+The `vendor/` directory is missing. Run the bootstrap step manually:
+```bash
+docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "$(pwd):/app" \
+    -w /app \
+    -e HOME=/tmp \
+    composer:2 install --no-interaction --prefer-dist --no-progress --no-scripts --ignore-platform-reqs
+```
+Then continue with `make setup`.

@@ -37,11 +37,11 @@ Laravel Finance Tracker is a personal budgeting and finance dashboard built with
 
 ## Running the App Locally
 
-This project uses **Docker / Laravel Sail** for local development. It handles PHP, MySQL, and all dependencies inside containers — no need to install PHP or Node on your machine beyond the initial bootstrap.
+This project uses **Docker / Laravel Sail** for local development. It handles PHP, MySQL, and all dependencies inside containers — no need to install PHP, Composer, or Node on your machine at all.
 
 Sail is Laravel's built-in Docker development environment. It wraps `docker compose` with a simple `./vendor/bin/sail` command, and this project adds a `Makefile` on top so commands are even shorter.
 
-**Prerequisites:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it. You also need PHP and Composer installed locally **once** to pull in Sail before Docker takes over.
+**Prerequisites:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it. That is the only host dependency. Git is assumed for cloning.
 
 1. **Clone the repository:**
    ```bash
@@ -49,10 +49,11 @@ Sail is Laravel's built-in Docker development environment. It wraps `docker comp
    cd laravel-finance-tracker-app
    ```
 
-2. **Run the one-command setup** — this installs PHP dependencies, builds the Docker image, generates an app key, runs database migrations, creates the storage symlink, installs JS dependencies, and compiles frontend assets:
+2. **Run the one-command setup** — this installs PHP dependencies (inside a temporary Docker container), builds the Sail image, generates an app key, runs database migrations, creates the storage symlink, installs JS dependencies, and compiles frontend assets:
    ```bash
    make setup
    ```
+   On first run this pulls a few Docker images and compiles the PHP image, which takes a few minutes. Subsequent runs of `make up` start in seconds.
 
 3. **Visit the app:** Open `http://localhost:8080` in your browser (or whatever `APP_PORT` is set to in `.env`) and register a user (or run the database seeder for a pre-configured account).
 
