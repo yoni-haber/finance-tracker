@@ -7,8 +7,8 @@ namespace Tests\Unit;
 use App\Models\Transaction;
 use App\Models\TransactionException;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 final class TransactionExceptionTest extends TestCase
