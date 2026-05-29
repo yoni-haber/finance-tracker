@@ -9,7 +9,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 docker-check:
-	@docker info > /dev/null 2>&1 || (echo "\n❌  Docker is not running. Please start Docker Desktop and try again.\n" && exit 1)
+	@docker info > /dev/null 2>&1 || (echo "\nDocker is not running. Please start Docker and try again.\n" && exit 1)
 
 setup: docker-check ## First-time project setup — only Docker required, no host PHP/Composer needed
 	@test -f .env || cp .env.example .env

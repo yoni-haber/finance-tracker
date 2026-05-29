@@ -619,4 +619,231 @@ final class StatementImportReviewTest extends TestCase
         $transaction->refresh();
         $this->assertNull($transaction->category_id);
     }
+
+    public function test_can_bulk_assign_category_to_selected_transactions(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Positive amount on a bank statement = income
+        $tx1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 100.00, 'is_duplicate' => false]);
+        $tx2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 200.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
+            ->call('bulkAssignCategory', $category->id)
+            ->assertHasNoErrors()
+            ->assertSet('selectedTransactionIds', []);
+
+        $fresh1 = $tx1->fresh();
+        $fresh2 = $tx2->fresh();
+        $this->assertNotNull($fresh1);
+        $this->assertNotNull($fresh2);
+        $this->assertEquals($category->id, $fresh1->category_id);
+        $this->assertEquals($category->id, $fresh2->category_id);
+    }
+
+    public function test_bulk_assign_category_clears_selection_on_success(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $tx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 50.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx->id])
+            ->call('bulkAssignCategory', $category->id)
+            ->assertSet('selectedTransactionIds', []);
+    }
+
+    public function test_bulk_assign_category_fails_when_selected_transactions_have_mixed_types(): void
+    {
+        $user = User::factory()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Bank statement: positive = income, negative = expense
+        $incomeTx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 100.00, 'is_duplicate' => false]);
+        $expenseTx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -50.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$incomeTx->id, $expenseTx->id])
+            ->call('bulkAssignCategory', $incomeCategory->id)
+            ->assertHasErrors(['bulk_assign']);
+
+        $freshIncome = $incomeTx->fresh();
+        $freshExpense = $expenseTx->fresh();
+        $this->assertNotNull($freshIncome);
+        $this->assertNotNull($freshExpense);
+        $this->assertNull($freshIncome->category_id);
+        $this->assertNull($freshExpense->category_id);
+    }
+
+    public function test_bulk_assign_category_fails_when_category_type_does_not_match_transactions(): void
+    {
+        $user = User::factory()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Negative amounts on bank statement = expense
+        $tx1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -100.00, 'is_duplicate' => false]);
+        $tx2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -50.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
+            ->call('bulkAssignCategory', $incomeCategory->id) // income category on expense transactions
+            ->assertHasErrors(['bulk_assign']);
+
+        $fresh1 = $tx1->fresh();
+        $fresh2 = $tx2->fresh();
+        $this->assertNotNull($fresh1);
+        $this->assertNotNull($fresh2);
+        $this->assertNull($fresh1->category_id);
+        $this->assertNull($fresh2->category_id);
+    }
+
+    public function test_bulk_assign_category_rejects_another_users_category(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $otherCategory = Category::factory()->for($otherUser)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $tx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 100.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx->id])
+            ->call('bulkAssignCategory', $otherCategory->id)
+            ->assertHasErrors(['bulk_assign']);
+
+        $freshTx = $tx->fresh();
+        $this->assertNotNull($freshTx);
+        $this->assertNull($freshTx->category_id);
+    }
+
+    public function test_confirm_bulk_delete_dispatches_open_modal_event(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $tx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx->id])
+            ->call('confirmBulkDelete')
+            ->assertDispatched('open-bulk-delete-modal');
+    }
+
+    public function test_bulk_delete_removes_selected_transactions(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $tx1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false]);
+        $tx2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false]);
+        $tx3 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
+            ->call('bulkDeleteTransactions')
+            ->assertSet('selectedTransactionIds', [])
+            ->assertDispatched('close-bulk-delete-modal');
+
+        $this->assertDatabaseMissing('imported_transactions', ['id' => $tx1->id]);
+        $this->assertDatabaseMissing('imported_transactions', ['id' => $tx2->id]);
+        $this->assertDatabaseHas('imported_transactions', ['id' => $tx3->id]);
+    }
+
+    public function test_bulk_delete_only_deletes_transactions_belonging_to_this_import(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import1 = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $import2 = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $tx1 = ImportedTransaction::factory()->for($import1, 'bankStatementImport')->create(['is_duplicate' => false]);
+        $txOther = ImportedTransaction::factory()->for($import2, 'bankStatementImport')->create(['is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import1->id])
+            ->set('selectedTransactionIds', [$tx1->id, $txOther->id]) // $txOther belongs to a different import
+            ->call('bulkDeleteTransactions');
+
+        $this->assertDatabaseMissing('imported_transactions', ['id' => $tx1->id]);
+        $this->assertDatabaseHas('imported_transactions', ['id' => $txOther->id]); // should not be touched
+    }
+
+    public function test_per_row_category_dropdown_only_shows_matching_type_categories(): void
+    {
+        $user = User::factory()->create();
+        Category::factory()->for($user)->income()->create(['name' => 'My Salary']);
+        Category::factory()->for($user)->expense()->create(['name' => 'My Groceries']);
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Positive bank amount = income
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 100.00, 'is_duplicate' => false]);
+
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id]);
+
+        $testable->assertSee('My Salary');
+        $testable->assertDontSee('My Groceries');
+    }
+
+    public function test_edit_form_category_dropdown_filters_by_edit_form_type(): void
+    {
+        $user = User::factory()->create();
+        Category::factory()->for($user)->income()->create(['name' => 'My Salary']);
+        Category::factory()->for($user)->expense()->create(['name' => 'My Groceries']);
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -50.00, 'is_duplicate' => false]);
+
+        // Open edit form — transaction is expense (negative bank amount)
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('editTransaction', $transaction->id);
+
+        // editForm.type is 'expense' — only expense categories should appear
+        $testable->assertSee('My Groceries');
+        $testable->assertDontSee('My Salary');
+    }
+
+    public function test_bulk_toolbar_filters_categories_when_selection_is_uniform_type(): void
+    {
+        $user = User::factory()->create();
+        Category::factory()->for($user)->income()->create(['name' => 'My Salary']);
+        Category::factory()->for($user)->expense()->create(['name' => 'My Groceries']);
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Two expense transactions (negative bank amounts)
+        $tx1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -30.00, 'is_duplicate' => false]);
+        $tx2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -20.00, 'is_duplicate' => false]);
+
+        // Select both — all expense, so bulkSelectionType = 'expense'
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id]);
+
+        $testable->assertSee('My Groceries');
+        $testable->assertDontSee('My Salary');
+    }
 }

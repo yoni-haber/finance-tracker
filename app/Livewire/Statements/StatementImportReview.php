@@ -31,6 +31,9 @@ class StatementImportReview extends Component
 
     public ?int $deletingTransactionId = null;
 
+    /** @var array<int, int> */
+    public array $selectedTransactionIds = [];
+
     /**
      * @var array{
      *     description?: string,
@@ -74,9 +77,20 @@ class StatementImportReview extends Component
             'total_amount' => $transactions->where('is_duplicate', false)->sum('amount'),
         ];
 
+        $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
+        $bulkSelectionType = null;
+        if ($selectedIds !== []) {
+            $selectedTxs = $transactions->whereIn('id', $selectedIds)->where('is_duplicate', false);
+            $types = $selectedTxs->map(fn (ImportedTransaction $importedTransaction): string => $this->determineTransactionType($importedTransaction))->unique();
+            if ($types->count() === 1) {
+                $bulkSelectionType = $types->first();
+            }
+        }
+
         return view('livewire.statements.import-review', [
             'transactions' => $transactions,
             'summary' => $summary,
+            'bulkSelectionType' => $bulkSelectionType,
             'categories' => Category::forUser((int) Auth::id())
                 ->parents()
                 ->with('children')
@@ -286,5 +300,84 @@ class StatementImportReview extends Component
         $this->editingTransactionId = null;
         $this->editForm = [];
         $this->resetValidation();
+    }
+
+    /**
+     * Assign a category to all currently selected transactions.
+     * All selected transactions must share the same type, and the category type must match.
+     */
+    public function bulkAssignCategory(int $categoryId): void
+    {
+        $category = Category::where('id', $categoryId)->where('user_id', Auth::id())->first();
+
+        if (!$category) {
+            $this->addError('bulk_assign', 'The selected category is invalid.');
+
+            return;
+        }
+
+        $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $transactions = $this->import->importedTransactions()
+            ->whereIn('id', $selectedIds)
+            ->where('is_duplicate', false)
+            ->get();
+
+        $types = $transactions->map(fn (ImportedTransaction $importedTransaction): string => $this->determineTransactionType($importedTransaction))->unique();
+
+        if ($types->count() > 1) {
+            $this->addError('bulk_assign', 'Selected transactions have mixed types (income and expense). Choose transactions of the same type before assigning a category.');
+
+            return;
+        }
+
+        $transactionType = $types->first();
+
+        if ($category->type !== $transactionType) {
+            $this->addError('bulk_assign', sprintf(
+                'This category is for %s transactions, but the selected transactions are %s.',
+                $category->type,
+                $transactionType,
+            ));
+
+            return;
+        }
+
+        $this->import->importedTransactions()
+            ->whereIn('id', $selectedIds)
+            ->where('is_duplicate', false)
+            ->update(['category_id' => $categoryId]);
+
+        $this->selectedTransactionIds = [];
+        session()->flash('status', sprintf('Category assigned to %d transaction%s.', $transactions->count(), $transactions->count() !== 1 ? 's' : ''));
+    }
+
+    public function confirmBulkDelete(): void
+    {
+        $this->dispatch('open-bulk-delete-modal');
+    }
+
+    public function bulkDeleteTransactions(): void
+    {
+        $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
+
+        $deleted = 0;
+        if ($selectedIds !== []) {
+            $deleted = $this->import->importedTransactions()
+                ->whereIn('id', $selectedIds)
+                ->where('is_duplicate', false)
+                ->delete();
+        }
+
+        $this->selectedTransactionIds = [];
+        $this->dispatch('close-bulk-delete-modal');
+
+        if ($deleted > 0) {
+            session()->flash('status', sprintf('%d transaction%s removed from import.', $deleted, $deleted !== 1 ? 's' : ''));
+        }
     }
 }
