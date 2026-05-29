@@ -48,7 +48,7 @@ Key columns: `hash`, `original_hash`, `is_duplicate`, `is_committed`, `category_
 |---|---|
 | `BankProfileManager` | Livewire CRUD for bank profiles |
 | `StatementImportManager` | File upload, job dispatch, status polling |
-| `StatementImportReview` | Review UI: edit, categorise, commit |
+| `StatementImportReview` | Review UI: edit, categorise, bulk-categorise, commit, bulk/single delete |
 | `ParseBankStatementJob` | Queue job — 3 retries, 60s timeout |
 | `BankStatementImportProcessor` | Orchestrates parse → stage pipeline |
 | `CsvFileReader` | Reads raw CSV rows via `SplFileObject` |
@@ -120,7 +120,7 @@ App\Jobs\ParseBankStatementJob::dispatch(\$import->id);
 3. The job atomically claims the import (`uploaded` or `failed` → `parsing`) — an import already in `parsing` is skipped to prevent concurrent processing. The job then delegates to `BankStatementImportProcessor`.
 4. The processor reads the CSV, parses each row via `TransactionRowParser`, runs `DuplicateDetector::detectDuplicates()`, and bulk-inserts results into `imported_transactions`. Both `hash` and `original_hash` are set to the same value at this point. Import status → `parsed`.
 5. The UI polls for status and redirects to `/statements/review/{importId}` on completion.
-6. The user can edit transaction details, assign categories, and correct income/expense type. Edits regenerate `hash`; `original_hash` is never touched.
+6. The user can edit transaction details, assign categories, and correct income/expense type. Edits regenerate `hash`; `original_hash` is never touched. **Bulk actions** are available when ≥1 non-duplicate rows are selected: bulk category assignment (all selected must share the same type; chosen category type must match) and bulk delete (requires confirmation). Both clear the selection on success.
 7. On commit, `StatementImportCommitter` creates a `Transaction` for each non-duplicate, non-committed staged row, sets `Transaction.hash = original_hash`, marks staged rows `is_committed = true`, updates import status → `committed`, and deletes the CSV file.
 
 ## Deduplication
