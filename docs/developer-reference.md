@@ -16,6 +16,7 @@ Run `make help` for a full list of targets.
 | `make pint` | Fix code style                                                   |
 | `make phpstan` | Run static analysis                                              |
 | `make rector` | Apply automated refactoring with Rector                          |
+| `make infection` | Run Infection mutation tests                                 |
 | `make migrate` | Run outstanding migrations                                       |
 | `make fresh` | Wipe the DB and re-run all migrations, and seed                     |
 | `make logs` | Tail Laravel logs via Pail                                       |
@@ -126,6 +127,9 @@ vendor/bin/phpstan analyse app --memory-limit=1G
 
 # Apply automated refactoring with Rector
 make rector
+
+# Run Infection mutation tests (PCOV included in the image)
+make infection
 
 # Preview Rector changes without applying them
 ./vendor/bin/sail exec laravel.test vendor/bin/rector --dry-run

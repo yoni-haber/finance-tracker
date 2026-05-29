@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\TransactionException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Tests\TestCase;
 
 final class TransactionExceptionTest extends TestCase
@@ -33,6 +34,7 @@ final class TransactionExceptionTest extends TestCase
 
         $this->assertInstanceOf(Transaction::class, $exception->transaction);
         $this->assertTrue($exception->transaction->is($transaction));
+        $this->assertInstanceOf(BelongsTo::class, $exception->transaction());
         $this->assertInstanceOf(Carbon::class, $exception->date);
         $this->assertTrue($exception->date->equalTo($exceptionDate));
     }
