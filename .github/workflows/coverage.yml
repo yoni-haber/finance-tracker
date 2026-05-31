@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -64,11 +66,47 @@ jobs:
       - name: Run Tests With Coverage
         env:
           DB_HOST: 127.0.0.1
-        run: ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_PHP=$(git diff --name-only --diff-filter=AM origin/${{ github.base_ref }} | grep '^app/.*\.php$' || true)
+            if [ -z "$CHANGED_PHP" ]; then
+              echo "No PHP source files changed, skipping coverage check."
+              exit 0
+            fi
+            FILTER_ARGS=""
+            while IFS= read -r file; do
+              FILTER_ARGS="$FILTER_ARGS --coverage-filter $file"
+            done <<< "$CHANGED_PHP"
+            ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text $FILTER_ARGS
+          else
+            ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
+          fi
 
-      - name: Upload Coverage Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: phpunit-coverage
-          path: coverage.xml
-          retention-days: 5
+      - name: Enforce 100% Coverage
+        if: github.event_name == 'pull_request'
+        run: |
+          php - << 'EOF'
+          <?php
+          if (!file_exists('coverage.xml')) {
+              echo "No coverage.xml found (no PHP files changed).\n";
+              exit(0);
+          }
+          $xml = simplexml_load_file('coverage.xml');
+          $failed = false;
+          foreach ($xml->project->file as $file) {
+              $statements = (int) $file->metrics['statements'];
+              if ($statements === 0) {
+                  continue;
+              }
+              $covered = (int) $file->metrics['coveredstatements'];
+              if ($covered < $statements) {
+                  $pct = round($covered / $statements * 100, 1);
+                  echo "NOT COVERED: " . $file['name'] . " ({$pct}%)\n";
+                  $failed = true;
+              }
+          }
+          if ($failed) {
+              exit(1);
+          }
+          echo "All changed files have 100% line coverage.\n";
+          EOF
