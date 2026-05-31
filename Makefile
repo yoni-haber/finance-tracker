@@ -59,7 +59,7 @@ rector: ## Apply automated refactoring with Rector
 	$(SAIL) exec $(APP_SERVICE) vendor/bin/rector
 
 infection: ## Run Infection mutation tests
-	$(SAIL) exec $(APP_SERVICE) vendor/bin/infection --threads=4
+	$(SAIL) exec $(APP_SERVICE) vendor/bin/infection --threads=1
 
 migrate: ## Run outstanding database migrations
 	$(SAIL) artisan migrate

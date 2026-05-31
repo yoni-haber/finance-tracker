@@ -137,7 +137,7 @@ readonly class TransactionRowParser
     {
         // Single amount column
         if ($amountIndex !== null) {
-            return $this->parseAmountString(trim($row[$amountIndex] ?? ''));
+            return $this->parseAmountString($row[$amountIndex] ?? '');
         }
 
         // Separate debit/credit columns
