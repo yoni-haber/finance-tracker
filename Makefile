@@ -2,7 +2,7 @@ SAIL = ./vendor/bin/sail
 APP_SERVICE := $(shell [ -f .env ] && grep -E '^APP_SERVICE=' .env 2>/dev/null | head -n1 | cut -d'=' -f2- || echo laravel.test)
 
 .PHONY: help setup up down restart shell artisan composer test pint phpstan rector \
-        migrate fresh logs build rebuild reset npm-dev npm-build docker-check
+        migrate fresh logs build rebuild reset npm-dev npm-build docker-check infection
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -57,6 +57,9 @@ phpstan: ## Run PHPStan static analysis
 
 rector: ## Apply automated refactoring with Rector
 	$(SAIL) exec $(APP_SERVICE) vendor/bin/rector
+
+infection: ## Run Infection mutation tests
+	$(SAIL) exec $(APP_SERVICE) vendor/bin/infection --threads=1
 
 migrate: ## Run outstanding database migrations
 	$(SAIL) artisan migrate

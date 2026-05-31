@@ -236,4 +236,69 @@ final class TransactionRowParserTest extends TestCase
 
         $this->assertNull($result);
     }
+
+    public function test_parse_row_returns_null_when_date_column_unconfigured_regardless_of_row_content(): void
+    {
+        // The date guard ($dateIndex === null → return null) must fire before accessing $row[$dateIndex].
+        // Row has a valid date at the empty-string key (PHP's null array key). If the guard is removed,
+        // $row[null] resolves to that value and parseRow would succeed — so assertNull kills the mutant.
+        $bankProfile = $this->bankProfile(['description' => 1, 'amount' => 2]);
+        $transactionRowParser = new TransactionRowParser($bankProfile);
+
+        /** @var array<int, string|null> $row */
+        $row = ['' => '2024-01-15', 1 => 'Coffee Shop', 2 => '10.00'];
+        $result = $transactionRowParser->parseRow($row);
+
+        $this->assertNull($result);
+    }
+
+    public function test_parse_row_returns_null_when_date_value_is_zero_even_if_format_would_accept_it(): void
+    {
+        // The '0' guard ($dateString === '0' → return null) must reject before parseDate is called.
+        // With format 'G' (24-hour, 0–23), Carbon::createFromFormat('G', '0') succeeds (returns midnight),
+        // so if the guard is absent parseRow would return a result — assertNull kills the mutant.
+        $bankProfile = $this->bankProfile(['date' => 0, 'description' => 1, 'amount' => 2], 'G');
+        $transactionRowParser = new TransactionRowParser($bankProfile);
+
+        $result = $transactionRowParser->parseRow(['0', 'Coffee Shop', '10.00']);
+
+        $this->assertNull($result);
+    }
+
+    public function test_parse_row_returns_null_when_description_column_unconfigured_regardless_of_row_content(): void
+    {
+        // The description guard ($descriptionIndex === null → return null) must fire before accessing $row[$descriptionIndex].
+        // Row has a valid description at the empty-string key (PHP's null array key). If the guard is removed,
+        // $row[null] resolves to that value and parseRow would succeed — so assertNull kills the mutant.
+        $bankProfile = $this->bankProfile(['date' => 0, 'amount' => 2]);
+        $transactionRowParser = new TransactionRowParser($bankProfile);
+
+        /** @var array<int, string|null> $row */
+        $row = [0 => '2024-01-15', '' => 'Coffee Shop', 2 => '10.00'];
+        $result = $transactionRowParser->parseRow($row);
+
+        $this->assertNull($result);
+    }
+
+    public function test_parse_row_strips_whitespace_from_debit_column_before_parsing(): void
+    {
+        $bankProfile = $this->bankProfile(['date' => 0, 'description' => 1, 'debit' => 2, 'credit' => 3]);
+        $transactionRowParser = new TransactionRowParser($bankProfile);
+
+        $result = $transactionRowParser->parseRow(['2024-01-15', 'Coffee Shop', ' 100.00 ', '']);
+
+        $this->assertNotNull($result);
+        $this->assertEquals(-100.0, $result['amount']);
+    }
+
+    public function test_parse_row_strips_whitespace_from_credit_column_before_parsing(): void
+    {
+        $bankProfile = $this->bankProfile(['date' => 0, 'description' => 1, 'debit' => 2, 'credit' => 3]);
+        $transactionRowParser = new TransactionRowParser($bankProfile);
+
+        $result = $transactionRowParser->parseRow(['2024-01-15', 'Coffee Shop', '', ' 50.00 ']);
+
+        $this->assertNotNull($result);
+        $this->assertEqualsWithDelta(50.0, $result['amount'], PHP_FLOAT_EPSILON);
+    }
 }

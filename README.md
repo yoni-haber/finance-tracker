@@ -79,6 +79,7 @@ The repository includes multiple workflows to keep quality high and demonstrate 
 - **Tests (`tests.yml`):** Installs PHP 8.4 and Node 22, builds assets, and runs PHPUnit to guard core flows like authentication and finance operations.
 - **Linter (`lint.yml`):** Runs Laravel Pint and can auto-commit fixes on branches, ensuring consistent styling without manual effort.
 - **Static analysis (`static-analysis.yml`):** Executes PHPStan over app, config, routes, database, and tests directories to catch type issues early.
+- **Mutation testing (`infection.yml`):** Runs Infection with PCOV to verify that tests actually detect logic changes. Non-blocking — results are printed to the job log for review.
 - **Additional checks:** Workflows for build verification, coverage, dependency audits, secret scanning, migrations, and PHP security checks further harden the codebase (see `.github/workflows/`).
 
 ## Skills Demonstrated
