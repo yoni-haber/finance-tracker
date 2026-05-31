@@ -4,7 +4,7 @@
 Laravel Finance Tracker is a personal budgeting and finance dashboard built with the Laravel 13 Livewire starter kit. It lets authenticated users record transactions, group them into categories, set monthly budgets, track net worth entries, review reports that summarise income vs. expenses over time, and import transactions from bank statement CSV files. All data is scoped per user.
 
 - **Framework:** Laravel 13 with Fortify authentication, Livewire 4, Flux UI component library, and Volt for function-based settings pages.
-- **Language:** PHP 8.4+.
+- **Language:** PHP 8.5+.
 - **Frontend:** Blade-based Livewire views enhanced by Volt components; assets compiled with Vite, Tailwind CSS, and the Laravel Vite plugin.
 - **Database:** MySQL 9.7.0 running in a Docker container, with a persistent named volume so data survives container restarts.
 - **Tooling:** Composer for PHP dependencies, npm for frontend tooling, and Docker / Laravel Sail for a consistent local development environment.
@@ -25,7 +25,7 @@ Laravel Finance Tracker is a personal budgeting and finance dashboard built with
 | `routes/web.php` | All routes map directly to Livewire classes — no controllers |
 | `resources/views/` | Blade + Livewire templates, compiled with Tailwind + Vite |
 | `database/` | Migrations and model factories |
-| `docker/` | PHP 8.4 Docker image, Supervisor config, and MySQL init scripts |
+| `docker/` | PHP 8.5 Docker image, Supervisor config, and MySQL init scripts |
 | `tests/` | PHPUnit feature and unit tests |
 
 ## How the App Works
@@ -76,7 +76,7 @@ All subsequent commands go through `make`. Run `make help` or see [Developer Ref
 
 ## GitHub Actions / CI
 The repository includes multiple workflows to keep quality high and demonstrate CI/CD practices:
-- **Tests (`tests.yml`):** Installs PHP 8.4 and Node 22, builds assets, and runs PHPUnit to guard core flows like authentication and finance operations.
+- **Tests (`tests.yml`):** Installs PHP 8.5 and Node 22, builds assets, and runs PHPUnit to guard core flows like authentication and finance operations.
 - **Linter (`lint.yml`):** Runs Laravel Pint and can auto-commit fixes on branches, ensuring consistent styling without manual effort.
 - **Static analysis (`static-analysis.yml`):** Executes PHPStan over app, config, routes, database, and tests directories to catch type issues early.
 - **Mutation testing (`infection.yml`):** Runs Infection with PCOV to verify that tests actually detect logic changes. Non-blocking — results are printed to the job log for review.

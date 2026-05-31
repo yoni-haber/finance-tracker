@@ -39,8 +39,8 @@ one command.
 [Laravel Sail](https://laravel.com/docs/sail) is Laravel's official Docker development
 environment. It ships as a Composer package (`laravel/sail`) and provides:
 
-1. A Docker image for PHP 8.4 — this project builds a custom Debian-based image
-   (see `docker/8.4/Dockerfile`) rather than using Sail's stock Ubuntu image, but
+1. A Docker image for PHP 8.5 — this project builds a custom Debian-based image
+   (see `docker/8.5/Dockerfile`) rather than using Sail's stock Ubuntu image, but
    the extensions and tooling are equivalent
 2. A shell script at `./vendor/bin/sail` that wraps the `docker compose` command
    so you don't need to remember long Docker syntax
@@ -56,8 +56,8 @@ Sail is **only for local development**. It is not used in production.
 
 The `.dockerignore` file at the project root tells Docker which files to exclude when
 evaluating build context. However, note that `compose.yaml` sets the Docker build
-context to `./docker/8.4` (not the project root), so this root `.dockerignore` does
-**not** affect the image built by `make build` or `make setup`. The `./docker/8.4/`
+context to `./docker/8.5` (not the project root), so this root `.dockerignore` does
+**not** affect the image built by `make build` or `make setup`. The `./docker/8.5/`
 directory contains only configuration files (Dockerfile, php.ini, start-container,
 supervisord.conf), so there are no large directories to exclude there anyway.
 
@@ -78,7 +78,7 @@ mailpit        ← a local email catcher
 
 This is the main app container. Key things it does:
 
-- **Builds from `docker/8.4/Dockerfile`** — the PHP 8.4 image with all required
+- **Builds from `docker/8.5/Dockerfile`** — the PHP 8.5 image with all required
   extensions and tools
 - **Mounts your project folder** into the container at `/var/www/html` (the
   `.:/var/www/html` volume line). This means edits you make on your machine are
@@ -107,16 +107,16 @@ This prevents accidentally sending real emails during development.
 
 ---
 
-### `docker/8.4/` — the Sail PHP image
+### `docker/8.5/` — the Sail PHP image
 
 These files define the Docker image that Sail builds and runs.
 
-#### `docker/8.4/Dockerfile`
+#### `docker/8.5/Dockerfile`
 
-The recipe for the PHP 8.4 container. It is based on the official `php:8.4-cli`
+The recipe for the PHP 8.5 container. It is based on the official `php:8.5-cli`
 image (Debian) and installs only what this project actually needs:
 
-- PHP 8.4 with the extensions the app requires: `pdo_sqlite`, `pdo_mysql`, `mbstring`,
+- PHP 8.5 with the extensions the app requires: `pdo_sqlite`, `pdo_mysql`, `mbstring`,
   `xml`, `zip`, `bcmath`, `intl`, `gd`, `pcntl`
 - `pcov` for fast test coverage (Xdebug is available via `SAIL_XDEBUG_MODE`
   but not installed by default — keeping the image lean)
@@ -129,12 +129,12 @@ The stock Sail Dockerfile installs many extras this project does not use
 The trimmed-down version here builds significantly faster and is less likely to
 fail due to a third-party package repository being temporarily unavailable.
 
-#### `docker/8.4/php.ini`
+#### `docker/8.5/php.ini`
 
 A small PHP configuration file that applies inside the container. The defaults
 shipped with Sail are kept as-is.
 
-#### `docker/8.4/start-container`
+#### `docker/8.5/start-container`
 
 The entrypoint script that runs when the container starts. It:
 
@@ -143,7 +143,7 @@ The entrypoint script that runs when the container starts. It:
 2. Starts **Supervisord** (a process manager) which in turn starts the PHP server
    and the queue worker
 
-#### `docker/8.4/supervisord.conf`
+#### `docker/8.5/supervisord.conf`
 
 Supervisord is a process manager. Inside the container it runs two things at once:
 
@@ -289,8 +289,8 @@ When you run `make setup` for the first time, here is what happens step by step:
    downloads Laravel Sail (among other packages) into `vendor/`, which is needed
    before the Sail command is available. No host PHP or Composer is required.
 
-3. **`sail up -d --build`** — Docker reads `compose.yaml`, builds the PHP 8.4 image
-   from `docker/8.4/Dockerfile` (this takes a few minutes the first time), and
+3. **`sail up -d --build`** — Docker reads `compose.yaml`, builds the PHP 8.5 image
+   from `docker/8.5/Dockerfile` (this takes a few minutes the first time), and
    starts three containers: `laravel.test`, `mysql`, and `mailpit`. The MySQL
    container also runs its SQL init script to create the `finance_tracker_testing`
    database for the test suite. The `-d` flag runs them in the background so your
@@ -328,7 +328,7 @@ just like running `php artisan serve` locally.
 
 **When do I need to rebuild the image?**
 
-Only when `docker/8.4/Dockerfile` changes — for example if a new PHP extension
+Only when `docker/8.5/Dockerfile` changes — for example if a new PHP extension
 needs to be added. Use `make rebuild` to tear down, rebuild from scratch, and
 drop into a shell so you can verify the result. Use `make build` if you just want
 to rebuild without restarting or opening a shell.

@@ -11,7 +11,7 @@
 | `resources/views/` | Blade and Livewire templates (including Volt partials). Styles compiled with Tailwind + Vite. |
 | `database/migrations/` | Schema definitions. Use the schema builder — no raw MySQL SQL. |
 | `database/factories/` | Model factories for reproducible test data. |
-| `docker/8.4/` | Custom PHP 8.4 Dockerfile, `php.ini`, `start-container` entrypoint, and `supervisord.conf` (runs the web server and queue worker together). |
+| `docker/8.5/` | Custom PHP 8.5 Dockerfile, `php.ini`, `start-container` entrypoint, and `supervisord.conf` (runs the web server and queue worker together). |
 | `docker/mysql/` | MySQL init script that creates the `finance_tracker_testing` database for the test suite on first container start. |
 | `config/` & `bootstrap/` | Standard Laravel configuration and bootstrap files; largely unchanged to keep the focus on Laravel defaults and readability. |
 | `tests/` | PHPUnit feature and unit tests that exercise critical flows and support CI automation. |
