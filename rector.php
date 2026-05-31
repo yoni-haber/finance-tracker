@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
+use Rector\ValueObject\PhpVersion;
 use RectorLaravel\Set\LaravelSetProvider;
 
 return RectorConfig::configure()
+    ->withPhpVersion(PhpVersion::PHP_85)
     ->withPaths([
-        __DIR__.'/app',
+//        __DIR__.'/app',
         __DIR__.'/resources',
         __DIR__.'/routes',
         __DIR__.'/tests',

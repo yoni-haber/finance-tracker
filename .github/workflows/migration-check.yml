@@ -13,46 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     environment: Testing
 
-    services:
-      mysql:
-        image: mysql:9.7.0
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: finance_tracker_testing
-          MYSQL_USER: sail
-          MYSQL_PASSWORD: password
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.4
-          tools: composer:v2
+      - name: Prepare Environment
+        run: cp .env.example .env
+
+      - name: Build PHP 8.5 Container
+        run: docker compose build laravel.test
+
+      - name: Start Services
+        run: docker compose up -d mysql mailpit
 
       - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: docker compose run --rm laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Prepare Environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+      - name: Generate Application Key
+        run: docker compose run --rm laravel.test php artisan key:generate
 
       - name: Run Database Migrations
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_DATABASE: finance_tracker_testing
-          DB_USERNAME: sail
-          DB_PASSWORD: password
-        run: php artisan migrate --force --no-interaction
+        run: docker compose run --rm laravel.test php artisan migrate --force --no-interaction

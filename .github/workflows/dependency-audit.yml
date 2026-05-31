@@ -17,26 +17,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.4
-          tools: composer:v2
+      - name: Build PHP 8.5 Container
+        run: docker compose build laravel.test
 
       - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: docker compose run --rm --no-deps laravel.test composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run Composer Audit
-        run: composer audit
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'npm'
+        run: docker compose run --rm --no-deps laravel.test composer audit
 
       - name: Install Node Dependencies
-        run: npm ci
+        run: docker compose run --rm --no-deps laravel.test npm ci
 
       - name: Run NPM Audit
-        run: npm audit --audit-level=high
+        run: docker compose run --rm --no-deps laravel.test npm audit --audit-level=high

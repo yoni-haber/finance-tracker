@@ -15,14 +15,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.4
-          tools: composer:v2
+      - name: Build PHP 8.5 Container
+        run: docker compose build laravel.test
 
       - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: docker compose run --rm --no-deps laravel.test composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse app database routes tests --level=6 --no-progress --memory-limit=1G --error-format=github
+        run: docker compose run --rm --no-deps laravel.test vendor/bin/phpstan --memory-limit=1G --error-format=github
+
+      - name: Run Rector Dry Run
+        run: docker compose run --rm --no-deps laravel.test vendor/bin/rector --dry-run --no-progress

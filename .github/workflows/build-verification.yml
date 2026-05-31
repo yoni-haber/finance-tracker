@@ -16,29 +16,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.4
-          tools: composer:v2
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install Node Dependencies
-        run: npm ci
-
-      - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: Copy Environment File
+      - name: Prepare Environment
         run: cp .env.example .env
 
+      - name: Build PHP 8.5 Container
+        run: docker compose build laravel.test
+
+      - name: Install Composer Dependencies
+        run: docker compose run --rm --no-deps laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
+
       - name: Generate Application Key
-        run: php artisan key:generate
+        run: docker compose run --rm --no-deps laravel.test php artisan key:generate
+
+      - name: Install Node Dependencies
+        run: docker compose run --rm --no-deps laravel.test npm ci
 
       - name: Verify Build
-        run: npm run build
+        run: docker compose run --rm --no-deps laravel.test npm run build
