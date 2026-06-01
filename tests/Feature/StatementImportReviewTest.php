@@ -846,4 +846,79 @@ final class StatementImportReviewTest extends TestCase
         $testable->assertSee('My Groceries');
         $testable->assertDontSee('My Salary');
     }
+
+    public function test_edit_rejects_category_with_mismatched_type(): void
+    {
+        $user = User::factory()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Negative bank amount = expense transaction.
+        $tx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -50.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('editTransaction', $tx->id)
+            ->set('editForm.category_id', $incomeCategory->id)
+            ->call('updateTransaction')
+            ->assertHasErrors(['editForm.category_id']);
+    }
+
+    public function test_render_computes_bulk_selection_type_when_transactions_selected(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $tx1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -30.00, 'is_duplicate' => false]);
+        $tx2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -20.00, 'is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
+            ->assertViewHas('bulkSelectionType', Transaction::TYPE_EXPENSE);
+    }
+
+    public function test_commit_import_handles_exception_gracefully(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // Create a transaction with an invalid category_id to trigger a DB exception in the committer.
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'is_duplicate' => false,
+            'amount' => 100.00,
+            'category_id' => 99999,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('commitImport')
+            ->assertHasErrors(['commit']);
+
+        // Import should remain in parsed status since the commit failed.
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
+    }
+
+    public function test_bulk_delete_with_empty_selection_does_nothing(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $tx = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [])
+            ->call('bulkDeleteTransactions')
+            ->assertDispatched('close-bulk-delete-modal');
+
+        // Transaction should still exist — nothing was selected.
+        $this->assertDatabaseHas('imported_transactions', ['id' => $tx->id]);
+    }
 }

@@ -449,4 +449,66 @@ final class CategoryManagerTest extends TestCase
 
         $this->assertDatabaseHas('categories', ['id' => $otherCategory->id, 'name' => 'Original']);
     }
+
+    public function test_delete_returns_early_when_deleting_id_is_null(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->assertSet('deletingId', null)
+            ->call('delete')
+            ->assertNotDispatched('close-delete-category-modal');
+
+        $this->assertDatabaseHas('categories', ['id' => $category->id]);
+    }
+
+    public function test_delete_blocked_on_recheck_when_transactions_added_after_confirm(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        $testable = Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('confirmDelete', $category->id)
+            ->assertSet('deletingId', $category->id);
+
+        // Simulate race condition: transaction created between confirm and delete.
+        Transaction::factory()->for($user)->create([
+            'category_id' => $category->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '10.00',
+            'date' => now()->toDateString(),
+            'is_recurring' => false,
+        ]);
+
+        $testable->call('delete')
+            ->assertDispatched('close-delete-category-modal');
+
+        $this->assertDatabaseHas('categories', ['id' => $category->id]);
+    }
+
+    public function test_delete_blocked_on_recheck_when_budgets_added_after_confirm(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        $testable = Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('confirmDelete', $category->id)
+            ->assertSet('deletingId', $category->id);
+
+        // Simulate race condition: budget created between confirm and delete.
+        Budget::factory()->for($user)->for($category)->create([
+            'month' => now()->month,
+            'year' => now()->year,
+            'amount' => 100,
+        ]);
+
+        $testable->call('delete')
+            ->assertDispatched('close-delete-category-modal');
+
+        $this->assertDatabaseHas('categories', ['id' => $category->id]);
+    }
 }

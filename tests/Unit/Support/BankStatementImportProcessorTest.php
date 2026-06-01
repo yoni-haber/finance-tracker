@@ -15,6 +15,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use ReflectionMethod;
+use RuntimeException;
 use Tests\TestCase;
 
 final class BankStatementImportProcessorTest extends TestCase
@@ -448,5 +450,49 @@ final class BankStatementImportProcessorTest extends TestCase
 
         // Should not create any transactions because amount is null
         $this->assertCount(0, $import->importedTransactions);
+    }
+
+    public function test_parse_rows_logs_warning_and_skips_row_when_parser_throws(): void
+    {
+        Log::spy();
+
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create([
+            'statement_type' => 'bank',
+            'config' => [
+                'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
+                'date_format' => 'd/m/Y',
+                'has_header' => true,
+            ],
+        ]);
+
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
+        $processor = new BankStatementImportProcessor($import);
+
+        // Create a BankProfile subclass that throws when config is accessed,
+        // causing TransactionRowParser::parseRow() to throw an Exception.
+        $brokenProfile = new class() extends BankProfile
+        {
+            public function getAttribute($key): mixed
+            {
+                if ($key === 'config') {
+                    throw new RuntimeException('DB error');
+                }
+
+                return parent::getAttribute($key);
+            }
+        };
+
+        $parser = new \App\Support\BankStatement\TransactionRowParser($brokenProfile);
+
+        // Invoke the private parseRows method via reflection.
+        $method = new ReflectionMethod($processor, 'parseRows');
+        $result = $method->invoke($processor, [['01/01/2026', 'Test', '100.50']], $parser);
+
+        $this->assertCount(0, $result);
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('Failed to parse CSV row', Mockery::on(fn ($ctx) => $ctx['import_id'] === $import->id
+                && $ctx['error'] === 'DB error'));
     }
 }

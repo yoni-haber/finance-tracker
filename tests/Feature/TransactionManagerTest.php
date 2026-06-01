@@ -684,4 +684,17 @@ final class TransactionManagerTest extends TestCase
             ->set('type', Transaction::TYPE_INCOME)
             ->assertSet('category_id', null);
     }
+
+    public function test_render_falls_back_to_scalar_filter_when_parent_not_found_in_collection(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+
+        $user = User::factory()->create();
+
+        // Set filterParentCategory to a non-existent ID so firstWhere returns null.
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('filterParentCategory', 99999)
+            ->assertViewHas('transactions');
+    }
 }
