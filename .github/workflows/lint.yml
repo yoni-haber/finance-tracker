@@ -14,7 +14,7 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    environment: Testing
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
