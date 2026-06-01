@@ -19,6 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Configure container user
+        run: |
+          echo "WWWUSER=$(id -u)" >> $GITHUB_ENV
+          echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
+
       - name: Build PHP 8.5 Container
         run: docker compose build laravel.test
 

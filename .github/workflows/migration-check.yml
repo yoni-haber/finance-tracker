@@ -20,6 +20,11 @@ jobs:
       - name: Prepare Environment
         run: cp .env.example .env
 
+      - name: Configure container user
+        run: |
+          echo "WWWUSER=$(id -u)" >> $GITHUB_ENV
+          echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
+
       - name: Build PHP 8.5 Container
         run: docker compose build laravel.test
 
