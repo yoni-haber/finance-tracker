@@ -1,4 +1,4 @@
-name: static-analysis
+name: rector
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  phpstan:
+  rector:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
