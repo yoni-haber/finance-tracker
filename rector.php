@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
-use Rector\ValueObject\PhpVersion;
 use RectorLaravel\Set\LaravelSetProvider;
 
 return RectorConfig::configure()

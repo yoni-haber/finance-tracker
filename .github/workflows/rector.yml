@@ -26,5 +26,5 @@ jobs:
       - name: Install Composer Dependencies
         run: docker compose run --rm --no-deps laravel.test composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Run PHPStan
-        run: docker compose run --rm --no-deps laravel.test vendor/bin/phpstan --memory-limit=1G --error-format=github
+      - name: Run Rector Dry Run
+        run: docker compose run --rm --no-deps laravel.test vendor/bin/rector --dry-run
