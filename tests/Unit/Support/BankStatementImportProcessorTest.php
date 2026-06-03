@@ -467,7 +467,7 @@ final class BankStatementImportProcessorTest extends TestCase
         ]);
 
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
-        $processor = new BankStatementImportProcessor($import);
+        $bankStatementImportProcessor = new BankStatementImportProcessor($import);
 
         // Create a BankProfile subclass that throws when config is accessed,
         // causing TransactionRowParser::parseRow() to throw an Exception.
@@ -483,16 +483,16 @@ final class BankStatementImportProcessorTest extends TestCase
             }
         };
 
-        $parser = new \App\Support\BankStatement\TransactionRowParser($brokenProfile);
+        $transactionRowParser = new \App\Support\BankStatement\TransactionRowParser($brokenProfile);
 
         // Invoke the private parseRows method via reflection.
-        $method = new ReflectionMethod($processor, 'parseRows');
-        $result = $method->invoke($processor, [['01/01/2026', 'Test', '100.50']], $parser);
+        $reflectionMethod = new ReflectionMethod($bankStatementImportProcessor, 'parseRows');
+        $result = $reflectionMethod->invoke($bankStatementImportProcessor, [['01/01/2026', 'Test', '100.50']], $transactionRowParser);
 
         $this->assertCount(0, $result);
         Log::shouldHaveReceived('warning')
             ->once()
-            ->with('Failed to parse CSV row', Mockery::on(fn ($ctx) => $ctx['import_id'] === $import->id
+            ->with('Failed to parse CSV row', Mockery::on(fn ($ctx): bool => $ctx['import_id'] === $import->id
                 && $ctx['error'] === 'DB error'));
     }
 }

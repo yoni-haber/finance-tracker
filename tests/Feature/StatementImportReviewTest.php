@@ -921,4 +921,61 @@ final class StatementImportReviewTest extends TestCase
         // Transaction should still exist — nothing was selected.
         $this->assertDatabaseHas('imported_transactions', ['id' => $tx->id]);
     }
+
+    public function test_determine_transaction_type_returns_correct_types_for_credit_card_statement(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'status' => BankStatementConfig::STATUS_PARSED,
+            'statement_type' => BankStatementConfig::STATEMENT_TYPE_CREDIT_CARD,
+        ]);
+
+        $transaction1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-01-01',
+            'description' => 'Original Description 1',
+            'amount' => 100.00, // positive -> income
+        ]);
+
+        $transaction2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-01-01',
+            'description' => 'Original Description 2',
+            'amount' => 0.00, // zero -> income
+        ]);
+
+        $transaction3 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-01-01',
+            'description' => 'Original Description 3',
+            'amount' => -100.00, // negative -> expense
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('editTransaction', $transaction1->id)
+            ->assertSet('editingTransactionId', $transaction1->id)
+            ->assertSet('editForm.type', Transaction::TYPE_INCOME)
+
+            ->call('editTransaction', $transaction2->id)
+            ->assertSet('editingTransactionId', $transaction2->id)
+            ->assertSet('editForm.type', Transaction::TYPE_INCOME)
+
+            ->call('editTransaction', $transaction3->id)
+            ->assertSet('editingTransactionId', $transaction3->id)
+            ->assertSet('editForm.type', Transaction::TYPE_EXPENSE);
+    }
+
+    public function test_bulk_assign_category_returns_when_selected_ids_is_empty(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [])
+            ->call('bulkAssignCategory', $category->id)
+            ->assertDontSee('Category assigned to');
+    }
 }

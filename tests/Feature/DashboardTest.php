@@ -235,12 +235,12 @@ final class DashboardTest extends TestCase
     public function test_render_returns_zeroed_data_when_user_id_is_zero(): void
     {
         // Directly test the component without authentication to cover the userId === 0 branch.
-        $component = new Dashboard();
-        $component->month = 5;
-        $component->year = 2024;
+        $dashboard = new Dashboard();
+        $dashboard->month = 5;
+        $dashboard->year = 2024;
 
         // Temporarily clear auth so Auth::id() returns null (cast to int = 0).
-        $view = $component->render();
+        $view = $dashboard->render();
 
         $this->assertEquals(0, $view->getData()['income']);
         $this->assertEquals(0, $view->getData()['expenses']);

@@ -178,6 +178,9 @@ class StatementImportReview extends Component
         session()->flash('status', 'Transaction updated successfully.');
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function updateCategory(int $transactionId, ?int $categoryId): void
     {
         if ($categoryId !== null) {
