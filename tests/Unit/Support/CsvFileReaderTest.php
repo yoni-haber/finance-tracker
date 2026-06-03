@@ -35,6 +35,7 @@ final class CsvFileReaderTest extends TestCase
         return $path;
     }
 
+    /** @param array<string, mixed> $config */
     private function makeBankProfile(array $config = []): BankProfile
     {
         return new BankProfile(['config' => $config]);
