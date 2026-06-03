@@ -25,7 +25,7 @@ class BankProfileFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'name' => $this->faker->company.' Bank',
+            'name' => $this->faker->company . ' Bank',
             'statement_type' => BankStatementConfig::STATEMENT_TYPE_BANK,
             'config' => [
                 'columns' => [

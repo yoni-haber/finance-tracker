@@ -43,7 +43,7 @@ final class EmailVerificationTest extends TestCase
         $userFresh = $user->fresh();
         $this->assertNotNull($userFresh);
         $this->assertTrue($userFresh->hasVerifiedEmail());
-        $testResponse->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+        $testResponse->assertRedirect(route('dashboard', absolute: false) . '?verified=1');
     }
 
     public function test_email_is_not_verified_with_invalid_hash(): void
@@ -78,7 +78,7 @@ final class EmailVerificationTest extends TestCase
         );
 
         $this->actingAs($user)->get($verificationUrl)
-            ->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+            ->assertRedirect(route('dashboard', absolute: false) . '?verified=1');
 
         $userFresh = $user->fresh();
         $this->assertNotNull($userFresh);

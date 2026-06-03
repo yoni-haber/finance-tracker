@@ -27,7 +27,7 @@ readonly class CsvFileReader
     public function readRows(): Collection
     {
         if (!file_exists($this->filePath)) {
-            throw new Exception('CSV file not found: '.$this->filePath);
+            throw new Exception('CSV file not found: ' . $this->filePath);
         }
 
         $file = new SplFileObject($this->filePath, 'r');

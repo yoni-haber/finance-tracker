@@ -20,6 +20,9 @@
         "blank_line_before_statement": {
             "statements": ["return", "throw", "yield"]
         },
-        "phpdoc_align": false
+        "phpdoc_align": false,
+        "concat_space": {
+            "spacing": "one"
+        }
     }
 }

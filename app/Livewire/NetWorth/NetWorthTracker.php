@@ -222,8 +222,8 @@ class NetWorthTracker extends Component
     {
         return [
             $property => 'array',
-            $property.'.*.category' => 'required|string|max:255',
-            $property.'.*.amount' => 'required|numeric|min:0',
+            $property . '.*.category' => 'required|string|max:255',
+            $property . '.*.amount' => 'required|numeric|min:0',
         ];
     }
 

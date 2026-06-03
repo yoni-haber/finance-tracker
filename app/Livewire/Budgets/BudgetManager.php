@@ -140,8 +140,8 @@ class BudgetManager extends Component
             ->get();
 
         if ($sourceBudgets->isEmpty()) {
-            session()->flash('copy_status', 'No budgets found for '.
-                $sourceDate->format('F Y').
+            session()->flash('copy_status', 'No budgets found for ' .
+                $sourceDate->format('F Y') .
                 ' to copy.',
             );
 
