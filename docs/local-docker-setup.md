@@ -57,7 +57,7 @@ Sail is **only for local development**. It is not used in production.
 The `.dockerignore` file at the project root tells Docker which files to exclude when
 evaluating build context. However, note that `compose.yaml` sets the Docker build
 context to `./docker/8.5` (not the project root), so this root `.dockerignore` does
-**not** affect the image built by `make build` or `make setup`. The `./docker/8.5/`
+**not** affect the image built by `make rebuild` or `make setup`. The `./docker/8.5/`
 directory contains only configuration files (Dockerfile, php.ini, start-container,
 supervisord.conf), so there are no large directories to exclude there anyway.
 
@@ -110,6 +110,9 @@ This prevents accidentally sending real emails during development.
 ### `docker/8.5/` — the Sail PHP image
 
 These files define the Docker image that Sail builds and runs.
+
+> **Tip:** Run `make rebuild` after changing the Dockerfile to rebuild the image
+> and restart containers.
 
 #### `docker/8.5/Dockerfile`
 
@@ -171,21 +174,29 @@ Key commands:
 | Command | What it runs internally |
 |---|---|
 | `make setup` | Copies `.env.example` → `.env` (if missing), installs PHP deps via a temporary `composer:2` Docker container, then `sail up --build`, `artisan key:generate`, `artisan migrate`, `artisan storage:link`, `npm install`, `npm run build` |
-| `make up` | `sail up -d` (start containers in the background) |
-| `make down` | `sail down` (stop containers) |
-| `make shell` | `sail shell` (open a bash shell inside the app container) |
-| `make test` | `sail composer test` (run PHPUnit) |
-| `make migrate` | `sail artisan migrate` |
-| `make npm-dev` | `sail npm run dev` (start Vite hot-reloading) |
-| `make logs` | `sail artisan pail` (tail log output) |
-| `make build` | Rebuilds the Docker image without layer cache (`sail build --no-cache`) |
-| `make rebuild` | Tears everything down, rebuilds from scratch, starts back up, and opens a shell — use this after Dockerfile changes when you want to verify the new image immediately |
-| `make reset` | Destroys all containers and named volumes, then runs `make setup` again from scratch |
-| `make composer cmd="..."` | Runs a Composer command inside the container, e.g. `make composer cmd="require vendor/package"` |
+| `make up` | `sail up -d` — start containers (begin your work session) |
+| `make down` | `sail down` — stop containers (end your work session) |
+| `make restart` | `sail restart` — quick restart without rebuilding (e.g. after `.env` change) |
+| `make shell` | `sail shell` — open a bash shell inside the app container |
+| `make test` | Run PHPUnit test suite — pass `f=path/to/TestFile.php` to run a single file |
+| `make lint` | Check code style (Pint dry-run) + static analysis (PHPStan) without modifying files |
+| `make pint` | Auto-fix code style — pass `f=path/to/file.php` to target a specific file |
+| `make phpstan` | Run PHPStan static analysis — pass `f=path/to/file.php` to target a specific file |
+| `make rector` | Apply automated refactoring with Rector — pass `f=path/to/file.php` to target a specific file |
+| `make infection` | Run full test suite for coverage, then mutate source files — pass `f=source_file.php` to target one file |
+| `make migrate` | `sail artisan migrate` — run pending migrations (e.g. after pulling new code) |
+| `make fresh` | ⚠️ Drop all tables, re-run all migrations + seeders |
+| `make rebuild` | Tears down containers, rebuilds Docker images from scratch, and restarts — use after Dockerfile changes |
+| `make reset` | ⚠️ Destroys all containers and volumes (DB data lost), then re-runs `make setup` from scratch |
+| `make npm-dev` | `sail npm run dev` — start Vite hot-reloading dev server |
+| `make npm-build` | `sail npm run build` — build optimised frontend assets for production |
+| `make logs` | `sail artisan pail` — tail live application logs (Ctrl+C to stop) |
+| `make artisan cmd="..."` | Run any Artisan command inside the container, e.g. `make artisan cmd="route:list"` |
+| `make composer cmd="..."` | Run any Composer command inside the container, e.g. `make composer cmd="require vendor/package"` |
 
-The Makefile has a **`docker-check` preflight step** on `setup` and `up` that
-runs `docker info` first. If Docker Desktop is not running it prints a clear error
-message.
+The Makefile has a **`docker-check` preflight step** on `setup`, `up`, `rebuild`,
+and `reset` that runs `docker info` first. If Docker Desktop is not running it
+prints a clear error message.
 
 ---
 
@@ -330,8 +341,7 @@ just like running `php artisan serve` locally.
 
 Only when `docker/8.5/Dockerfile` changes — for example if a new PHP extension
 needs to be added. Use `make rebuild` to tear down, rebuild from scratch, and
-drop into a shell so you can verify the result. Use `make build` if you just want
-to rebuild without restarting or opening a shell.
+restart all containers.
 
 **Where do I see emails sent by the app?**
 
