@@ -47,4 +47,4 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         ->name('two-factor.show');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

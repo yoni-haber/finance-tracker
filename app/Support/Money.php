@@ -32,6 +32,6 @@ class Money
 
     public static function format(string|int|float $amount): string
     {
-        return '£'.number_format(((float) $amount), 2, '.', ',');
+        return '£' . number_format(((float) $amount), 2, '.', ',');
     }
 }

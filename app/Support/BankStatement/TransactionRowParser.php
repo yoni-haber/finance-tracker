@@ -168,7 +168,7 @@ readonly class TransactionRowParser
 
         // Handle negative amounts in parentheses
         if (preg_match('/^\((.+)\)$/', (string) $amountString, $matches)) {
-            $amountString = '-'.$matches[1];
+            $amountString = '-' . $matches[1];
         }
 
         return is_numeric($amountString) ? (float) $amountString : null;

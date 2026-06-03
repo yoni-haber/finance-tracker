@@ -157,8 +157,8 @@ final class TransactionRowParserTest extends TestCase
 
         foreach (['$12.50', '£12.50', '€12.50', '¥12.50'] as $rawAmount) {
             $result = $transactionRowParser->parseRow(['2024-01-15', 'Coffee Shop', $rawAmount]);
-            $this->assertNotNull($result, 'Expected non-null result for amount: '.$rawAmount);
-            $this->assertEqualsWithDelta(12.50, $result['amount'], PHP_FLOAT_EPSILON, 'Expected 12.50 for amount: '.$rawAmount);
+            $this->assertNotNull($result, 'Expected non-null result for amount: ' . $rawAmount);
+            $this->assertEqualsWithDelta(12.50, $result['amount'], PHP_FLOAT_EPSILON, 'Expected 12.50 for amount: ' . $rawAmount);
         }
     }
 

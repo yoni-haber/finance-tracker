@@ -46,7 +46,7 @@ readonly class DuplicateDetector
         $dateString = is_string($date) ? $date : $date->toDateString();
         $amountString = number_format($amount, BankStatementConfig::AMOUNT_DECIMAL_PLACES, '.', '');
 
-        $hashString = $userId.'|'.$dateString.'|'.$amountString.'|'.$description;
+        $hashString = $userId . '|' . $dateString . '|' . $amountString . '|' . $description;
 
         return hash(BankStatementConfig::HASH_ALGORITHM, $hashString);
     }

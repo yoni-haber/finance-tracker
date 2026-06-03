@@ -27,7 +27,7 @@ class BankStatementImportFactory extends Factory
         return [
             'user_id' => User::factory(),
             'bank_profile_id' => BankProfile::factory(),
-            'original_filename' => $this->faker->word.'.csv',
+            'original_filename' => $this->faker->word . '.csv',
             'status' => BankStatementConfig::STATUS_UPLOADED,
             'statement_type' => BankStatementConfig::STATEMENT_TYPE_BANK,
         ];

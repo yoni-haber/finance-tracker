@@ -68,11 +68,11 @@ class StatementImportManager extends Component
                 'required',
                 'file',
                 'mimes:csv,txt',
-                'max:'.BankStatementConfig::MAX_FILE_SIZE_KB,
+                'max:' . BankStatementConfig::MAX_FILE_SIZE_KB,
             ],
             'bankProfileId' => [
                 'required',
-                'exists:bank_profiles,id,user_id,'.Auth::id(),
+                'exists:bank_profiles,id,user_id,' . Auth::id(),
             ],
         ];
     }
@@ -112,7 +112,7 @@ class StatementImportManager extends Component
             ]);
 
             // Store the file with a predictable name for the parser
-            $this->csvFile->storeAs('statements', $import->id.'.csv', 'local');
+            $this->csvFile->storeAs('statements', $import->id . '.csv', 'local');
 
             // Dispatch the parsing job
             ParseBankStatementJob::dispatch($import->id);

@@ -666,7 +666,7 @@ final class StatementImportManagerTest extends TestCase
 
         $bankProfileRule = $rules['bankProfileId'];
         $this->assertContains('required', $bankProfileRule);
-        $this->assertContains('exists:bank_profiles,id,user_id,'.$user->id, $bankProfileRule);
+        $this->assertContains('exists:bank_profiles,id,user_id,' . $user->id, $bankProfileRule);
     }
 
     public function test_public_properties_have_correct_default_values(): void
