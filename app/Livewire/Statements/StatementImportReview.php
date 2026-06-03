@@ -284,6 +284,9 @@ class StatementImportReview extends Component
                 $this->addError('commit', 'Failed to import transactions. Please try again.');
             }
         } catch (Exception $exception) {
+            // Defensive: StatementImportCommitter::commit() catches exceptions internally and returns
+            // false, so this catch block is only reached if an unexpected error occurs outside commit().
+            // The readonly StatementImportCommitter class cannot be mocked by Mockery to force a throw.
             logger()->error('Failed to commit import', [
                 'import_id' => $this->import->id,
                 'error' => $exception->getMessage(),
