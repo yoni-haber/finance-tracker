@@ -6,24 +6,28 @@ Run `make help` for a full list of targets.
 
 ## Makefile Commands
 
-| Command | What it does                                                     |
-|---|------------------------------------------------------------------|
-| `make setup` | First-time setup                                                 |
-| `make up` | Start containers in the background                               |
-| `make down` | Stop containers                                                  |
-| `make shell` | Open a bash shell inside the app container                       |
-| `make test` | Run PHPUnit test suite                                           |
-| `make pint` | Fix code style                                                   |
-| `make phpstan` | Run static analysis                                              |
-| `make rector` | Apply automated refactoring with Rector                          |
-| `make infection` | Run Infection mutation tests                                 |
-| `make migrate` | Run outstanding migrations                                       |
-| `make fresh` | Wipe the DB and re-run all migrations, and seed                     |
-| `make logs` | Tail Laravel logs via Pail                                       |
-| `make build` | Rebuild the Docker image without cache                           |
-| `make rebuild` | Tear down, rebuild from scratch, start back up, and open a shell |
-| `make npm-dev` | Start Vite HMR dev server                                        |
-| `make npm-build` | Build frontend assets for production                             |
+| Command | What it does |
+|---|---|
+| `make setup` | First-time setup after cloning (run once) |
+| `make up` | Start containers — begin your work session |
+| `make down` | Stop containers — end your work session |
+| `make restart` | Quick restart without rebuilding (e.g. after `.env` change) |
+| `make shell` | Open a bash shell inside the app container |
+| `make test` | Run PHPUnit tests (`f=path/to/TestFile.php` for a single file) |
+| `make lint` | Check style (Pint dry-run) + static analysis (PHPStan) — no file changes |
+| `make pint` | Auto-fix code style (`f=path/to/file.php` to target a file) |
+| `make phpstan` | Run static analysis (`f=path/to/file.php` to target a file) |
+| `make rector` | Apply automated refactoring (`f=path/to/file.php` to target a file) |
+| `make infection` | Run full test suite for coverage, then mutate (`f=source_file.php` to target a file) |
+| `make migrate` | Run pending migrations — e.g. after pulling new code |
+| `make fresh` | ⚠️ Drop all tables, re-run all migrations + seeders |
+| `make logs` | Tail live app logs via Pail (Ctrl+C to stop) |
+| `make rebuild` | Rebuild Docker images & restart — after Dockerfile changes |
+| `make reset` | ⚠️ Nuke everything (DB data included), re-run full setup |
+| `make npm-dev` | Start Vite HMR dev server |
+| `make npm-build` | Build frontend assets for production |
+| `make artisan cmd="..."` | Run any artisan command |
+| `make composer cmd="..."` | Run any composer command |
 
 ## Database
 
@@ -112,27 +116,36 @@ App\Models\ImportedTransaction::where('import_id', <id>)->where('is_committed', 
 
 ## Code Quality
 
+All code quality commands support `f=<path>` to target a specific file or directory.
+
 ```bash
 # Fix code style (Laravel Pint)
 make pint
+make pint f=app/Models/User.php
 
-# Check style without making changes (useful in CI)
-./vendor/bin/sail exec laravel.test vendor/bin/pint --test
+# Check style + static analysis without modifying files
+make lint
+make lint f=app/Services/
 
 # Run static analysis (PHPStan)
 make phpstan
-
-# Run static analysis with higher memory limit (inside container)
-vendor/bin/phpstan analyse app --memory-limit=1G
+make phpstan f=app/Services/
 
 # Apply automated refactoring with Rector
 make rector
 
-# Run Infection mutation tests (PCOV included in the image)
-make infection
-
 # Preview Rector changes without applying them
 ./vendor/bin/sail exec laravel.test vendor/bin/rector --dry-run
+
+# Run Infection mutation tests (runs full test suite first for coverage)
+make infection
+make infection f=UserService.php
+
+# Check style without making changes (useful in CI)
+./vendor/bin/sail exec laravel.test vendor/bin/pint --test
+
+# Run static analysis with higher memory limit (inside container)
+vendor/bin/phpstan analyse app --memory-limit=1G
 
 # Run tests with code coverage (requires PCOV — included in the image)
 ./vendor/bin/sail artisan test --coverage
