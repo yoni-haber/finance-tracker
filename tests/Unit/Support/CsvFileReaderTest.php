@@ -16,9 +16,9 @@ final class CsvFileReaderTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach ($this->tempFiles as $file) {
-            if (file_exists($file)) {
-                unlink($file);
+        foreach ($this->tempFiles as $tempFile) {
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
             }
         }
 
@@ -43,20 +43,20 @@ final class CsvFileReaderTest extends TestCase
 
     public function test_throws_exception_when_file_does_not_exist(): void
     {
-        $reader = new CsvFileReader('/nonexistent/path/file.csv');
+        $csvFileReader = new CsvFileReader('/nonexistent/path/file.csv');
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('CSV file not found: /nonexistent/path/file.csv');
 
-        $reader->readRows();
+        $csvFileReader->readRows();
     }
 
     public function test_skips_header_row_by_default_without_bank_profile(): void
     {
         $path = $this->createCsvFile("Header1,Header2\nval1,val2\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(1, $rows);
         $this->assertSame(['val1', 'val2'], $rows->first());
@@ -65,10 +65,10 @@ final class CsvFileReaderTest extends TestCase
     public function test_skips_header_row_when_bank_profile_has_header_true(): void
     {
         $path = $this->createCsvFile("Header1,Header2\nval1,val2\n");
-        $profile = $this->makeBankProfile(['has_header' => true]);
-        $reader = new CsvFileReader($path, $profile);
+        $bankProfile = $this->makeBankProfile(['has_header' => true]);
+        $csvFileReader = new CsvFileReader($path, $bankProfile);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(1, $rows);
         $this->assertSame(['val1', 'val2'], $rows->first());
@@ -77,10 +77,10 @@ final class CsvFileReaderTest extends TestCase
     public function test_includes_first_row_when_bank_profile_has_header_false(): void
     {
         $path = $this->createCsvFile("row1col1,row1col2\nrow2col1,row2col2\n");
-        $profile = $this->makeBankProfile(['has_header' => false]);
-        $reader = new CsvFileReader($path, $profile);
+        $bankProfile = $this->makeBankProfile(['has_header' => false]);
+        $csvFileReader = new CsvFileReader($path, $bankProfile);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(2, $rows);
         $this->assertSame(['row1col1', 'row1col2'], $rows->first());
@@ -90,10 +90,10 @@ final class CsvFileReaderTest extends TestCase
     public function test_uses_default_has_header_when_bank_profile_config_missing_key(): void
     {
         $path = $this->createCsvFile("Header1,Header2\nval1,val2\n");
-        $profile = $this->makeBankProfile([]);
-        $reader = new CsvFileReader($path, $profile);
+        $bankProfile = $this->makeBankProfile([]);
+        $csvFileReader = new CsvFileReader($path, $bankProfile);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(1, $rows);
         $this->assertSame(['val1', 'val2'], $rows->first());
@@ -102,9 +102,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_returns_empty_collection_for_empty_file(): void
     {
         $path = $this->createCsvFile('');
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertTrue($rows->isEmpty());
     }
@@ -112,9 +112,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_returns_empty_collection_when_file_has_only_header(): void
     {
         $path = $this->createCsvFile("Header1,Header2\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertTrue($rows->isEmpty());
     }
@@ -122,9 +122,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_skips_empty_rows(): void
     {
         $path = $this->createCsvFile("Header1,Header2\nval1,val2\n\n\nval3,val4\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(2, $rows);
         $this->assertSame(['val1', 'val2'], $rows->get(0));
@@ -134,9 +134,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_skips_rows_with_only_null_or_empty_values(): void
     {
         $path = $this->createCsvFile("Header1,Header2\n,\nval1,val2\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(1, $rows);
         $this->assertSame(['val1', 'val2'], $rows->first());
@@ -146,9 +146,9 @@ final class CsvFileReaderTest extends TestCase
     {
         $csv = "H1,H2,H3\na,b,c\nd,e,f\ng,h,i\n";
         $path = $this->createCsvFile($csv);
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(3, $rows);
         $this->assertSame(['a', 'b', 'c'], $rows->get(0));
@@ -159,9 +159,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_handles_quoted_fields_with_commas(): void
     {
         $path = $this->createCsvFile("H1,H2\n\"hello, world\",value\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(1, $rows);
         $this->assertSame(['hello, world', 'value'], $rows->first());
@@ -170,9 +170,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_returns_collection_type(): void
     {
         $path = $this->createCsvFile("H1\nval1\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertInstanceOf(\Illuminate\Support\Collection::class, $rows);
     }
@@ -180,9 +180,9 @@ final class CsvFileReaderTest extends TestCase
     public function test_single_column_csv(): void
     {
         $path = $this->createCsvFile("Header\nvalue1\nvalue2\n");
-        $reader = new CsvFileReader($path);
+        $csvFileReader = new CsvFileReader($path);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(2, $rows);
         $this->assertSame(['value1'], $rows->get(0));
@@ -192,10 +192,10 @@ final class CsvFileReaderTest extends TestCase
     public function test_no_header_reads_all_rows_including_first(): void
     {
         $path = $this->createCsvFile("first,row\nsecond,row\nthird,row\n");
-        $profile = $this->makeBankProfile(['has_header' => false]);
-        $reader = new CsvFileReader($path, $profile);
+        $bankProfile = $this->makeBankProfile(['has_header' => false]);
+        $csvFileReader = new CsvFileReader($path, $bankProfile);
 
-        $rows = $reader->readRows();
+        $rows = $csvFileReader->readRows();
 
         $this->assertCount(3, $rows);
         $this->assertSame(['first', 'row'], $rows->get(0));
