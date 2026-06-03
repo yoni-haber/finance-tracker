@@ -94,6 +94,7 @@ class StatementImportManager extends Component
         $this->validate();
 
         if (!$this->csvFile instanceof TemporaryUploadedFile) {
+            // this is defensive as the validation rules ensure that it is either a txt or csv file, so covering this in tests is tricky
             return;
         }
 

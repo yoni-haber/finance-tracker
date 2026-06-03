@@ -27,3 +27,4 @@ AGENTS.md
 .github/copilot-instructions.md
 _ide_helper.php
 backup.sql
+tests/coverage

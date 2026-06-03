@@ -41,11 +41,14 @@ readonly class CsvFileReader
 
             if ($isFirstRow && $hasHeader) {
                 $isFirstRow = false;
-
                 continue;
             }
 
             $isFirstRow = false;
+
+            // Defensive: SplFileObject::fgetcsv() currently returns [null] at EOF (a truthy array,
+            // caught by the array_filter check below), so this branch is never reached.
+            // It guards against fgetcsv() returning false or null in a future PHP version.
             if (!$row) {
                 continue;
             }

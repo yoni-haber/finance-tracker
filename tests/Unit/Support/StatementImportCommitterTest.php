@@ -163,7 +163,10 @@ final class StatementImportCommitterTest extends TestCase
         $ccImport = BankStatementImport::factory()
             ->for($user)
             ->for($ccProfile, 'bankProfile')
-            ->create(['status' => BankStatementConfig::STATUS_PARSED]);
+            ->create([
+                'status' => BankStatementConfig::STATUS_PARSED,
+                'statement_type' => BankStatementConfig::STATEMENT_TYPE_CREDIT_CARD,
+            ]);
 
         // Create imported transactions as they would come from the parser (already flipped)
         ImportedTransaction::factory()->for($ccImport)->create([
@@ -345,5 +348,30 @@ final class StatementImportCommitterTest extends TestCase
 
         $this->assertTrue($result);
         Log::shouldHaveReceived('warning')->once();
+    }
+
+    public function test_commit_uses_hash_fallback_when_original_hash_is_null(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        $hash = sha1('test-hash-value');
+        ImportedTransaction::factory()->for($import)->create([
+            'amount' => 50.00,
+            'is_duplicate' => false,
+            'hash' => $hash,
+            'original_hash' => null,
+        ]);
+
+        $statementImportCommitter = new StatementImportCommitter($import);
+        $result = $statementImportCommitter->commit();
+
+        $this->assertTrue($result);
+
+        $transaction = Transaction::where('user_id', $user->id)->first();
+        $this->assertNotNull($transaction);
+        // When original_hash is null, the committer should fall back to hash.
+        $this->assertEquals($hash, $transaction->hash);
     }
 }

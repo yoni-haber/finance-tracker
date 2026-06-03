@@ -449,4 +449,63 @@ final class CategoryManagerTest extends TestCase
 
         $this->assertDatabaseHas('categories', ['id' => $otherCategory->id, 'name' => 'Original']);
     }
+
+    public function test_delete_returns_early_when_deleting_id_is_null(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->assertSet('deletingId', null)
+            ->call('delete')
+            ->assertNotDispatched('close-delete-category-modal');
+    }
+
+    public function test_delete_returns_when_no_category_found_with_deleting_id(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('deletingId', 999) // no related children categories
+            ->call('delete')
+            ->assertDispatched('close-delete-category-modal')
+            ->assertDontSee('Category removed.');
+    }
+
+    public function test_delete_returns_when_category_has_transactions(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        $transaction = Transaction::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('deletingId', $category->id)
+            ->call('delete')
+            ->assertDispatched('close-delete-category-modal')
+            ->assertSee('Cannot delete — category has transactions. Rename it instead.')
+            ->assertDontSee('Category removed.');
+
+        $this->assertDatabaseHas('categories', ['id' => $category->id]);
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+    }
+
+    public function test_delete_returns_when_category_has_budgets(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        $budget = Budget::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('deletingId', $category->id)
+            ->call('delete')
+            ->assertDispatched('close-delete-category-modal')
+            ->assertSee('Cannot delete — category has budgets. Remove the budgets first.')
+            ->assertDontSee('Category removed.');
+
+        $this->assertDatabaseHas('categories', ['id' => $category->id]);
+        $this->assertDatabaseHas('budgets', ['id' => $budget->id]);
+    }
 }

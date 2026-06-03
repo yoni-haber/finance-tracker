@@ -865,4 +865,28 @@ final class StatementImportManagerTest extends TestCase
         $component->call('proceedToReview')
             ->assertRedirect(route('statements.review', $import->id));
     }
+
+    public function test_cancel_import_handles_exception_gracefully(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $bankProfile = BankProfile::factory()->for($user)->create();
+
+        $import = BankStatementImport::factory()
+            ->for($user)
+            ->for($bankProfile, 'bankProfile')
+            ->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
+
+        // Mock Storage to throw when delete is called, triggering the catch block.
+        Storage::shouldReceive('delete')->andThrow(new Exception('Disk error'));
+
+        Livewire::actingAs($user)
+            ->test(StatementImportManager::class)
+            ->set('currentImport', $import)
+            ->call('cancelImport');
+
+        // Import should still exist since the exception was caught.
+        $this->assertDatabaseHas('bank_statement_imports', ['id' => $import->id]);
+    }
 }

@@ -45,10 +45,3 @@ jobs:
 
       - name: Run Tests With Coverage
         run: docker compose run --rm laravel.test ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
-
-      - name: Upload Coverage Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: phpunit-coverage
-          path: coverage.xml
-          retention-days: 5
