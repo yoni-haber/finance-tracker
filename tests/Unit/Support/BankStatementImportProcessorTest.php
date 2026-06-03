@@ -6,10 +6,12 @@ namespace Tests\Unit\Support;
 
 use App\Models\BankProfile;
 use App\Models\BankStatementImport;
+use App\Models\ImportedTransaction;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Support\BankStatement\BankStatementImportProcessor;
 use App\Support\BankStatement\DuplicateDetector;
+use App\Support\BankStatement\TransactionRowParser;
 use App\Support\BankStatementConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -54,7 +56,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertCount(2, $transactions);
 
         $firstTransaction = $transactions->first();
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $firstTransaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $firstTransaction);
         $this->assertEquals('2026-01-01', $firstTransaction->date->toDateString());
         $this->assertEquals('TEST TRANSACTION', $firstTransaction->description);
         $this->assertEqualsWithDelta(100.50, $firstTransaction->amount, PHP_FLOAT_EPSILON);
@@ -90,8 +92,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $incomeTransaction = $transactions->where('amount', '>', 0)->first();
         $expenseTransaction = $transactions->where('amount', '<', 0)->first();
 
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $incomeTransaction);
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $expenseTransaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $incomeTransaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $expenseTransaction);
         $this->assertEqualsWithDelta(100.50, $incomeTransaction->amount, PHP_FLOAT_EPSILON);
         $this->assertEquals(-50.25, $expenseTransaction->amount);
     }
@@ -125,8 +127,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $purchase = $transactions->where('description', 'PURCHASE')->first();
         $payment = $transactions->where('description', 'PAYMENT')->first();
 
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $purchase);
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $payment);
+        $this->assertInstanceOf(ImportedTransaction::class, $purchase);
+        $this->assertInstanceOf(ImportedTransaction::class, $payment);
         // Credit card: positive CSV amount = purchase = expense (negative)
         $this->assertEquals(-100.50, $purchase->amount);
         // Credit card: negative CSV amount = payment = income (positive)
@@ -176,8 +178,8 @@ final class BankStatementImportProcessorTest extends TestCase
         $duplicate = $transactions->where('description', 'EXISTING TRANSACTION')->first();
         $newTransaction = $transactions->where('description', 'NEW TRANSACTION')->first();
 
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $duplicate);
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $newTransaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $duplicate);
+        $this->assertInstanceOf(ImportedTransaction::class, $newTransaction);
         $this->assertTrue($duplicate->is_duplicate);
         $this->assertFalse($newTransaction->is_duplicate);
     }
@@ -206,7 +208,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertTrue($result);
 
         $transaction = $import->importedTransactions->first();
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $transaction);
+        $this->assertInstanceOf(ImportedTransaction::class, $transaction);
         $this->assertEquals('2026-01-04', $transaction->date->toDateString());
     }
 
@@ -327,6 +329,35 @@ final class BankStatementImportProcessorTest extends TestCase
             ]);
     }
 
+    public function test_returns_true_when_claim_fails_but_import_is_already_parsed(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create([
+            'config' => [
+                'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
+                'date_format' => 'd/m/Y',
+                'has_header' => true,
+            ],
+        ]);
+
+        // Create the import in STATUS_UPLOADED so the early-exit check is bypassed.
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'status' => BankStatementConfig::STATUS_UPLOADED,
+        ]);
+
+        // Simulate another worker having already finished: update the DB record to STATUS_PARSED
+        // directly, without touching the in-memory $import model.
+        BankStatementImport::where('id', $import->id)->update(['status' => BankStatementConfig::STATUS_PARSED]);
+
+        // $import still reports STATUS_UPLOADED in memory, so isParsed()/isCommitted() return false
+        // and we proceed to the atomic claim. The claim finds no claimable rows (status is already
+        // PARSED), sets $claimed = 0, then refresh() reveals isParsed() = true → returns true.
+        $bankStatementImportProcessor = new BankStatementImportProcessor($import);
+        $result = $bankStatementImportProcessor->process();
+
+        $this->assertTrue($result);
+    }
+
     public function test_skips_processing_when_status_is_parsing(): void
     {
         $user = User::factory()->create();
@@ -419,7 +450,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $transactions = $freshImport->importedTransactions;
         $this->assertCount(1, $transactions);
         $firstTx = $transactions->first();
-        $this->assertInstanceOf(\App\Models\ImportedTransaction::class, $firstTx);
+        $this->assertInstanceOf(ImportedTransaction::class, $firstTx);
         $this->assertEquals('TEST', $firstTx->description);
     }
 
@@ -483,7 +514,7 @@ final class BankStatementImportProcessorTest extends TestCase
             }
         };
 
-        $transactionRowParser = new \App\Support\BankStatement\TransactionRowParser($brokenProfile);
+        $transactionRowParser = new TransactionRowParser($brokenProfile);
 
         // Invoke the private parseRows method via reflection.
         $reflectionMethod = new ReflectionMethod($bankStatementImportProcessor, 'parseRows');

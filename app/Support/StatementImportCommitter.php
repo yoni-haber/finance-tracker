@@ -108,7 +108,7 @@ readonly class StatementImportCommitter
                     'user_id' => $this->bankStatementImport->user_id,
                 ]);
             } catch (Exception $e) {
-                // Log but don't fail the transaction - file cleanup is not critical
+                // Log but don't fail the transaction - file clean-up is not critical
                 logger()->warning('Failed to delete CSV file after import', [
                     'import_id' => $this->bankStatementImport->id,
                     'error' => $e->getMessage(),

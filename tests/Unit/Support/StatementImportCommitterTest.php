@@ -163,7 +163,10 @@ final class StatementImportCommitterTest extends TestCase
         $ccImport = BankStatementImport::factory()
             ->for($user)
             ->for($ccProfile, 'bankProfile')
-            ->create(['status' => BankStatementConfig::STATUS_PARSED]);
+            ->create([
+                'status' => BankStatementConfig::STATUS_PARSED,
+                'statement_type' => BankStatementConfig::STATEMENT_TYPE_CREDIT_CARD,
+            ]);
 
         // Create imported transactions as they would come from the parser (already flipped)
         ImportedTransaction::factory()->for($ccImport)->create([

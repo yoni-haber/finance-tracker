@@ -21,6 +21,8 @@ readonly class BankStatementImportProcessor
 
     /**
      * Process the bank statement import
+     *
+     * @throws Throwable
      */
     public function process(): bool
     {
@@ -32,6 +34,8 @@ readonly class BankStatementImportProcessor
         // Only STATUS_UPLOADED and STATUS_FAILED are claimable — STATUS_PARSING means
         // another worker already holds the claim, and we must not proceed concurrently.
         // STATUS_FAILED is included so a re-dispatched job can recover after total failure.
+        // The return value of update() is the number of affected rows, so $claimed will either
+        // be 1 (truthy) for the winning worker and 0 (falsy) for other workers.
         $claimed = BankStatementImport::where('id', $this->bankStatementImport->id)
             ->whereIn('status', [BankStatementConfig::STATUS_UPLOADED, BankStatementConfig::STATUS_FAILED])
             ->update(['status' => BankStatementConfig::STATUS_PARSING]);
@@ -81,7 +85,10 @@ readonly class BankStatementImportProcessor
         $duplicateDetector = new DuplicateDetector($this->bankStatementImport->user_id);
 
         /** @var Collection<int, array{date: Carbon, description: string, amount: float, external_id: null, hash: string, is_duplicate: bool}> $transactions */
-        $transactions = collect($duplicateDetector->detectDuplicates(array_values($transactions->all())));
+        $transactions = $transactions->all()
+                |> array_values(...)
+                |> $duplicateDetector->detectDuplicates(...)
+                |> collect(...);
 
         // Step 4: Save imported transactions and mark parsed — both in one transaction
         // so a crash between the two operations cannot leave the import in an inconsistent state.
