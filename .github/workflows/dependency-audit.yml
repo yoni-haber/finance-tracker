@@ -24,16 +24,16 @@ jobs:
           echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
 
       - name: Build PHP 8.5 Container
-        run: docker compose build laravel.test
+        run: docker compose build app
 
       - name: Install Composer Dependencies
-        run: docker compose run --rm --no-deps laravel.test composer install --no-interaction --prefer-dist --no-progress
+        run: docker compose run --rm --no-deps app composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run Composer Audit
-        run: docker compose run --rm --no-deps laravel.test composer audit
+        run: docker compose run --rm --no-deps app composer audit
 
       - name: Install Node Dependencies
-        run: docker compose run --rm --no-deps laravel.test npm ci
+        run: docker compose run --rm --no-deps app npm ci
 
       - name: Run NPM Audit
-        run: docker compose run --rm --no-deps laravel.test npm audit --audit-level=high
+        run: docker compose run --rm --no-deps app npm audit --audit-level=high

@@ -26,22 +26,22 @@ jobs:
           echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
 
       - name: Build PHP 8.5 Container
-        run: docker compose build laravel.test
+        run: docker compose build app
 
       - name: Start Services
         run: docker compose up -d mysql mailpit
 
       - name: Install Composer Dependencies
-        run: docker compose run --rm laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: docker compose run --rm app composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Generate Application Key
-        run: docker compose run --rm laravel.test php artisan key:generate
+        run: docker compose run --rm app php artisan key:generate
 
       - name: Install Node Dependencies
-        run: docker compose run --rm laravel.test npm ci
+        run: docker compose run --rm app npm ci
 
       - name: Build Assets
-        run: docker compose run --rm laravel.test npm run build
+        run: docker compose run --rm app npm run build
 
       - name: Run Tests With Coverage
-        run: docker compose run --rm laravel.test ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text
+        run: docker compose run --rm app ./vendor/bin/phpunit --coverage-clover=coverage.xml --coverage-text

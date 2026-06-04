@@ -1,5 +1,5 @@
 SAIL = ./vendor/bin/sail
-APP_SERVICE := $(shell [ -f .env ] && grep -E '^APP_SERVICE=' .env 2>/dev/null | head -n1 | cut -d'=' -f2- || echo laravel.test)
+APP_SERVICE := $(shell [ -f .env ] && grep -E '^APP_SERVICE=' .env 2>/dev/null | head -n1 | cut -d'=' -f2- || echo app)
 
 .PHONY: help setup up down restart shell artisan composer test pint phpstan rector \
         migrate fresh logs rebuild reset npm-dev npm-build docker-check infection lint

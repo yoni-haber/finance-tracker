@@ -1,5 +1,5 @@
 {
-    "name": "laravel-finance-tracker-app",
+    "name": "finance-tracker",
     "private": true,
     "type": "module",
     "scripts": {

@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/livewire-starter-kit",
+    "name": "yoni-haber/finance-tracker",
     "type": "project",
     "description": "The official Laravel starter kit for Livewire.",
     "keywords": [
