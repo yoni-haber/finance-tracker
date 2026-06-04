@@ -344,21 +344,21 @@ final class NetWorthTrackerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('assetLines', [['category' => 'Property', 'amount' => '250000']])
             ->call('editAssetLine', 0)
             ->call('saveAssetLine', 0)
             ->assertSet('editingAssetIndex', null);
 
-        $this->assertSame('250000.00', $component->get('assetLines')[0]['amount']);
+        $this->assertSame('250000.00', $testable->get('assetLines')[0]['amount']);
     }
 
     public function test_edit_liability_line_sets_index_and_save_formats_amount(): void
     {
         $user = User::factory()->create();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
             ->set('liabilityLines', [['category' => 'Mortgage', 'amount' => '150000']])
             ->call('editLiabilityLine', 0)
@@ -366,7 +366,7 @@ final class NetWorthTrackerTest extends TestCase
             ->call('saveLiabilityLine', 0)
             ->assertSet('editingLiabilityIndex', null);
 
-        $this->assertSame('150000.00', $component->get('liabilityLines')[0]['amount']);
+        $this->assertSame('150000.00', $testable->get('liabilityLines')[0]['amount']);
     }
 
     public function test_save_asset_line_does_nothing_when_index_does_not_exist(): void
