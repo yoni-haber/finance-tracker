@@ -11,7 +11,7 @@ No host PHP, Composer, or Node installation is required. Everything runs inside 
 
 ```bash
 git clone <repo-url>
-cd laravel-finance-tracker-app
+cd finance-tracker
 make setup
 ```
 
@@ -181,7 +181,7 @@ Sail-specific variables in `.env`:
 | Variable | Default | Purpose |
 |---|---|---|
 | `APP_PORT` | `8080` | Host port mapped to the app container |
-| `APP_SERVICE` | `laravel.test` | Main service name in `compose.yaml` |
+| `APP_SERVICE` | `app` | Main service name in `compose.yaml` |
 | `COMPOSE_PROJECT_NAME` | `finance-tracker` | Docker container name prefix |
 | `VITE_PORT` | `5173` | Vite dev server port |
 | `WWWUSER` / `WWWGROUP` | `1000` | Maps container user to host user for file ownership |

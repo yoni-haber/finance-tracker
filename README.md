@@ -25,7 +25,7 @@ A personal budgeting and finance dashboard. Record transactions, organise them i
 
 ```bash
 git clone <repo-url>
-cd laravel-finance-tracker-app
+cd finance-tracker
 make setup
 ```
 

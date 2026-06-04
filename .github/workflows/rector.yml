@@ -21,11 +21,11 @@ jobs:
           echo "WWWUSER=$(id -u)" >> $GITHUB_ENV
           echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
 
-      - name: Build PHP 8.5 Container
-        run: docker compose build laravel.test
+      - name: Build App Container
+        run: docker compose build app
 
       - name: Install Composer Dependencies
-        run: docker compose run --rm --no-deps laravel.test composer install --no-interaction --prefer-dist --no-progress
+        run: docker compose run --rm --no-deps app composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run Rector Dry Run
-        run: docker compose run --rm --no-deps laravel.test vendor/bin/rector --dry-run
+        run: docker compose run --rm --no-deps app vendor/bin/rector --dry-run

@@ -19,7 +19,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 #[Layout('components.layouts.app')]
-#[Title('Import Bank Statement')]
+#[Title('Import Statement')]
 class StatementImportManager extends Component
 {
     use WithFileUploads;

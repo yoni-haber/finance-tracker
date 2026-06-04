@@ -25,17 +25,17 @@ jobs:
           echo "WWWUSER=$(id -u)" >> $GITHUB_ENV
           echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
 
-      - name: Build PHP 8.5 Container
-        run: docker compose build laravel.test
+      - name: Build App Container
+        run: docker compose build app
 
       - name: Start Services
         run: docker compose up -d mysql mailpit
 
       - name: Install Composer Dependencies
-        run: docker compose run --rm laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: docker compose run --rm app composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Generate Application Key
-        run: docker compose run --rm laravel.test php artisan key:generate
+        run: docker compose run --rm app php artisan key:generate
 
       - name: Run Database Migrations
-        run: docker compose run --rm laravel.test php artisan migrate --force --no-interaction
+        run: docker compose run --rm app php artisan migrate --force --no-interaction

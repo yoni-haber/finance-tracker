@@ -1,11 +1,14 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/livewire-starter-kit",
+    "name": "yoni-haber/finance-tracker",
     "type": "project",
-    "description": "The official Laravel starter kit for Livewire.",
+    "description": "A personal budgeting and finance dashboard built with Laravel, Livewire, and Flux UI.",
     "keywords": [
+        "finance",
+        "budgeting",
+        "personal-finance",
         "laravel",
-        "framework"
+        "livewire"
     ],
     "license": "MIT",
     "require": {

@@ -638,7 +638,7 @@ final class StatementImportManagerTest extends TestCase
         $this->assertInstanceOf(ReflectionAttribute::class, $layoutAttribute);
         $this->assertInstanceOf(ReflectionAttribute::class, $titleAttribute);
         $this->assertSame(['components.layouts.app'], $layoutAttribute->getArguments());
-        $this->assertSame(['Import Bank Statement'], $titleAttribute->getArguments());
+        $this->assertSame(['Import Statement'], $titleAttribute->getArguments());
     }
 
     public function test_component_has_with_file_uploads_trait(): void
