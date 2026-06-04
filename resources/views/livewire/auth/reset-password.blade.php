@@ -7,9 +7,13 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')] class extends \Livewire\Component {
+new
+#[Layout('components.layouts.auth')]
+#[Title('Reset Password')]
+class extends \Livewire\Component {
     #[Locked]
     public string $token = '';
 
@@ -71,10 +75,10 @@ new #[Layout('components.layouts.auth')] class extends \Livewire\Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header :title="__('Reset password')" :description="__('Please enter your new password below')" />
+    <x-auth-header :title="__('Reset password')" :description="__('Please enter your new password below')"/>
 
     <!-- Session Status -->
-    <x-auth-session-status class="text-center" :status="session('status')" />
+    <x-auth-session-status class="text-center" :status="session('status')"/>
 
     <form method="POST" wire:submit="resetPassword" class="flex flex-col gap-6">
         <!-- Email Address -->

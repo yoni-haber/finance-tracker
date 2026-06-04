@@ -4,9 +4,12 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new class extends \Livewire\Component {
+new
+#[Title('Settings - Profile')]
+class extends \Livewire\Component {
     public string $name = '';
 
     public string $email = '';
@@ -75,17 +78,18 @@ new class extends \Livewire\Component {
 
     <x-settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name"/>
 
             <div>
-                <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+                <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email"/>
 
                 @if (auth()->user() instanceof \Illuminate\Contracts\Auth\MustVerifyEmail &&! auth()->user()->hasVerifiedEmail())
                     <div>
                         <flux:text class="mt-4">
                             {{ __('Your email address is unverified.') }}
 
-                            <flux:link class="text-sm cursor-pointer" wire:click.prevent="resendVerificationNotification">
+                            <flux:link class="text-sm cursor-pointer"
+                                       wire:click.prevent="resendVerificationNotification">
                                 {{ __('Click here to re-send the verification email.') }}
                             </flux:link>
                         </flux:text>
@@ -112,6 +116,6 @@ new class extends \Livewire\Component {
             </div>
         </form>
 
-        <livewire:settings.delete-user-form />
+        <livewire:settings.delete-user-form/>
     </x-settings.layout>
 </section>

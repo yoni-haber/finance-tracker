@@ -3,9 +3,12 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new class extends \Livewire\Component {
+new
+#[Title('Settings - Password')]
+class extends \Livewire\Component {
     public string $current_password = '';
 
     public string $password = '';

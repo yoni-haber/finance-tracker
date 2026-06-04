@@ -9,7 +9,7 @@
                 <select
                     aria-label="Chart range"
                     wire:model.live="range"
-                    class="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:border-indigo-500/60 dark:bg-gradient-to-b dark:from-zinc-800 dark:to-zinc-900 dark:text-gray-100 dark:shadow-[0_0_0_1px_rgba(99,102,241,0.4)]"
+                    class="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200 dark:focus:border-indigo-500 dark:focus:ring-indigo-300"
                 >
                     @foreach ($rangeOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
