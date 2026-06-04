@@ -21,7 +21,7 @@ jobs:
           echo "WWWUSER=$(id -u)" >> $GITHUB_ENV
           echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
 
-      - name: Build PHP 8.5 Container
+      - name: Build App Container
         run: docker compose build app
 
       - name: Install Composer Dependencies
