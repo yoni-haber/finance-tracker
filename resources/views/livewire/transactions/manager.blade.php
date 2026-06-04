@@ -14,15 +14,15 @@
             <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Transactions</h2>
             <div class="flex flex-wrap items-center gap-2 text-sm">
                 <select wire:model.live="month"
-                        class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        class="h-8 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     @foreach (range(1, 12) as $m)
                         <option value="{{ $m }}">{{ now()->startOfYear()->month($m)->shortMonthName }}</option>
                     @endforeach
                 </select>
                 <input type="number" wire:model.live="year"
-                       class="h-6 w-15 rounded-md border-gray-300 py-1.5 text-sm text-center dark:bg-zinc-800 dark:border-zinc-700" min="2000" max="2100"/>
+                       class="h-8 w-15 rounded-md border-gray-300 py-1.5 text-sm text-center dark:bg-zinc-800 dark:border-zinc-700" min="2000" max="2100"/>
                 <select wire:model.live="filterParentCategory"
-                        class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        class="h-8 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All categories</option>
                     @foreach ($filterCategories as $parent)
                         <option value="{{ $parent->id }}">{{ $parent->name }}</option>
@@ -30,7 +30,7 @@
                 </select>
                 @if ($filterSubCategories->isNotEmpty())
                     <select wire:model.live="filterSubCategory"
-                            class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                            class="h-8 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                         <option value="">All subcategories</option>
                         @foreach ($filterSubCategories as $sub)
                             <option value="{{ $sub->id }}">{{ $sub->name }}</option>
@@ -38,7 +38,7 @@
                     </select>
                 @endif
                 <select wire:model.live="filterType"
-                        class="h-6 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
+                        class="h-8 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All types</option>
                     <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Income</option>
                     <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Expense</option>

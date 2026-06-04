@@ -5,9 +5,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')] class extends \Livewire\Component {
+new #[Layout('components.layouts.auth')]
+#[Title('Verify Email')]
+class extends \Livewire\Component {
     /**
      * Send an email verification notification to the user.
      */

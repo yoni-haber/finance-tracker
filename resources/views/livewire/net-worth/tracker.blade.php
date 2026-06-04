@@ -91,7 +91,7 @@
         <div class="space-y-5">
             <div class="flex items-start justify-between gap-4">
                 <flux:heading size="lg">{{ $entryId ? 'Edit Snapshot' : 'New Snapshot' }}</flux:heading>
-                <div class="text-right">
+                <div class="text-centre px-7 py-3">
                     <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Net Worth</p>
                     <div class="mt-1 rounded-lg px-3 py-1.5 text-lg font-bold {{ $this->calculatedNetWorthStyle }}">
                         £{{ $this->calculatedNetWorth }}

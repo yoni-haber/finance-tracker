@@ -2,9 +2,12 @@
 
 use Illuminate\Support\Facades\Password;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')] class extends \Livewire\Component {
+new #[Layout('components.layouts.auth')]
+#[Title('Forgot Password')]
+class extends \Livewire\Component {
     public string $email = '';
 
     /**
@@ -23,10 +26,11 @@ new #[Layout('components.layouts.auth')] class extends \Livewire\Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header :title="__('Forgot password')" :description="__('Enter your email to receive a password reset link')" />
+    <x-auth-header :title="__('Forgot password')"
+                   :description="__('Enter your email to receive a password reset link')"/>
 
     <!-- Session Status -->
-    <x-auth-session-status class="text-center" :status="session('status')" />
+    <x-auth-session-status class="text-center" :status="session('status')"/>
 
     <form method="POST" wire:submit="sendPasswordResetLink" class="flex flex-col gap-6">
         <!-- Email Address -->
