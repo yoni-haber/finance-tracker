@@ -530,7 +530,7 @@ final class TransactionManagerTest extends TestCase
             ->set('filterParentCategory', $parent->id)
             ->set('filterSubCategory', $sub->id)
             ->assertSet('filterSubCategory', $sub->id)
-            ->set('filterParentCategory', null)
+            ->set('filterParentCategory')
             ->assertSet('filterSubCategory', null);
     }
 

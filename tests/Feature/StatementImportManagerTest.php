@@ -848,7 +848,7 @@ final class StatementImportManagerTest extends TestCase
             ->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
         // Start with uploaded status - should show delete button but no review button
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->assertSee('Delete import')
             ->assertDontSee('Review transactions');
@@ -857,12 +857,12 @@ final class StatementImportManagerTest extends TestCase
         $import->update(['status' => BankStatementConfig::STATUS_PARSED]);
 
         // Call checkImportStatus to simulate the polling update
-        $component->call('checkImportStatus')
+        $testable->call('checkImportStatus')
             ->assertSee('Review transactions')
             ->assertSee('Delete import');
 
         // Verify the review button works correctly (should redirect, not trigger delete)
-        $component->call('proceedToReview')
+        $testable->call('proceedToReview')
             ->assertRedirect(route('statements.review', $import->id));
     }
 
