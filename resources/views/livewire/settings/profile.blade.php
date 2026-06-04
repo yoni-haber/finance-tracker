@@ -7,7 +7,8 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Title('Settings - Profile')]
+new
+#[Title('Settings - Profile')]
 class extends \Livewire\Component {
     public string $name = '';
 

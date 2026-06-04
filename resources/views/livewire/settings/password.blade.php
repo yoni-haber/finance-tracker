@@ -6,7 +6,8 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Title('Settings - Password')]
+new
+#[Title('Settings - Password')]
 class extends \Livewire\Component {
     public string $current_password = '';
 

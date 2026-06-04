@@ -9,7 +9,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')]
+new
+#[Layout('components.layouts.auth')]
 #[Title('Register')]
 class extends \Livewire\Component {
     public string $name = '';

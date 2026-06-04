@@ -14,7 +14,8 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')]
+new
+#[Layout('components.layouts.auth')]
 #[Title('Login')]
 class extends \Livewire\Component {
     #[Validate('required|string|email')]

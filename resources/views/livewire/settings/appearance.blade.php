@@ -3,7 +3,8 @@
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Title('Settings - Appearance')]
+new
+#[Title('Settings - Appearance')]
 class extends \Livewire\Component {
     //
 }; ?>

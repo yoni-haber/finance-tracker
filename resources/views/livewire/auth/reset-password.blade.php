@@ -10,7 +10,8 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.auth')]
+new
+#[Layout('components.layouts.auth')]
 #[Title('Reset Password')]
 class extends \Livewire\Component {
     #[Locked]
