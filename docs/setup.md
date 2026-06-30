@@ -24,7 +24,17 @@ This single command:
 
 First run takes a few minutes (Docker image build). Subsequent `make up` starts in seconds.
 
-Visit `http://localhost:8080` (or the port set in `APP_PORT`).
+Public registration is disabled, so create your account from the CLI:
+
+```bash
+make artisan cmd="app:create-user"
+```
+
+This prompts for a name, email, and password and creates a **pre-verified**
+account (email verification is skipped). You can also pass them non-interactively:
+`make artisan cmd="app:create-user --name='You' --email=you@example.com --password=secret123"`.
+
+Visit `http://localhost:8080` (or the port set in `APP_PORT`) and log in.
 
 ## Daily Workflow
 

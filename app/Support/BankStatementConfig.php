@@ -48,4 +48,23 @@ class BankStatementConfig
     const string HASH_ALGORITHM = 'sha1';
 
     const int AMOUNT_DECIMAL_PLACES = 2;
+
+    /**
+     * Name of the filesystem disk that stores uploaded statement CSVs.
+     *
+     * Must be a disk shared between the web and queue-worker processes in
+     * production (see config/filesystems.php).
+     */
+    public static function statementsDisk(): string
+    {
+        return (string) config('filesystems.statements_disk', 'local');
+    }
+
+    /**
+     * Relative path of a stored statement CSV within the statements disk.
+     */
+    public static function statementPath(int $importId): string
+    {
+        return sprintf('statements/%d.csv', $importId);
+    }
 }

@@ -29,7 +29,13 @@ cd finance-tracker
 make setup
 ```
 
-Visit `http://localhost:8080` and register a user. See [docs/setup.md](docs/setup.md) for environment configuration, commands reference, and troubleshooting.
+Public registration is disabled. Create an account from the CLI:
+
+```bash
+make artisan cmd="app:create-user"
+```
+
+Then visit `http://localhost:8080` and log in. See [docs/setup.md](docs/setup.md) for environment configuration, commands reference, and troubleshooting. For going live, see [docs/deployment.md](docs/deployment.md).
 
 To start the Vite dev server for live CSS/JS reloading:
 

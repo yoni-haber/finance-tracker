@@ -56,6 +56,18 @@ Key columns: `hash`, `original_hash`, `is_duplicate`, `is_committed`, `category_
 | `DuplicateDetector` | Generates hashes and checks for duplicates |
 | `StatementImportCommitter` | Creates `Transaction` records and marks the import committed |
 
+## File Storage
+
+Uploaded CSVs are stored on the **statements disk**, configured by the
+`STATEMENTS_DISK` env var (`config/filesystems.php` → `statements_disk`,
+default `local`). The web request writes the file and a separate queue worker
+reads it back, so in production these must share a disk. On Laravel Cloud the
+web and worker run on **separate machines with non-shared, ephemeral local
+disks**, so set `STATEMENTS_DISK=s3` (an attached bucket). The processor copies
+the file from this disk to a local temp file for `SplFileObject`, then deletes
+the temp file. Helpers: `BankStatementConfig::statementsDisk()` and
+`BankStatementConfig::statementPath($importId)`.
+
 ## Queue Processing
 
 ### ParseBankStatementJob

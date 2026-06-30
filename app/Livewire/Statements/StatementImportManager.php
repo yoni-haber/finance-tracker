@@ -112,7 +112,7 @@ class StatementImportManager extends Component
             ]);
 
             // Store the file with a predictable name for the parser
-            $this->csvFile->storeAs('statements', $import->id . '.csv', 'local');
+            $this->csvFile->storeAs('statements', $import->id . '.csv', BankStatementConfig::statementsDisk());
 
             // Dispatch the parsing job
             ParseBankStatementJob::dispatch($import->id);
@@ -143,7 +143,8 @@ class StatementImportManager extends Component
 
         try {
             // Clean up the stored file if it exists
-            Storage::delete(sprintf('statements/%d.csv', $this->currentImport->id));
+            Storage::disk(BankStatementConfig::statementsDisk())
+                ->delete(BankStatementConfig::statementPath((int) $this->currentImport->id));
 
             // Delete any imported transactions (staged data)
             $this->currentImport->importedTransactions()->delete();

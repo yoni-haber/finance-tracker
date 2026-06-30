@@ -8,9 +8,11 @@ use App\Models\BankStatementImport;
 use App\Support\BankStatementConfig;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 readonly class BankStatementImportProcessor
@@ -51,7 +53,8 @@ readonly class BankStatementImportProcessor
             return $this->bankStatementImport->isCommitted();
         }
 
-        $filePath = Storage::disk('local')->path(sprintf('statements/%s.csv', $this->bankStatementImport->id));
+        $filePath = sprintf('statements/%s.csv', $this->bankStatementImport->id);
+        $disk = Storage::disk(BankStatementConfig::statementsDisk());
 
         if (!$this->bankStatementImport->bankProfile) {
             logger()->error('Bank statement parsing failed', [
@@ -63,8 +66,23 @@ readonly class BankStatementImportProcessor
             return false;
         }
 
+        if (!$disk->exists($filePath)) {
+            logger()->error('Bank statement parsing failed', [
+                'import_id' => $this->bankStatementImport->id,
+                'error' => 'CSV file not found - ' . $filePath,
+            ]);
+            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
+
+            return false;
+        }
+
+        // The web request and queue worker do not share a filesystem in production,
+        // so the CSV lives on a shared disk (e.g. S3). Copy it to a local temp file
+        // for SplFileObject, which needs a real path, then always clean it up.
+        $localPath = $this->copyToLocalTempFile($disk, $filePath);
+
         // Step 1: Read CSV file
-        $csvFileReader = new CsvFileReader($filePath, $this->bankStatementImport->bankProfile);
+        $csvFileReader = new CsvFileReader($localPath, $this->bankStatementImport->bankProfile);
         try {
             $rows = $csvFileReader->readRows();
         } catch (Exception $exception) {
@@ -75,6 +93,10 @@ readonly class BankStatementImportProcessor
             $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
 
             return false;
+        } finally {
+            if (is_file($localPath)) {
+                @unlink($localPath);
+            }
         }
 
         // Step 2: Parse rows into transactions
@@ -95,6 +117,33 @@ readonly class BankStatementImportProcessor
         $this->saveImportedTransactions($transactions);
 
         return true;
+    }
+
+    /**
+     * Copy the statement CSV from the (possibly remote) statements disk to a
+     * local temporary file so it can be read with SplFileObject.
+     */
+    private function copyToLocalTempFile(Filesystem $disk, string $path): string
+    {
+        $tempPath = tempnam(sys_get_temp_dir(), 'statement_');
+
+        if ($tempPath === false) {
+            throw new RuntimeException('Unable to create a temporary file for statement parsing.');
+        }
+
+        $stream = $disk->readStream($path);
+
+        if (!is_resource($stream)) {
+            throw new RuntimeException('Unable to read statement file from disk: ' . $path);
+        }
+
+        try {
+            file_put_contents($tempPath, $stream);
+        } finally {
+            fclose($stream);
+        }
+
+        return $tempPath;
     }
 
     /**

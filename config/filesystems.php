@@ -19,6 +19,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Bank Statement Disk
+    |--------------------------------------------------------------------------
+    |
+    | Uploaded bank statement CSVs are written by the web request and read back
+    | by a separate queue worker. In production these run on different machines
+    | with non-shared, ephemeral local disks, so the file must live on a shared
+    | disk (e.g. an S3-compatible bucket). Locally this defaults to "local".
+    |
+    */
+
+    'statements_disk' => env('STATEMENTS_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
