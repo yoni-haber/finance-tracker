@@ -35,7 +35,7 @@ Public registration is disabled. Create an account from the CLI:
 make artisan cmd="app:create-user"
 ```
 
-Then visit `http://localhost:8080` and log in. See [docs/setup.md](docs/setup.md) for environment configuration, commands reference, and troubleshooting. For going live, see [docs/deployment.md](docs/deployment.md).
+Then visit `http://localhost:8080` and log in. See [docs/setup.md](docs/setup.md) for environment configuration, commands reference, and troubleshooting.
 
 To start the Vite dev server for live CSS/JS reloading:
 
