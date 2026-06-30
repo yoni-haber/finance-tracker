@@ -5,27 +5,21 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\User;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 
 use function Laravel\Prompts\password as promptPassword;
 use function Laravel\Prompts\text;
 
-class CreateUserCommand extends Command
-{
-    /**
-     * @var string
-     */
-    protected $signature = 'app:create-user
+#[Description('Create a pre-verified user account (public registration is disabled)')]
+#[Signature('app:create-user
         {--name= : The user\'s display name}
         {--email= : The user\'s email address}
-        {--password= : The user\'s password (min 8 characters)}';
-
-    /**
-     * @var string
-     */
-    protected $description = 'Create a pre-verified user account (public registration is disabled)';
-
+        {--password= : The user\'s password (min 8 characters)}')]
+class CreateUserCommand extends Command
+{
     public function handle(): int
     {
         $name = $this->option('name') ?? text('Name', required: true);

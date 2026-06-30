@@ -123,7 +123,7 @@ readonly class BankStatementImportProcessor
      * Copy the statement CSV from the (possibly remote) statements disk to a
      * local temporary file so it can be read with SplFileObject.
      */
-    private function copyToLocalTempFile(Filesystem $disk, string $path): string
+    private function copyToLocalTempFile(Filesystem $filesystem, string $path): string
     {
         $tempPath = tempnam(sys_get_temp_dir(), 'statement_');
 
@@ -131,7 +131,7 @@ readonly class BankStatementImportProcessor
             throw new RuntimeException('Unable to create a temporary file for statement parsing.');
         }
 
-        $stream = $disk->readStream($path);
+        $stream = $filesystem->readStream($path);
 
         if (!is_resource($stream)) {
             throw new RuntimeException('Unable to read statement file from disk: ' . $path);
