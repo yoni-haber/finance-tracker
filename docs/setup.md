@@ -34,6 +34,15 @@ This prompts for a name, email, and password and creates a **pre-verified**
 account (email verification is skipped). You can also pass them non-interactively:
 `make artisan cmd="app:create-user --name='You' --email=you@example.com --password=secret123"`.
 
+Public password reset is also disabled (the app sends no email). Reset a
+password from the CLI instead:
+
+```bash
+make artisan cmd="app:reset-password --email=you@example.com"
+```
+
+It prompts for the new password (or pass `--password=...`).
+
 Visit `http://localhost:8080` (or the port set in `APP_PORT`) and log in.
 
 ## Daily Workflow
