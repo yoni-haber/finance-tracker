@@ -5,33 +5,27 @@ declare(strict_types=1);
 namespace Tests\Feature\Auth;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Volt\Volt;
 use Tests\TestCase;
 
 final class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registration_screen_can_be_rendered(): void
+    public function test_registration_route_is_disabled(): void
     {
-        $testResponse = $this->get(route('register'));
-
-        $testResponse->assertStatus(200);
+        $this->get('/register')->assertNotFound();
     }
 
-    public function test_new_users_can_register(): void
+    public function test_register_route_name_is_not_defined(): void
     {
-        $testable = Volt::test('auth.register')
-            ->set('name', 'Test User')
-            ->set('email', 'test@example.com')
-            ->set('password', 'password')
-            ->set('password_confirmation', 'password')
-            ->call('register');
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('register'));
+    }
 
-        $testable
-            ->assertHasNoErrors()
-            ->assertRedirect(route('dashboard', absolute: false));
-
-        $this->assertAuthenticated();
+    public function test_login_screen_does_not_show_a_signup_link(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertDontSee('Sign up')
+            ->assertDontSee('/register');
     }
 }

@@ -98,11 +98,12 @@ readonly class StatementImportCommitter
      */
     private function cleanupCsvFile(): void
     {
-        $filePath = sprintf('statements/%s.csv', $this->bankStatementImport->id);
+        $disk = Storage::disk(BankStatementConfig::statementsDisk());
+        $filePath = BankStatementConfig::statementPath((int) $this->bankStatementImport->id);
 
-        if (Storage::exists($filePath)) {
+        if ($disk->exists($filePath)) {
             try {
-                Storage::delete($filePath);
+                $disk->delete($filePath);
                 logger()->info('CSV file deleted for GDPR compliance', [
                     'import_id' => $this->bankStatementImport->id,
                     'user_id' => $this->bankStatementImport->user_id,

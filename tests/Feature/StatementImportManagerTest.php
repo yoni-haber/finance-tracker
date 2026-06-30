@@ -878,7 +878,9 @@ final class StatementImportManagerTest extends TestCase
             ->for($bankProfile, 'bankProfile')
             ->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
 
-        // Mock Storage to throw when delete is called, triggering the catch block.
+        // Make Storage::disk() return the facade mock itself, then stub delete to
+        // throw, triggering the cancelImport catch block.
+        Storage::shouldReceive('disk')->andReturnSelf();
         Storage::shouldReceive('delete')->andThrow(new Exception('Disk error'));
 
         Livewire::actingAs($user)

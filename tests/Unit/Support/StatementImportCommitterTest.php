@@ -333,7 +333,10 @@ final class StatementImportCommitterTest extends TestCase
     public function test_commit_succeeds_even_when_csv_delete_throws(): void
     {
         Log::spy();
-        Storage::fake('local');
+
+        // Make Storage::disk() return the facade mock itself, then stub the
+        // file operations the committer performs on that disk.
+        Storage::shouldReceive('disk')->andReturnSelf();
         Storage::shouldReceive('exists')->andReturn(true);
         Storage::shouldReceive('delete')->andThrow(new RuntimeException('Disk error'));
 
