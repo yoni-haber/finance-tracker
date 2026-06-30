@@ -326,7 +326,7 @@ final class BankStatementImportProcessorTest extends TestCase
         Storage::fake('local');
         Storage::put(sprintf('statements/%d.csv', $import->id), $csvContent);
 
-        $result = (new BankStatementImportProcessor($import))->process();
+        $result = new BankStatementImportProcessor($import)->process();
 
         $this->assertTrue($result);
 
