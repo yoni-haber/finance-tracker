@@ -297,11 +297,42 @@ final class BankStatementImportProcessorTest extends TestCase
         $this->assertNotNull($fresh);
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
 
-        // Assert that the error was logged with the expected message
+        // Assert that the error was logged with the exact "not found - <path>" message,
+        // so reordering or dropping the path operand is caught.
         Log::shouldHaveReceived('error')
             ->once()
             ->with('Bank statement parsing failed', Mockery::on(fn ($context): bool => $context['import_id'] === $import->id
-                && str_contains((string) $context['error'], 'CSV file not found')));
+                && $context['error'] === sprintf('CSV file not found - statements/%d.csv', $import->id)));
+    }
+
+    public function test_cleans_up_temporary_file_after_processing(): void
+    {
+        $tempPattern = sys_get_temp_dir() . '/statement_*';
+        $before = glob($tempPattern) ?: [];
+
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create([
+            'statement_type' => 'bank',
+            'config' => [
+                'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
+                'date_format' => 'd/m/Y',
+                'has_header' => true,
+            ],
+        ]);
+
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
+
+        $csvContent = "Date,Description,Amount\n01/01/2026,Test Transaction,100.50";
+        Storage::fake('local');
+        Storage::put(sprintf('statements/%d.csv', $import->id), $csvContent);
+
+        $result = (new BankStatementImportProcessor($import))->process();
+
+        $this->assertTrue($result);
+
+        // The local temp copy used for parsing must be removed once parsing finishes.
+        $after = glob($tempPattern) ?: [];
+        $this->assertSame([], array_diff($after, $before), 'Temporary statement file was not cleaned up.');
     }
 
     public function test_is_idempotent(): void
