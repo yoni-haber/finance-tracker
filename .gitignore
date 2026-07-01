@@ -28,6 +28,3 @@ AGENTS.md
 _ide_helper.php
 backup.sql
 tests/coverage
-
-# Local-only deployment notes (not published)
-/docs/deployment.md
