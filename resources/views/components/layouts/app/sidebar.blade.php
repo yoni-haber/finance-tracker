@@ -23,6 +23,10 @@
                 </flux:navlist.group>
             </flux:navlist>
 
+            <div class="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                <livewire:period-selector />
+            </div>
+
             <flux:spacer />
 
             <!-- Desktop User Menu -->

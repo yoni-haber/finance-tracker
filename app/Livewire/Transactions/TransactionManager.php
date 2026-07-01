@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Transactions;
 
+use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Support\TransactionReport;
@@ -21,6 +22,8 @@ use Livewire\Component;
 #[Title('Transactions')]
 class TransactionManager extends Component
 {
+    use InteractsWithSelectedPeriod;
+
     public string $type = Transaction::TYPE_EXPENSE;
 
     public string $amount = '0.00';
@@ -39,10 +42,6 @@ class TransactionManager extends Component
 
     public ?int $transactionId = null;
 
-    public int $month;
-
-    public int $year;
-
     public ?int $filterParentCategory = null;
 
     public ?int $filterSubCategory = null;
@@ -51,10 +50,7 @@ class TransactionManager extends Component
 
     public function mount(): void
     {
-        $now = now();
-        $this->date = $now->toDateString();
-        $this->month = $now->month;
-        $this->year = $now->year;
+        $this->date = $this->defaultTransactionDate();
     }
 
     public function render(): View
@@ -94,7 +90,7 @@ class TransactionManager extends Component
                 : $this->filterParentCategory;
         }
 
-        $transactions = TransactionReport::projectedForMonth($userId, $this->month, $this->year, $effectiveCategoryFilter)
+        $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear, $effectiveCategoryFilter)
             ->when($this->filterType, fn ($items) => $items->where('type', $this->filterType))
             ->sortByDesc('date');
 
@@ -216,7 +212,7 @@ class TransactionManager extends Component
         $this->transactionId = null;
         $this->type = Transaction::TYPE_EXPENSE;
         $this->amount = '0.00';
-        $this->date = now()->toDateString();
+        $this->date = $this->defaultTransactionDate();
         $this->description = null;
         $this->category_id = null;
         $this->is_recurring = false;
@@ -225,6 +221,19 @@ class TransactionManager extends Component
 
         $this->resetValidation();
         $this->resetErrorBag();
+    }
+
+    /**
+     * Default a new transaction's date to today when viewing the current month,
+     * otherwise to the first day of the selected period.
+     */
+    private function defaultTransactionDate(): string
+    {
+        $selectedPeriod = $this->selectedPeriod();
+
+        return $selectedPeriod->isCurrentMonth()
+            ? now()->toDateString()
+            : $selectedPeriod->startOfMonth()->toDateString();
     }
 
     /**

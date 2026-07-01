@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
@@ -22,16 +23,7 @@ use Livewire\Component;
 #[Title('Dashboard')]
 class Dashboard extends Component
 {
-    public int $month;
-
-    public int $year;
-
-    public function mount(): void
-    {
-        $now = now();
-        $this->month = $now->month;
-        $this->year = $now->year;
-    }
+    use InteractsWithSelectedPeriod;
 
     public function render(): View
     {
@@ -48,7 +40,7 @@ class Dashboard extends Component
             ]);
         }
 
-        $transactions = TransactionReport::projectedForMonth($userId, $this->month, $this->year);
+        $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
 
         $income = Money::fromPennies(
             Money::normalize(
@@ -66,12 +58,12 @@ class Dashboard extends Component
 
         $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
-            ->where('month', $this->month)
-            ->where('year', $this->year)
+            ->where('month', $this->periodMonth)
+            ->where('year', $this->periodYear)
             ->get();
 
         $now = now();
-        $periodEndDate = Carbon::create($this->year, $this->month);
+        $periodEndDate = Carbon::create($this->periodYear, $this->periodMonth);
         assert($periodEndDate instanceof Carbon);
         $periodEnd = $periodEndDate->endOfMonth();
 

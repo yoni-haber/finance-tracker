@@ -41,8 +41,49 @@ final class DashboardTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)
-            ->assertSet('month', 5)
-            ->assertSet('year', 2024);
+            ->assertSet('periodMonth', 5)
+            ->assertSet('periodYear', 2024);
+    }
+
+    public function test_mount_uses_the_users_persisted_period(): void
+    {
+        $user = User::factory()->create(['selected_month' => 2, 'selected_year' => 2023]);
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->assertSet('periodMonth', 2)
+            ->assertSet('periodYear', 2023);
+    }
+
+    public function test_period_changed_event_updates_the_dashboard_period(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->dispatch('period-changed', month: 9, year: 2022)
+            ->assertSet('periodMonth', 9)
+            ->assertSet('periodYear', 2022);
+    }
+
+    public function test_period_changed_event_clamps_out_of_range_values(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->dispatch('period-changed', month: 13, year: 2101)
+            ->assertSet('periodMonth', 12)
+            ->assertSet('periodYear', 2100);
+    }
+
+    public function test_mount_defaults_to_the_current_month_for_a_guest(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        Livewire::test(Dashboard::class)
+            ->assertSet('periodMonth', 5)
+            ->assertSet('periodYear', 2024);
     }
 
     public function test_render_calculates_dashboard_metrics(): void
@@ -236,8 +277,8 @@ final class DashboardTest extends TestCase
     {
         // Directly test the component without authentication to cover the userId === 0 branch.
         $dashboard = new Dashboard();
-        $dashboard->month = 5;
-        $dashboard->year = 2024;
+        $dashboard->periodMonth = 5;
+        $dashboard->periodYear = 2024;
 
         // Temporarily clear auth so Auth::id() returns null (cast to int = 0).
         $view = $dashboard->render();

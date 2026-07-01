@@ -27,8 +27,56 @@ final class TransactionManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
             ->assertSet('date', '2024-06-15')
-            ->assertSet('month', 6)
-            ->assertSet('year', 2024);
+            ->assertSet('periodMonth', 6)
+            ->assertSet('periodYear', 2024);
+    }
+
+    public function test_mount_uses_the_users_persisted_period(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+
+        $user = User::factory()->create(['selected_month' => 3, 'selected_year' => 2023]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->assertSet('periodMonth', 3)
+            ->assertSet('periodYear', 2023)
+            ->assertSet('date', '2023-03-01');
+    }
+
+    public function test_new_transaction_date_defaults_to_today_for_the_current_month(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('openModal')
+            ->assertSet('date', '2024-06-15');
+    }
+
+    public function test_new_transaction_date_defaults_to_first_of_a_past_month(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+
+        $user = User::factory()->create(['selected_month' => 2, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('openModal')
+            ->assertSet('date', '2024-02-01');
+    }
+
+    public function test_period_changed_event_updates_the_transaction_period(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->dispatch('period-changed', month: 1, year: 2020)
+            ->assertSet('periodMonth', 1)
+            ->assertSet('periodYear', 2020);
     }
 
     public function test_save_creates_non_recurring_transaction_with_null_frequency(): void
