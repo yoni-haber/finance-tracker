@@ -11,6 +11,12 @@ use Carbon\CarbonImmutable;
  */
 final readonly class SelectedPeriod
 {
+    /** Earliest selectable year. */
+    public const int MIN_YEAR = 2000;
+
+    /** Latest selectable year. */
+    public const int MAX_YEAR = 2100;
+
     public function __construct(
         public int $month,
         public int $year,
@@ -22,6 +28,15 @@ final readonly class SelectedPeriod
         $now = CarbonImmutable::now();
 
         return new self($now->month, $now->year);
+    }
+
+    /** Build a period with month/year clamped to the supported bounds. */
+    public static function clamp(int $month, int $year): self
+    {
+        return new self(
+            min(12, max(1, $month)),
+            min(self::MAX_YEAR, max(self::MIN_YEAR, $year)),
+        );
     }
 
     /** First day of the period as an immutable date. */

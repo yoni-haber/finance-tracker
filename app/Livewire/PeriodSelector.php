@@ -47,8 +47,9 @@ class PeriodSelector extends Component
     #[On('period-changed')]
     public function syncPeriod(int $month, int $year): void
     {
-        $this->month = $month;
-        $this->year = $year;
+        $selectedPeriod = SelectedPeriod::clamp($month, $year);
+        $this->month = $selectedPeriod->month;
+        $this->year = $selectedPeriod->year;
     }
 
     public function render(): View
@@ -66,7 +67,7 @@ class PeriodSelector extends Component
      */
     private function yearOptions(): array
     {
-        $currentYear = (int) now()->year;
+        $currentYear = now()->year;
 
         $years = range($currentYear + 1, $currentYear - 10);
         if (!in_array($this->year, $years, true)) {
@@ -80,10 +81,7 @@ class PeriodSelector extends Component
 
     private function currentPeriod(): SelectedPeriod
     {
-        $month = min(12, max(1, $this->month));
-        $year = min(2100, max(2000, $this->year));
-
-        return new SelectedPeriod($month, $year);
+        return SelectedPeriod::clamp($this->month, $this->year);
     }
 
     private function applyPeriod(SelectedPeriod $selectedPeriod): void

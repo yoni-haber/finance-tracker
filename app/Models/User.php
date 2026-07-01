@@ -173,14 +173,15 @@ class User extends Authenticatable
             return SelectedPeriod::current();
         }
 
-        return new SelectedPeriod($this->selected_month, $this->selected_year);
+        return SelectedPeriod::clamp($this->selected_month, $this->selected_year);
     }
 
     /** Persist the user's globally selected period. */
     public function setSelectedPeriod(int $month, int $year): void
     {
-        $this->selected_month = $month;
-        $this->selected_year = $year;
+        $selectedPeriod = SelectedPeriod::clamp($month, $year);
+        $this->selected_month = $selectedPeriod->month;
+        $this->selected_year = $selectedPeriod->year;
         $this->save();
     }
 }

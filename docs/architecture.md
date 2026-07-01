@@ -79,7 +79,9 @@ per-user selection** so it stays consistent as the user moves between pages.
 - **Storage:** persisted on the `users` table via `selected_month` /
   `selected_year` (nullable). `User::selectedPeriod()` returns a
   `App\Support\SelectedPeriod` value object, falling back to the current month
-  when unset; `User::setSelectedPeriod($month, $year)` persists a change.
+  when unset; `User::setSelectedPeriod($month, $year)` persists a change. Both
+  read and write **clamp** to the supported bounds (month 1–12, year
+  `SelectedPeriod::MIN_YEAR`–`MAX_YEAR`) via `SelectedPeriod::clamp()`.
 - **Picker:** `App\Livewire\PeriodSelector` (rendered in the sidebar layout,
   `resources/views/components/layouts/app/sidebar.blade.php`) is the single
   control. On change it persists to the user and dispatches a `period-changed`
@@ -88,15 +90,17 @@ per-user selection** so it stays consistent as the user moves between pages.
   `App\Livewire\Concerns\InteractsWithSelectedPeriod` trait, which exposes public
   `periodMonth` / `periodYear`, initialises them from the user on mount
   (`mountInteractsWithSelectedPeriod()`), and listens for `period-changed` to
-  refresh in-place when the period changes without a navigation.
+  refresh in-place when the period changes without a navigation. Because
+  `period-changed` payloads are client-controlled, the listener clamps them.
 - **Form defaults:** the selected period also seeds create forms — a new
   transaction's date defaults to today (current month) or the 1st of the selected
   month, and a new budget's month/year default to the selected period.
 
 Note: `SelectedPeriod` is month + year only. A component's own `mount()` runs
-**before** trait mount hooks, so resolve the period via `currentSelectedPeriod()`
-(reads the user) rather than the not-yet-set `periodMonth`/`periodYear` when
-initialising other state inside `mount()`.
+**before** trait mount hooks, so resolve the period via `selectedPeriod()`, which
+is safe to call pre-mount (it falls back to the persisted user period when
+`periodMonth`/`periodYear` aren't set yet) rather than reading the not-yet-set
+properties directly.
 
 ## User Scoping
 

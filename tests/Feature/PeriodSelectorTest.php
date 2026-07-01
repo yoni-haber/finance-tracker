@@ -94,4 +94,74 @@ final class PeriodSelectorTest extends TestCase
                 && in_array(2010, $years, true)
                 && $years === collect($years)->sortDesc()->values()->all());
     }
+
+    public function test_year_options_span_exactly_next_year_back_ten_years_when_in_window(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2020]);
+
+        Livewire::actingAs($user)
+            ->test(PeriodSelector::class)
+            ->assertViewHas('years', fn (array $years): bool => $years === [
+                2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014,
+            ]);
+    }
+
+    public function test_year_options_sort_an_above_window_selection_to_the_front(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2035]);
+
+        Livewire::actingAs($user)
+            ->test(PeriodSelector::class)
+            ->assertViewHas('years', fn (array $years): bool => $years[0] === 2035
+                && $years === collect($years)->sortDesc()->values()->all());
+    }
+
+    public function test_changing_the_year_persists_and_dispatches(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(PeriodSelector::class)
+            ->set('year', 2022)
+            ->assertDispatched('period-changed', month: 5, year: 2022);
+
+        $user->refresh();
+        $this->assertSame(5, $user->selected_month);
+        $this->assertSame(2022, $user->selected_year);
+    }
+
+    public function test_sync_period_clamps_out_of_range_payloads(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(PeriodSelector::class)
+            ->call('syncPeriod', 13, 2101)
+            ->assertSet('month', 12)
+            ->assertSet('year', 2100);
+    }
+
+    public function test_it_defaults_to_the_current_month_for_a_guest(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        Livewire::test(PeriodSelector::class)
+            ->assertSet('month', 5)
+            ->assertSet('year', 2024);
+    }
+
+    public function test_previous_month_works_for_a_guest(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        Livewire::test(PeriodSelector::class)
+            ->call('previousMonth')
+            ->assertSet('month', 4)
+            ->assertSet('year', 2024)
+            ->assertDispatched('period-changed', month: 4, year: 2024);
+    }
 }

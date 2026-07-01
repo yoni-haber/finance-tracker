@@ -7,7 +7,6 @@ namespace App\Livewire\Budgets;
 use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
-use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -36,7 +35,7 @@ class BudgetManager extends Component
 
     public function mount(): void
     {
-        $selectedPeriod = $this->currentSelectedPeriod();
+        $selectedPeriod = $this->selectedPeriod();
         $this->month = $selectedPeriod->month;
         $this->year = $selectedPeriod->year;
     }
@@ -124,12 +123,11 @@ class BudgetManager extends Component
     {
         $userId = (int) Auth::id();
 
-        // Compute source month/year (one month before filter)
-        $sourceDateBase = Carbon::create($this->periodYear, $this->periodMonth, 1);
-        assert($sourceDateBase instanceof Carbon);
-        $sourceDate = $sourceDateBase->subMonth();
-        $sourceMonth = (int) $sourceDate->month;
-        $sourceYear = (int) $sourceDate->year;
+        // Compute source period (one month before the selected period)
+        $selectedPeriod = $this->selectedPeriod();
+        $source = $selectedPeriod->previous();
+        $sourceMonth = $source->month;
+        $sourceYear = $source->year;
 
         $sourceBudgets = Budget::where('user_id', $userId)
             ->where('month', $sourceMonth)
@@ -138,7 +136,7 @@ class BudgetManager extends Component
 
         if ($sourceBudgets->isEmpty()) {
             session()->flash('copy_status', 'No budgets found for ' .
-                $sourceDate->format('F Y') .
+                $source->label() .
                 ' to copy.',
             );
 
@@ -173,10 +171,8 @@ class BudgetManager extends Component
             $copied++;
         }
 
-        $targetLabelDate = Carbon::create($this->periodYear, $this->periodMonth, 1);
-        assert($targetLabelDate instanceof Carbon);
-        $targetLabel = $targetLabelDate->format('F Y');
-        $sourceLabel = $sourceDate->format('F Y');
+        $targetLabel = $selectedPeriod->label();
+        $sourceLabel = $source->label();
 
         $message = sprintf('Copied %d budget(s) from %s to %s.', $copied, $sourceLabel, $targetLabel);
         if ($skipped > 0) {

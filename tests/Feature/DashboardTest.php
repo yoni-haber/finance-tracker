@@ -66,6 +66,26 @@ final class DashboardTest extends TestCase
             ->assertSet('periodYear', 2022);
     }
 
+    public function test_period_changed_event_clamps_out_of_range_values(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->dispatch('period-changed', month: 13, year: 2101)
+            ->assertSet('periodMonth', 12)
+            ->assertSet('periodYear', 2100);
+    }
+
+    public function test_mount_defaults_to_the_current_month_for_a_guest(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        Livewire::test(Dashboard::class)
+            ->assertSet('periodMonth', 5)
+            ->assertSet('periodYear', 2024);
+    }
+
     public function test_render_calculates_dashboard_metrics(): void
     {
         Carbon::setTestNow('2024-05-15');

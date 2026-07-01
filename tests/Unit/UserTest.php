@@ -150,4 +150,27 @@ final class UserTest extends TestCase
         $this->assertSame(3, $user->selectedPeriod()->month);
         $this->assertSame(2023, $user->selectedPeriod()->year);
     }
+
+    public function test_selected_period_falls_back_when_only_one_column_is_null(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create(['selected_month' => 3, 'selected_year' => null]);
+
+        $selectedPeriod = $user->selectedPeriod();
+
+        $this->assertSame(5, $selectedPeriod->month);
+        $this->assertSame(2024, $selectedPeriod->year);
+    }
+
+    public function test_set_selected_period_clamps_out_of_range_values(): void
+    {
+        $user = User::factory()->create();
+
+        $user->setSelectedPeriod(0, 1999);
+
+        $user->refresh();
+        $this->assertSame(1, $user->selected_month);
+        $this->assertSame(2000, $user->selected_year);
+    }
 }

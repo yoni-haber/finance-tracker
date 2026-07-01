@@ -6,6 +6,8 @@ namespace Tests\Unit\Support;
 
 use App\Support\SelectedPeriod;
 use Carbon\Carbon;
+use Iterator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class SelectedPeriodTest extends TestCase
@@ -52,5 +54,53 @@ final class SelectedPeriodTest extends TestCase
 
         $this->assertTrue(new SelectedPeriod(5, 2024)->isCurrentMonth());
         $this->assertFalse(new SelectedPeriod(4, 2024)->isCurrentMonth());
+    }
+
+    public function test_clamp_passes_through_in_range_values(): void
+    {
+        $selectedPeriod = SelectedPeriod::clamp(5, 2024);
+
+        $this->assertSame(5, $selectedPeriod->month);
+        $this->assertSame(2024, $selectedPeriod->year);
+    }
+
+    /**
+     * @return Iterator<string, array{int, int}>
+     */
+    public static function monthBoundaryProvider(): Iterator
+    {
+        yield 'below floor clamps to 1' => [0, 1];
+
+        yield 'floor stays 1' => [1, 1];
+
+        yield 'ceiling stays 12' => [12, 12];
+
+        yield 'above ceiling clamps to 12' => [13, 12];
+    }
+
+    #[DataProvider('monthBoundaryProvider')]
+    public function test_clamp_bounds_month(int $input, int $expected): void
+    {
+        $this->assertSame($expected, SelectedPeriod::clamp($input, 2024)->month);
+    }
+
+    /**
+     * @return Iterator<string, array{int, int}>
+     */
+    public static function yearBoundaryProvider(): Iterator
+    {
+        yield 'below floor clamps to min' => [1999, SelectedPeriod::MIN_YEAR];
+
+        yield 'floor stays min' => [2000, SelectedPeriod::MIN_YEAR];
+
+        yield 'ceiling stays max' => [2100, SelectedPeriod::MAX_YEAR];
+
+        yield 'above ceiling clamps to max' => [2101, SelectedPeriod::MAX_YEAR];
+    }
+
+    #[DataProvider('yearBoundaryProvider')]
+    public function test_clamp_bounds_year(int $input, int $expected): void
+    {
+        $this->assertSame($expected, SelectedPeriod::clamp(5, $input)->year);
     }
 }

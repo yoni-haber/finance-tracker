@@ -30,18 +30,23 @@ trait InteractsWithSelectedPeriod
     #[On('period-changed')]
     public function updateSelectedPeriod(int $month, int $year): void
     {
-        $this->periodMonth = $month;
-        $this->periodYear = $year;
+        $selectedPeriod = SelectedPeriod::clamp($month, $year);
+        $this->periodMonth = $selectedPeriod->month;
+        $this->periodYear = $selectedPeriod->year;
     }
 
     /** The selected period as a value object. */
     protected function selectedPeriod(): SelectedPeriod
     {
-        return new SelectedPeriod($this->periodMonth, $this->periodYear);
+        if (!isset($this->periodMonth, $this->periodYear)) {
+            return $this->currentSelectedPeriod();
+        }
+
+        return SelectedPeriod::clamp($this->periodMonth, $this->periodYear);
     }
 
     /** Resolve the persisted period (or current-month fallback) from the user. */
-    protected function currentSelectedPeriod(): SelectedPeriod
+    private function currentSelectedPeriod(): SelectedPeriod
     {
         return Auth::user()?->selectedPeriod() ?? SelectedPeriod::current();
     }

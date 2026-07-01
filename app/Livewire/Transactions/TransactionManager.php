@@ -229,7 +229,7 @@ class TransactionManager extends Component
      */
     private function defaultTransactionDate(): string
     {
-        $selectedPeriod = $this->currentSelectedPeriod();
+        $selectedPeriod = $this->selectedPeriod();
 
         return $selectedPeriod->isCurrentMonth()
             ? now()->toDateString()
