@@ -11,6 +11,8 @@ use App\Models\NetWorthEntry;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Support\BankStatementConfig;
+use App\Support\SelectedPeriod;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -121,5 +123,31 @@ final class UserTest extends TestCase
 
         $this->assertCount(2, $user->bankProfiles);
         $this->assertTrue($user->bankProfiles->every(fn ($profile) => $profile->user->is($user)));
+    }
+
+    public function test_selected_period_defaults_to_current_month_when_unset(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create();
+
+        $selectedPeriod = $user->selectedPeriod();
+
+        $this->assertInstanceOf(SelectedPeriod::class, $selectedPeriod);
+        $this->assertSame(5, $selectedPeriod->month);
+        $this->assertSame(2024, $selectedPeriod->year);
+    }
+
+    public function test_set_selected_period_persists_to_the_database(): void
+    {
+        $user = User::factory()->create();
+
+        $user->setSelectedPeriod(3, 2023);
+
+        $user->refresh();
+        $this->assertSame(3, $user->selected_month);
+        $this->assertSame(2023, $user->selected_year);
+        $this->assertSame(3, $user->selectedPeriod()->month);
+        $this->assertSame(2023, $user->selectedPeriod()->year);
     }
 }

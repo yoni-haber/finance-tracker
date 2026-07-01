@@ -26,8 +26,42 @@ final class BudgetManagerTest extends TestCase
             ->test(BudgetManager::class)
             ->assertSet('month', (int) $now->month)
             ->assertSet('year', (int) $now->year)
-            ->assertSet('filterMonth', (int) $now->month)
-            ->assertSet('filterYear', (int) $now->year);
+            ->assertSet('periodMonth', (int) $now->month)
+            ->assertSet('periodYear', (int) $now->year);
+    }
+
+    public function test_mount_uses_the_users_persisted_period_for_the_form(): void
+    {
+        $user = User::factory()->create(['selected_month' => 4, 'selected_year' => 2023]);
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->assertSet('month', 4)
+            ->assertSet('year', 2023)
+            ->assertSet('periodMonth', 4)
+            ->assertSet('periodYear', 2023);
+    }
+
+    public function test_open_modal_defaults_form_to_the_persisted_period(): void
+    {
+        $user = User::factory()->create(['selected_month' => 7, 'selected_year' => 2022]);
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->call('openModal')
+            ->assertSet('month', 7)
+            ->assertSet('year', 2022);
+    }
+
+    public function test_period_changed_event_updates_the_budget_filter(): void
+    {
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->dispatch('period-changed', month: 11, year: 2021)
+            ->assertSet('periodMonth', 11)
+            ->assertSet('periodYear', 2021);
     }
 
     public function test_save_creates_budget_with_valid_data(): void
@@ -317,8 +351,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 1)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 1)
+            ->set('periodYear', 2025)
             ->set('filterCategory', $catA->id)
             ->assertViewHas('budgets', fn ($budgets): bool => $budgets->count() === 1
                 && $budgets->first()->category_id === $catA->id
@@ -343,8 +377,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 2)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 2)
+            ->set('periodYear', 2025)
             ->set('filterCategory')
             ->assertViewHas('budgets', fn ($budgets): bool => $budgets->count() === 1
                 && $budgets->first()->id === $budgetFeb->id
@@ -362,8 +396,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 4)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 4)
+            ->set('periodYear', 2025)
             ->call('copyFromPreviousMonth')
             ->assertSee('Copied 2 budget(s) from March 2025 to April 2025.');
 
@@ -386,8 +420,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 4)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 4)
+            ->set('periodYear', 2025)
             ->call('copyFromPreviousMonth')
             ->assertSee('Copied 1 budget(s) from March 2025 to April 2025.')
             ->assertSee('1 skipped (already existed).');
@@ -404,8 +438,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 4)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 4)
+            ->set('periodYear', 2025)
             ->call('copyFromPreviousMonth')
             ->assertSee('No budgets found for March 2025 to copy.');
 
@@ -421,8 +455,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 1)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 1)
+            ->set('periodYear', 2025)
             ->call('copyFromPreviousMonth')
             ->assertSee('Copied 1 budget(s) from December 2024 to January 2025.');
 
@@ -439,8 +473,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 4)
-            ->set('filterYear', 2025)
+            ->set('periodMonth', 4)
+            ->set('periodYear', 2025)
             ->call('copyFromPreviousMonth')
             ->assertSee('No budgets found for March 2025 to copy.');
 
@@ -497,8 +531,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->set('filterMonth', 8)
-            ->set('filterYear', 2026)
+            ->set('periodMonth', 8)
+            ->set('periodYear', 2026)
             ->call('openModal')
             ->assertSet('month', 8)
             ->assertSet('year', 2026);

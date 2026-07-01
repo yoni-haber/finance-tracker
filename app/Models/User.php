@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\SelectedPeriod;
 use Database\Factories\UserFactory;
 use Eloquent;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -32,6 +33,8 @@ use Override;
  * @property string|null $two_factor_recovery_codes
  * @property string|null $two_factor_confirmed_at
  * @property string|null $remember_token
+ * @property int|null $selected_month
+ * @property int|null $selected_year
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, BankProfile> $bankProfiles
@@ -73,6 +76,8 @@ use Override;
     'name',
     'email',
     'password',
+    'selected_month',
+    'selected_year',
 ])]
 #[Hidden([
     'password',
@@ -99,6 +104,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'selected_month' => 'integer',
+            'selected_year' => 'integer',
         ];
     }
 
@@ -154,5 +161,26 @@ class User extends Authenticatable
     public function bankProfiles(): HasMany
     {
         return $this->hasMany(BankProfile::class);
+    }
+
+    /**
+     * The user's globally selected period, falling back to the current month
+     * when one has never been chosen.
+     */
+    public function selectedPeriod(): SelectedPeriod
+    {
+        if ($this->selected_month === null || $this->selected_year === null) {
+            return SelectedPeriod::current();
+        }
+
+        return new SelectedPeriod($this->selected_month, $this->selected_year);
+    }
+
+    /** Persist the user's globally selected period. */
+    public function setSelectedPeriod(int $month, int $year): void
+    {
+        $this->selected_month = $month;
+        $this->selected_year = $year;
+        $this->save();
     }
 }

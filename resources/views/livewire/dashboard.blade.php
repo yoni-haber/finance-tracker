@@ -1,19 +1,4 @@
 <div class="space-y-6">
-    <div class="flex flex-wrap gap-3 items-center">
-        <div class="flex items-center gap-2">
-            <select wire:model.live="month"
-                    class="h-8 rounded-md border-gray-300 py-1.5 text-m dark:bg-zinc-800 dark:border-zinc-700">
-                @foreach (range(1, 12) as $month)
-                    <option value="{{ $month }}">{{ now()->startOfYear()->month($month)->shortMonthName }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="flex items-center gap-2">
-            <input type="number" wire:model.live="year"
-                   class="h-8 w-15 rounded-md border-gray-300 py-1.5 text-m text-center dark:bg-zinc-800 dark:border-zinc-700" min="2000" max="2100">
-        </div>
-    </div>
-
     <div class="grid gap-4 md:grid-cols-3">
         <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <p class="text-sm text-gray-500">Income</p>

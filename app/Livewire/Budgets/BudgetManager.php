@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Budgets;
 
+use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
 use Carbon\Carbon;
@@ -19,6 +20,8 @@ use Livewire\Component;
 #[Title('Budgets')]
 class BudgetManager extends Component
 {
+    use InteractsWithSelectedPeriod;
+
     public ?int $category_id = null;
 
     public int $month;
@@ -31,17 +34,11 @@ class BudgetManager extends Component
 
     public ?int $filterCategory = null;
 
-    public int $filterMonth;
-
-    public int $filterYear;
-
     public function mount(): void
     {
-        $now = now();
-        $this->month = $now->month;
-        $this->year = $now->year;
-        $this->filterMonth = $now->month;
-        $this->filterYear = $now->year;
+        $selectedPeriod = $this->currentSelectedPeriod();
+        $this->month = $selectedPeriod->month;
+        $this->year = $selectedPeriod->year;
     }
 
     public function render(): View
@@ -51,8 +48,8 @@ class BudgetManager extends Component
         $budgets = Budget::with('category')
             ->where('user_id', $userId)
             ->when($this->filterCategory, fn ($query) => $query->where('category_id', $this->filterCategory))
-            ->when($this->filterMonth, fn ($query) => $query->where('month', $this->filterMonth))
-            ->when($this->filterYear, fn ($query) => $query->where('year', $this->filterYear))
+            ->when($this->periodMonth, fn ($query) => $query->where('month', $this->periodMonth))
+            ->when($this->periodYear, fn ($query) => $query->where('year', $this->periodYear))
             ->orderByDesc('year')
             ->orderByDesc('month')
             ->get();
@@ -100,8 +97,8 @@ class BudgetManager extends Component
     public function openModal(): void
     {
         $this->resetForm();
-        $this->month = $this->filterMonth;
-        $this->year = $this->filterYear;
+        $this->month = $this->periodMonth;
+        $this->year = $this->periodYear;
         $this->dispatch('open-budget-modal');
     }
 
@@ -128,7 +125,7 @@ class BudgetManager extends Component
         $userId = (int) Auth::id();
 
         // Compute source month/year (one month before filter)
-        $sourceDateBase = Carbon::create($this->filterYear, $this->filterMonth, 1);
+        $sourceDateBase = Carbon::create($this->periodYear, $this->periodMonth, 1);
         assert($sourceDateBase instanceof Carbon);
         $sourceDate = $sourceDateBase->subMonth();
         $sourceMonth = (int) $sourceDate->month;
@@ -150,8 +147,8 @@ class BudgetManager extends Component
 
         // Category IDs that already have a budget in the target month
         $existingCategoryIds = Budget::where('user_id', $userId)
-            ->where('month', $this->filterMonth)
-            ->where('year', $this->filterYear)
+            ->where('month', $this->periodMonth)
+            ->where('year', $this->periodYear)
             ->pluck('category_id')
             ->all();
 
@@ -168,15 +165,15 @@ class BudgetManager extends Component
             Budget::create([
                 'user_id' => $userId,
                 'category_id' => $sourceBudget->category_id,
-                'month' => $this->filterMonth,
-                'year' => $this->filterYear,
+                'month' => $this->periodMonth,
+                'year' => $this->periodYear,
                 'amount' => $sourceBudget->amount,
             ]);
 
             $copied++;
         }
 
-        $targetLabelDate = Carbon::create($this->filterYear, $this->filterMonth, 1);
+        $targetLabelDate = Carbon::create($this->periodYear, $this->periodMonth, 1);
         assert($targetLabelDate instanceof Carbon);
         $targetLabel = $targetLabelDate->format('F Y');
         $sourceLabel = $sourceDate->format('F Y');
