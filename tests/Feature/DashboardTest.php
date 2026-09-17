@@ -145,8 +145,7 @@ final class DashboardTest extends TestCase
             ->assertViewHas('income', '2500.00')
             ->assertViewHas('spending', '250.00')
             ->assertViewHas('savedAndInvested', '300.00')
-            ->assertViewHas('remainingAfterOutflows', '1950.00')
-            ->assertViewHas('retained', '2250.00');
+            ->assertSeeHtml('grid gap-4 sm:grid-cols-3');
 
         $testable->assertDispatched('dashboard-charts-updated');
 
@@ -308,8 +307,8 @@ final class DashboardTest extends TestCase
         $this->assertEquals(0, $view->getData()['income']);
         $this->assertEquals(0, $view->getData()['spending']);
         $this->assertEquals(0, $view->getData()['savedAndInvested']);
-        $this->assertEquals(0, $view->getData()['remainingAfterOutflows']);
-        $this->assertEquals(0, $view->getData()['retained']);
+        $this->assertArrayNotHasKey('remainingAfterOutflows', $view->getData());
+        $this->assertArrayNotHasKey('retained', $view->getData());
         $this->assertCount(0, $view->getData()['budgetSummaries']);
     }
 }

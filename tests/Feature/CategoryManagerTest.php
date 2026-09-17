@@ -628,4 +628,20 @@ final class CategoryManagerTest extends TestCase
             ->set('parentId', $parent->id)
             ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
     }
+
+    public function test_investment_badge_uses_pill_styling_and_form_omits_historical_copy(): void
+    {
+        $user = User::factory()->create();
+        Category::factory()->for($user)->expense()->create([
+            'name' => 'Investments',
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->assertSee('Investment')
+            ->assertSeeHtml('rounded-full bg-violet-100')
+            ->assertSeeHtml('font-medium text-violet-700')
+            ->assertDontSee('Changing this also recalculates historical dashboards and reports.');
+    }
 }

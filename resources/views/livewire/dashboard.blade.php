@@ -1,6 +1,5 @@
 <div class="space-y-6">
-    <div>
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-3">
         <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <p class="text-sm text-gray-500">Income</p>
             <p class="text-2xl font-semibold text-emerald-600">£{{ number_format($income, 2) }}</p>
@@ -13,16 +12,6 @@
             <p class="text-sm text-gray-500">Saved &amp; Invested</p>
             <p class="text-2xl font-semibold text-blue-600">£{{ number_format($savedAndInvested, 2) }}</p>
         </div>
-        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <p class="text-sm text-gray-500">Remaining after outflows</p>
-            <p class="text-2xl font-semibold {{ $remainingAfterOutflows >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
-                £{{ number_format($remainingAfterOutflows, 2) }}</p>
-        </div>
-        </div>
-        <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-            Retained this month: <strong class="text-zinc-800 dark:text-zinc-200">£{{ number_format($retained, 2) }}</strong>
-            (income minus spending, including money saved or invested). Totals include projected recurring transactions for the selected month.
-        </p>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">

@@ -78,7 +78,7 @@ class UserAndFinanceSeeder extends Seeder
     /** @return array<string, Category> */
     private function seedCategories(User $user): array
     {
-        $categories = $this->createHierarchy($user, [
+        return $this->createHierarchy($user, [
             'income' => [
                 'Employment' => [
                     'children' => ['Salary', 'Bonus'],
@@ -120,8 +120,6 @@ class UserAndFinanceSeeder extends Seeder
                 ],
             ],
         ]);
-
-        return $categories;
     }
 
     /**

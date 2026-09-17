@@ -45,16 +45,8 @@ class Dashboard extends Component
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
 
-        $allOutflows = Money::fromPennies(
-            Money::normalize(
-                $expenseTransactions->sum('amount'),
-            ),
-        );
-
         $spending = Money::fromPennies(Money::normalize($spendingTransactions->sum('amount')));
         $savedAndInvested = Money::fromPennies(Money::normalize($savingInvestmentTransactions->sum('amount')));
-        $remainingAfterOutflows = Money::subtract($income, $allOutflows);
-        $retained = Money::subtract($income, $spending);
 
         $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
@@ -124,8 +116,6 @@ class Dashboard extends Component
             'income' => $income,
             'spending' => $spending,
             'savedAndInvested' => $savedAndInvested,
-            'remainingAfterOutflows' => $remainingAfterOutflows,
-            'retained' => $retained,
             'budgetSummaries' => $budgetSummaries,
             'incomeCategoryBreakdown' => $enumerable,
             'spendingCategoryBreakdown' => $categorySpending,

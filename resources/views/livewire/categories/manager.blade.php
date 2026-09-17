@@ -67,14 +67,13 @@
                         <div class="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
                             <div class="flex min-w-0 items-center gap-2">
                                 <p class="truncate font-semibold text-zinc-900 dark:text-white">{{ $parent->name }}</p>
-                                @php
-                                    $treatmentClasses = match ($parent->expense_treatment) {
-                                        \App\Models\Category::TREATMENT_SAVING => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-                                        \App\Models\Category::TREATMENT_INVESTMENT => 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
-                                        default => 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
-                                    };
-                                @endphp
-                                <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $treatmentClasses }}">{{ $parent->expenseTreatmentLabel() }}</span>
+                                @if ($parent->expense_treatment === \App\Models\Category::TREATMENT_INVESTMENT)
+                                    <span class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">{{ $parent->expenseTreatmentLabel() }}</span>
+                                @elseif ($parent->expense_treatment === \App\Models\Category::TREATMENT_SAVING)
+                                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $parent->expenseTreatmentLabel() }}</span>
+                                @else
+                                    <span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">{{ $parent->expenseTreatmentLabel() }}</span>
+                                @endif
                                 <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ $parent->transactions_count }} transactions</span>
                             </div>
                             <div class="ml-3 flex shrink-0 gap-3 text-sm">
@@ -147,7 +146,7 @@
                             <option value="investment">Investment</option>
                         </select>
                         <p class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                            Spending is consumed money. Saving and Investment remain part of retained wealth and are reported separately. Changing this also recalculates historical dashboards and reports.
+                            Spending is consumed money. Saving and Investment remain part of retained wealth and are reported separately.
                         </p>
                         @error('expenseTreatment') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
