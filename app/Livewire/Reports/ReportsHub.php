@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Reports;
 
+use App\Models\Category;
 use App\Models\NetWorthEntry;
 use App\Models\Transaction;
 use App\Support\TransactionReport;
@@ -19,7 +20,7 @@ class ReportsHub extends Component
 {
     public string $range = '12_months';
 
-    /** @var array<string, list<(float|string)>> */
+    /** @var array<string, list<(float|int|string)>> */
     public array $chartData = [];
 
     /** @var array<string, mixed> */
@@ -55,13 +56,14 @@ class ReportsHub extends Component
     }
 
     /**
-     * @return array<string, list<(float|string)>>
+     * @return array<string, list<(float|int|string)>>
      */
-    protected function chartDataForRange(string $range, int $userId): array
+    private function chartDataForRange(string $range, int $userId): array
     {
         $labels = [];
         $income = [];
-        $expenses = [];
+        $spending = [];
+        $savedAndInvested = [];
 
         $start = now()->startOfMonth();
 
@@ -77,10 +79,26 @@ class ReportsHub extends Component
             $labels[] = $monthDate->format('M Y');
             $transactions = TransactionReport::projectedForMonth($userId, $monthDate->month, $monthDate->year);
             $income[] = (float) $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount');
-            $expenses[] = (float) $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount');
+            $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
+            $spending[] = $expenseTransactions
+                ->filter(fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING)
+                ->sum('amount');
+            $savedAndInvested[] = $expenseTransactions
+                ->reject(fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING)
+                ->sum('amount');
         }
 
-        return ['labels' => $labels, 'income' => $income, 'expenses' => $expenses];
+        return [
+            'labels' => $labels,
+            'income' => $income,
+            'spending' => $spending,
+            'savedAndInvested' => $savedAndInvested,
+        ];
+    }
+
+    private function expenseTreatment(Transaction $transaction): string
+    {
+        return $transaction->category?->effectiveExpenseTreatment() ?? Category::TREATMENT_SPENDING;
     }
 
     /**

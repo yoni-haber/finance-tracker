@@ -301,14 +301,14 @@ final class StatementImportReviewTest extends TestCase
         // Bank statement: positive = income, negative = expense
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $bankImport->id])
-            ->assertSee('Income') // For positive amount
-            ->assertSee('Expense'); // For negative amount
+            ->assertSee('Money in') // For positive amount
+            ->assertSee('Money out'); // For negative amount
 
         // Credit card: positive = income, negative = expense (amounts already transformed)
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $ccImport->id])
-            ->assertSee('Income') // For positive amount
-            ->assertSee('Expense'); // For negative amount
+            ->assertSee('Money in') // For positive amount
+            ->assertSee('Money out'); // For negative amount
     }
 
     public function test_back_to_import_redirects_correctly(): void

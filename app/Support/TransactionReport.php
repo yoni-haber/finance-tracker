@@ -22,7 +22,7 @@ class TransactionReport
         $builder = Transaction::forUser($userId)
             ->forCategory($categoryId)
             // Eager load category and occurrenceExceptions relationships to avoid N+1 issues
-            ->with(['category', 'occurrenceExceptions'])
+            ->with(['category.parent', 'occurrenceExceptions'])
             // Filter transactions to include non-recurring ones in the specified month/year and all recurring ones
             ->where(function ($q) use ($month, $year): void {
                 $q->where('is_recurring', true)

@@ -201,8 +201,8 @@
                                     wire:model="editForm.type"
                                     class="w-full text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
                                 >
-                                    <option value="{{ Transaction::TYPE_EXPENSE }}">Expense</option>
-                                    <option value="{{ Transaction::TYPE_INCOME }}">Income</option>
+                                    <option value="{{ Transaction::TYPE_EXPENSE }}">Money out</option>
+                                    <option value="{{ Transaction::TYPE_INCOME }}">Money in</option>
                                 </select>
                                 @error('editForm.type')
                                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
@@ -292,16 +292,16 @@
                                     >
                                         <option
                                             value="{{ Transaction::TYPE_EXPENSE }}" {{ $rowType === Transaction::TYPE_EXPENSE ? 'selected' : '' }}>
-                                            Expense
+                                            Money out
                                         </option>
                                         <option
                                             value="{{ Transaction::TYPE_INCOME }}" {{ $rowType === Transaction::TYPE_INCOME ? 'selected' : '' }}>
-                                            Income
+                                            Money in
                                         </option>
                                     </select>
                                 @else
                                     <span class="text-gray-400 text-sm">
-                                            {{ $rowType === Transaction::TYPE_EXPENSE ? 'Expense' : 'Income' }}
+                                            {{ $rowType === Transaction::TYPE_EXPENSE ? 'Money out' : 'Money in' }}
                                         </span>
                                 @endif
                             </td>

@@ -185,4 +185,46 @@ final class CategoryTest extends TestCase
         $category = Category::factory()->expense()->create();
         $this->assertFalse($category->hasBudgets());
     }
+
+    public function test_parent_expense_category_uses_its_reporting_treatment(): void
+    {
+        $category = Category::factory()->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+
+        $this->assertSame(Category::TREATMENT_INVESTMENT, $category->effectiveExpenseTreatment());
+        $this->assertSame('Investment', $category->expenseTreatmentLabel());
+    }
+
+    public function test_expense_treatment_labels_cover_spending_and_saving(): void
+    {
+        $spending = Category::factory()->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SPENDING,
+        ]);
+        $saving = Category::factory()->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        $this->assertSame('Spending', $spending->expenseTreatmentLabel());
+        $this->assertSame('Saving', $saving->expenseTreatmentLabel());
+    }
+
+    public function test_subcategory_inherits_its_parent_reporting_treatment(): void
+    {
+        $parent = Category::factory()->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+        $subcategory = Category::factory()->subcategoryOf($parent)->create();
+
+        $this->assertNull($subcategory->expense_treatment);
+        $this->assertSame(Category::TREATMENT_SAVING, $subcategory->effectiveExpenseTreatment());
+    }
+
+    public function test_income_category_has_no_expense_treatment(): void
+    {
+        $category = Category::factory()->income()->create();
+
+        $this->assertNull($category->effectiveExpenseTreatment());
+        $this->assertNull($category->expenseTreatmentLabel());
+    }
 }

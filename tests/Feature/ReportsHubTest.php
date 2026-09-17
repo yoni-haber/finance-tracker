@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Livewire\Reports\ReportsHub;
+use App\Models\Category;
 use App\Models\NetWorthEntry;
 use App\Models\Transaction;
 use App\Models\User;
@@ -35,7 +36,8 @@ final class ReportsHubTest extends TestCase
         $chartData = $testable->get('chartData');
         $this->assertArrayHasKey('labels', $chartData);
         $this->assertArrayHasKey('income', $chartData);
-        $this->assertArrayHasKey('expenses', $chartData);
+        $this->assertArrayHasKey('spending', $chartData);
+        $this->assertArrayHasKey('savedAndInvested', $chartData);
     }
 
     public function test_mount_initializes_net_worth_chart_data_with_required_keys(): void
@@ -120,7 +122,7 @@ final class ReportsHubTest extends TestCase
         $this->assertCount(4, $testable->get('chartData')['labels']);
     }
 
-    public function test_chart_data_sums_income_and_expenses_correctly_for_current_month(): void
+    public function test_chart_data_sums_income_spending_and_saving_correctly_for_current_month(): void
     {
         Carbon::setTestNow('2024-06-15');
 
@@ -131,6 +133,18 @@ final class ReportsHubTest extends TestCase
             'type' => Transaction::TYPE_INCOME,
             'amount' => '1000.00',
             'date' => '2024-06-10',
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+
+        $savings = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        Transaction::factory()->for($user)->for($savings)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '200.00',
+            'date' => '2024-06-07',
             'is_recurring' => false,
             'frequency' => null,
         ]);
@@ -153,7 +167,8 @@ final class ReportsHubTest extends TestCase
         $lastIndex = count($chartData['labels']) - 1;
         $this->assertStringContainsString('Jun 2024', (string) $chartData['labels'][$lastIndex]);
         $this->assertEqualsWithDelta(1000.0, $chartData['income'][$lastIndex], PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(350.0, $chartData['expenses'][$lastIndex], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(350.0, $chartData['spending'][$lastIndex], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(200.0, $chartData['savedAndInvested'][$lastIndex], PHP_FLOAT_EPSILON);
     }
 
     public function test_chart_data_does_not_include_other_users_transactions(): void
@@ -213,7 +228,8 @@ final class ReportsHubTest extends TestCase
 
         $this->assertCount(3, $testable->get('chartData')['labels']);
         $this->assertCount(3, $testable->get('chartData')['income']);
-        $this->assertCount(3, $testable->get('chartData')['expenses']);
+        $this->assertCount(3, $testable->get('chartData')['spending']);
+        $this->assertCount(3, $testable->get('chartData')['savedAndInvested']);
     }
 
     public function test_net_worth_chart_data_includes_entries_within_last_12_months(): void

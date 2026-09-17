@@ -508,4 +508,171 @@ final class CategoryManagerTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
         $this->assertDatabaseHas('budgets', ['id' => $budget->id]);
     }
+
+    public function test_save_creates_expense_parent_with_reporting_treatment(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Investments')
+            ->set('type', Category::TYPE_EXPENSE)
+            ->set('expenseTreatment', Category::TREATMENT_INVESTMENT)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'user_id' => $user->id,
+            'name' => 'Investments',
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+    }
+
+    public function test_save_rejects_an_unsupported_expense_treatment(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Invalid treatment')
+            ->set('type', Category::TYPE_EXPENSE)
+            ->set('expenseTreatment', 'unsupported')
+            ->call('save')
+            ->assertHasErrors(['expenseTreatment' => 'in']);
+
+        $this->assertDatabaseMissing('categories', [
+            'user_id' => $user->id,
+            'name' => 'Invalid treatment',
+        ]);
+    }
+
+    public function test_subcategory_stores_no_treatment_and_inherits_parent_treatment(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Emergency fund')
+            ->set('type', Category::TYPE_EXPENSE)
+            ->set('parentId', $parent->id)
+            ->set('expenseTreatment', Category::TREATMENT_INVESTMENT)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $category = Category::query()->where('name', 'Emergency fund')->firstOrFail();
+        $this->assertNull($category->expense_treatment);
+        $this->assertSame(Category::TREATMENT_SAVING, $category->effectiveExpenseTreatment());
+    }
+
+    public function test_cannot_reclassify_category_with_a_budget_as_saving(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        Budget::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('expenseTreatment', Category::TREATMENT_SAVING)
+            ->call('save')
+            ->assertHasErrors('save');
+
+        $freshCategory = $category->fresh();
+
+        $this->assertInstanceOf(Category::class, $freshCategory);
+        $this->assertSame(Category::TREATMENT_SPENDING, $freshCategory->expense_treatment);
+    }
+
+    public function test_category_without_budgets_can_be_reclassified_as_saving(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('expenseTreatment', Category::TREATMENT_SAVING)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $category->id,
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+    }
+
+    public function test_category_with_budgets_can_remain_spending_when_edited(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        Budget::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('name', 'Home')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $category->id,
+            'name' => 'Home',
+            'expense_treatment' => Category::TREATMENT_SPENDING,
+        ]);
+    }
+
+    public function test_editing_an_income_category_defaults_hidden_treatment_state_to_spending(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->income()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
+    }
+
+    public function test_editing_an_investment_category_preserves_its_treatment(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertSet('expenseTreatment', Category::TREATMENT_INVESTMENT);
+    }
+
+    public function test_selecting_a_parent_resets_hidden_treatment_state_to_spending(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('expenseTreatment', Category::TREATMENT_INVESTMENT)
+            ->set('parentId', $parent->id)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
+    }
+
+    public function test_investment_badge_uses_pill_styling_and_form_omits_historical_copy(): void
+    {
+        $user = User::factory()->create();
+        Category::factory()->for($user)->expense()->create([
+            'name' => 'Investments',
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->assertSee('Investment')
+            ->assertSeeHtml('rounded-full bg-violet-100')
+            ->assertSeeHtml('font-medium text-violet-700')
+            ->assertDontSee('Changing this also recalculates historical dashboards and reports.');
+    }
 }

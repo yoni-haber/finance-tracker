@@ -135,7 +135,7 @@ final class BudgetManagerTest extends TestCase
             ->set('year', 2025)
             ->set('amount', '100.00')
             ->call('save')
-            ->assertHasErrors('category_id');
+            ->assertHasErrors(['category_id' => 'required']);
     }
 
     public function test_save_create_validates_month_out_of_range(): void
@@ -610,17 +610,39 @@ final class BudgetManagerTest extends TestCase
             ->assertHasErrors('category_id');
     }
 
-    public function test_render_categories_shows_only_expense_parents(): void
+    public function test_render_categories_shows_only_spending_expense_parents(): void
     {
         $user = User::factory()->create();
         $expenseParent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $savingParent = Category::factory()->for($user)->expense()->create([
+            'name' => 'Savings',
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
         $incomeParent = Category::factory()->for($user)->income()->create(['name' => 'Employment']);
         $sub = Category::factory()->subcategoryOf($expenseParent)->create(['name' => 'Groceries']);
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
             ->assertViewHas('categories', fn ($cats) => $cats->contains('id', $expenseParent->id))
+            ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $savingParent->id))
             ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $incomeParent->id))
             ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $sub->id));
+    }
+
+    public function test_save_rejects_saving_and_investment_categories(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->set('category_id', $category->id)
+            ->set('month', 5)
+            ->set('year', 2025)
+            ->set('amount', '200.00')
+            ->call('save')
+            ->assertHasErrors('category_id');
     }
 }

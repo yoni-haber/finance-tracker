@@ -13,9 +13,13 @@ use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class UserAndFinanceSeeder extends Seeder
 {
+    /**
+     * @throws Throwable
+     */
     public function run(): void
     {
         DB::transaction(function () {
@@ -76,16 +80,44 @@ class UserAndFinanceSeeder extends Seeder
     {
         return $this->createHierarchy($user, [
             'income' => [
-                'Employment' => ['Salary', 'Bonus'],
-                'Self Employment' => ['Freelance'],
+                'Employment' => [
+                    'children' => ['Salary', 'Bonus'],
+                    'expense_treatment' => null,
+                ],
+                'Self Employment' => [
+                    'children' => ['Freelance'],
+                    'expense_treatment' => null,
+                ],
             ],
             'expense' => [
-                'Housing' => ['Rent'],
-                'Food' => ['Groceries', 'Restaurants'],
-                'Transport' => ['Fuel', 'Travel'],
-                'Bills' => ['Utilities'],
-                'Lifestyle' => ['Entertainment'],
-                'Savings' => [],
+                'Housing' => [
+                    'children' => ['Rent'],
+                    'expense_treatment' => Category::TREATMENT_SPENDING,
+                ],
+                'Food' => [
+                    'children' => ['Groceries', 'Restaurants'],
+                    'expense_treatment' => Category::TREATMENT_SPENDING,
+                ],
+                'Transport' => [
+                    'children' => ['Fuel', 'Travel'],
+                    'expense_treatment' => Category::TREATMENT_SPENDING,
+                ],
+                'Bills' => [
+                    'children' => ['Utilities'],
+                    'expense_treatment' => Category::TREATMENT_SPENDING,
+                ],
+                'Lifestyle' => [
+                    'children' => ['Entertainment'],
+                    'expense_treatment' => Category::TREATMENT_SPENDING,
+                ],
+                'Savings' => [
+                    'children' => [],
+                    'expense_treatment' => Category::TREATMENT_SAVING,
+                ],
+                'Investments' => [
+                    'children' => [],
+                    'expense_treatment' => Category::TREATMENT_INVESTMENT,
+                ],
             ],
         ]);
     }
@@ -94,27 +126,33 @@ class UserAndFinanceSeeder extends Seeder
      * Create a typed parent/subcategory hierarchy for a user.
      * Returns a flat map keyed as "Parent" for parents and "Parent.Child" for subcategories.
      *
-     * @param array{'income'?: array<string, list<string>>, 'expense'?: array<string, list<string>>} $hierarchy
+     * @param array{
+     *     income: array<string, array{children: list<string>, expense_treatment: null}>,
+     *     expense: array<string, array{children: list<string>, expense_treatment: string}>
+     * } $hierarchy
      * @return array<string, Category>
      */
     private function createHierarchy(User $user, array $hierarchy): array
     {
         $map = [];
 
-        foreach (['income', 'expense'] as $type) {
-            foreach ($hierarchy[$type] ?? [] as $parentName => $children) {
+        foreach ($hierarchy as $type => $definitions) {
+            foreach ($definitions as $parentName => $definition) {
                 $parent = Category::updateOrCreate(
                     ['user_id' => $user->id, 'parent_id' => null, 'name' => $parentName],
-                    ['type' => $type],
+                    [
+                        'type' => $type,
+                        'expense_treatment' => $definition['expense_treatment'],
+                    ],
                 );
                 $map[$parentName] = $parent;
 
-                foreach ($children as $childName) {
+                foreach ($definition['children'] as $childName) {
                     $child = Category::updateOrCreate(
                         ['user_id' => $user->id, 'parent_id' => $parent->id, 'name' => $childName],
-                        ['type' => $type],
+                        ['type' => $type, 'expense_treatment' => null],
                     );
-                    $map["{$parentName}.{$childName}"] = $child;
+                    $map["$parentName.$childName"] = $child;
                 }
             }
         }

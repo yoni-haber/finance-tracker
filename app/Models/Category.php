@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $parent_id
  * @property int|null $parent_lookup_id
  * @property string $type
+ * @property string|null $expense_treatment
  * @property string $name
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -48,6 +49,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Category whereParentId($value)
  * @method static Builder<static>|Category whereParentLookupId($value)
  * @method static Builder<static>|Category whereType($value)
+ * @method static Builder<static>|Category whereExpenseTreatment($value)
  * @method static Builder<static>|Category whereUpdatedAt($value)
  * @method static Builder<static>|Category whereUserId($value)
  *
@@ -57,6 +59,7 @@ use Illuminate\Support\Carbon;
     'name',
     'user_id',
     'type',
+    'expense_treatment',
     'parent_id',
 ])]
 class Category extends Model
@@ -67,6 +70,35 @@ class Category extends Model
     const string TYPE_INCOME = 'income';
 
     const string TYPE_EXPENSE = 'expense';
+
+    const string TREATMENT_SPENDING = 'spending';
+
+    const string TREATMENT_SAVING = 'saving';
+
+    const string TREATMENT_INVESTMENT = 'investment';
+
+    public function effectiveExpenseTreatment(): ?string
+    {
+        if ($this->type !== self::TYPE_EXPENSE) {
+            return null;
+        }
+
+        if ($this->isSubcategory()) {
+            return $this->parent->expense_treatment ?? self::TREATMENT_SPENDING;
+        }
+
+        return $this->expense_treatment ?? self::TREATMENT_SPENDING;
+    }
+
+    public function expenseTreatmentLabel(): ?string
+    {
+        return match ($this->effectiveExpenseTreatment()) {
+            self::TREATMENT_SPENDING => 'Spending',
+            self::TREATMENT_SAVING => 'Saving',
+            self::TREATMENT_INVESTMENT => 'Investment',
+            default => null,
+        };
+    }
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
