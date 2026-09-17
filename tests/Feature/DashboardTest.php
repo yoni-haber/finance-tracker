@@ -148,6 +148,8 @@ final class DashboardTest extends TestCase
             ->assertViewHas('remainingAfterOutflows', '1950.00')
             ->assertViewHas('retained', '2250.00');
 
+        $testable->assertDispatched('dashboard-charts-updated');
+
         $testable->assertViewHas('budgetSummaries', function ($summaries): bool {
             $groceries = $summaries->firstWhere('category', 'Groceries');
 

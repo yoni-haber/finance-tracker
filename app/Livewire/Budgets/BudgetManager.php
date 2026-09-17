@@ -7,6 +7,7 @@ namespace App\Livewire\Budgets;
 use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
+use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -207,9 +208,9 @@ class BudgetManager extends Component
     }
 
     /**
-     * @return array<string, Exists[]|string[]|string[]>
+     * @return array<string, array<int, Closure|Exists|string>>
      */
-    protected function rules(): array
+    private function rules(): array
     {
         return [
             'category_id' => [

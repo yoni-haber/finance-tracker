@@ -562,6 +562,70 @@ final class CategoryManagerTest extends TestCase
             ->call('save')
             ->assertHasErrors('save');
 
-        $this->assertSame(Category::TREATMENT_SPENDING, $category->fresh()->expense_treatment);
+        $freshCategory = $category->fresh();
+
+        $this->assertInstanceOf(Category::class, $freshCategory);
+        $this->assertSame(Category::TREATMENT_SPENDING, $freshCategory->expense_treatment);
+    }
+
+    public function test_category_without_budgets_can_be_reclassified_as_saving(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('expenseTreatment', Category::TREATMENT_SAVING)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $category->id,
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+    }
+
+    public function test_category_with_budgets_can_remain_spending_when_edited(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        Budget::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('name', 'Home')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $category->id,
+            'name' => 'Home',
+            'expense_treatment' => Category::TREATMENT_SPENDING,
+        ]);
+    }
+
+    public function test_editing_an_income_category_defaults_hidden_treatment_state_to_spending(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->income()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
+    }
+
+    public function test_selecting_a_parent_resets_hidden_treatment_state_to_spending(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('expenseTreatment', Category::TREATMENT_INVESTMENT)
+            ->set('parentId', $parent->id)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
     }
 }

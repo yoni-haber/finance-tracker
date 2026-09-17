@@ -20,7 +20,7 @@ class ReportsHub extends Component
 {
     public string $range = '12_months';
 
-    /** @var array<string, list<(float|string)>> */
+    /** @var array<string, list<(float|int|string)>> */
     public array $chartData = [];
 
     /** @var array<string, mixed> */
@@ -56,9 +56,9 @@ class ReportsHub extends Component
     }
 
     /**
-     * @return array<string, list<(float|string)>>
+     * @return array<string, list<(float|int|string)>>
      */
-    protected function chartDataForRange(string $range, int $userId): array
+    private function chartDataForRange(string $range, int $userId): array
     {
         $labels = [];
         $income = [];
@@ -80,10 +80,10 @@ class ReportsHub extends Component
             $transactions = TransactionReport::projectedForMonth($userId, $monthDate->month, $monthDate->year);
             $income[] = (float) $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount');
             $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
-            $spending[] = (float) $expenseTransactions
+            $spending[] = $expenseTransactions
                 ->filter(fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING)
                 ->sum('amount');
-            $savedAndInvested[] = (float) $expenseTransactions
+            $savedAndInvested[] = $expenseTransactions
                 ->reject(fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING)
                 ->sum('amount');
         }

@@ -45,4 +45,21 @@ final class TransactionReportTest extends TestCase
         $this->assertTrue($transactions->every(fn ($transaction): bool => $transaction->category_id === $primaryCategory->id));
         $this->assertEqualsWithDelta(70.0, $transactions->sum('amount'), PHP_FLOAT_EPSILON);
     }
+
+    public function test_eager_loads_category_parent_for_reporting_classification(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+        $subcategory = Category::factory()->subcategoryOf($parent)->create();
+        Transaction::factory()->for($user)->for($subcategory)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+            'date' => '2024-05-10',
+        ]);
+
+        $transaction = TransactionReport::projectedForMonth($user->id, 5, 2024)->sole();
+
+        $this->assertTrue($transaction->relationLoaded('category'));
+        $this->assertInstanceOf(Category::class, $transaction->category);
+        $this->assertTrue($transaction->category->relationLoaded('parent'));
+    }
 }

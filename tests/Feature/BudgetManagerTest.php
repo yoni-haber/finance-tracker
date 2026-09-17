@@ -135,7 +135,7 @@ final class BudgetManagerTest extends TestCase
             ->set('year', 2025)
             ->set('amount', '100.00')
             ->call('save')
-            ->assertHasErrors('category_id');
+            ->assertHasErrors(['category_id' => 'required']);
     }
 
     public function test_save_create_validates_month_out_of_range(): void

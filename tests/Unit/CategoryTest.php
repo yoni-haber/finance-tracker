@@ -196,6 +196,28 @@ final class CategoryTest extends TestCase
         $this->assertSame('Investment', $category->expenseTreatmentLabel());
     }
 
+    public function test_expense_treatments_lists_every_supported_value(): void
+    {
+        $this->assertSame([
+            Category::TREATMENT_SPENDING,
+            Category::TREATMENT_SAVING,
+            Category::TREATMENT_INVESTMENT,
+        ], Category::expenseTreatments());
+    }
+
+    public function test_expense_treatment_labels_cover_spending_and_saving(): void
+    {
+        $spending = Category::factory()->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SPENDING,
+        ]);
+        $saving = Category::factory()->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        $this->assertSame('Spending', $spending->expenseTreatmentLabel());
+        $this->assertSame('Saving', $saving->expenseTreatmentLabel());
+    }
+
     public function test_subcategory_inherits_its_parent_reporting_treatment(): void
     {
         $parent = Category::factory()->expense()->create([

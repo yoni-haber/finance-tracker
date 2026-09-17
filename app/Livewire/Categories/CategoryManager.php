@@ -64,14 +64,14 @@ class CategoryManager extends Component
     }
 
     /**
-     * @return array<string, string[]|In[]|string[]>
+     * @return array<string, array<int, In|string>>
      */
-    protected function rules(): array
+    private function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in([Category::TYPE_INCOME, Category::TYPE_EXPENSE])],
-            'expenseTreatment' => ['nullable', Rule::in(Category::expenseTreatments())],
+            'expenseTreatment' => [Rule::in(Category::expenseTreatments())],
             'parentId' => ['nullable', 'integer'],
         ];
     }

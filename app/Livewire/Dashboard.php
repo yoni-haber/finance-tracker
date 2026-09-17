@@ -29,20 +29,6 @@ class Dashboard extends Component
     {
         $userId = (int) Auth::id();
 
-        if ($userId === 0) {
-            return view('livewire.dashboard', [
-                'income' => 0,
-                'spending' => 0,
-                'savedAndInvested' => 0,
-                'remainingAfterOutflows' => 0,
-                'retained' => 0,
-                'budgetSummaries' => collect(),
-                'incomeCategoryBreakdown' => collect(),
-                'spendingCategoryBreakdown' => collect(),
-                'savingInvestmentCategoryBreakdown' => collect(),
-            ]);
-        }
-
         $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
 
         $income = Money::fromPennies(

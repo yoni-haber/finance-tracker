@@ -94,7 +94,7 @@ class Category extends Model
         }
 
         if ($this->isSubcategory()) {
-            return $this->parent?->expense_treatment ?? self::TREATMENT_SPENDING;
+            return $this->parent->expense_treatment ?? self::TREATMENT_SPENDING;
         }
 
         return $this->expense_treatment ?? self::TREATMENT_SPENDING;
