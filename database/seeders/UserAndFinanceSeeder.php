@@ -74,7 +74,7 @@ class UserAndFinanceSeeder extends Seeder
     /** @return array<string, Category> */
     private function seedCategories(User $user): array
     {
-        return $this->createHierarchy($user, [
+        $categories = $this->createHierarchy($user, [
             'income' => [
                 'Employment' => ['Salary', 'Bonus'],
                 'Self Employment' => ['Freelance'],
@@ -88,6 +88,12 @@ class UserAndFinanceSeeder extends Seeder
                 'Savings' => [],
             ],
         ]);
+
+        $categories['Savings']->update([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        return $categories;
     }
 
     /**
@@ -105,14 +111,19 @@ class UserAndFinanceSeeder extends Seeder
             foreach ($hierarchy[$type] ?? [] as $parentName => $children) {
                 $parent = Category::updateOrCreate(
                     ['user_id' => $user->id, 'parent_id' => null, 'name' => $parentName],
-                    ['type' => $type],
+                    [
+                        'type' => $type,
+                        'expense_treatment' => $type === Category::TYPE_EXPENSE
+                            ? Category::TREATMENT_SPENDING
+                            : null,
+                    ],
                 );
                 $map[$parentName] = $parent;
 
                 foreach ($children as $childName) {
                     $child = Category::updateOrCreate(
                         ['user_id' => $user->id, 'parent_id' => $parent->id, 'name' => $childName],
-                        ['type' => $type],
+                        ['type' => $type, 'expense_treatment' => null],
                     );
                     $map["{$parentName}.{$childName}"] = $child;
                 }

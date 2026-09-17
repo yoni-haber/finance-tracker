@@ -2,8 +2,8 @@
     <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h3 class="text-lg font-semibold">Income vs Expenditure</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Compare totals for your selected range.</p>
+                <h3 class="text-lg font-semibold">Income, Spending &amp; Saving</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Compare monthly totals for your selected range, including projected recurring transactions.</p>
             </div>
             <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
                 <select
@@ -64,10 +64,18 @@
                                 fill: true,
                             },
                             {
-                                label: 'Expenses',
-                                data: chartData.expenses,
+                                label: 'Spending',
+                                data: chartData.spending,
                                 borderColor: '#ef4444',
                                 backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                tension: 0.3,
+                                fill: true,
+                            },
+                            {
+                                label: 'Saved & Invested',
+                                data: chartData.savedAndInvested,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
                                 tension: 0.3,
                                 fill: true,
                             },

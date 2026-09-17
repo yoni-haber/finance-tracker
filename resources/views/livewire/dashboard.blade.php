@@ -1,21 +1,31 @@
 <div class="space-y-6">
-    <div class="grid gap-4 md:grid-cols-3">
+    <div>
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <p class="text-sm text-gray-500">Income</p>
             <p class="text-2xl font-semibold text-emerald-600">£{{ number_format($income, 2) }}</p>
         </div>
         <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <p class="text-sm text-gray-500">Expenses</p>
-            <p class="text-2xl font-semibold text-rose-600">£{{ number_format($expenses, 2) }}</p>
+            <p class="text-sm text-gray-500">Spending</p>
+            <p class="text-2xl font-semibold text-rose-600">£{{ number_format($spending, 2) }}</p>
         </div>
         <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <p class="text-sm text-gray-500">Net Balance</p>
-            <p class="text-2xl font-semibold {{ $net >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
-                £{{ number_format($net, 2) }}</p>
+            <p class="text-sm text-gray-500">Saved &amp; Invested</p>
+            <p class="text-2xl font-semibold text-blue-600">£{{ number_format($savedAndInvested, 2) }}</p>
         </div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <p class="text-sm text-gray-500">Remaining after outflows</p>
+            <p class="text-2xl font-semibold {{ $remainingAfterOutflows >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
+                £{{ number_format($remainingAfterOutflows, 2) }}</p>
+        </div>
+        </div>
+        <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+            Retained this month: <strong class="text-zinc-800 dark:text-zinc-200">£{{ number_format($retained, 2) }}</strong>
+            (income minus spending, including money saved or invested). Totals include projected recurring transactions for the selected month.
+        </p>
     </div>
 
-    <div class="flex flex-row gap-6">
+    <div class="grid gap-6 lg:grid-cols-3">
         <div class="flex-1 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold">Income by Category</h3>
@@ -26,10 +36,18 @@
         </div>
         <div class="flex-1 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold">Expenses by Category</h3>
+                <h3 class="text-lg font-semibold">Spending by Category</h3>
             </div>
             <div class="mt-4">
-                <canvas id="expenseCategoryChart" wire:ignore class="w-full"></canvas>
+                <canvas id="spendingCategoryChart" wire:ignore class="w-full"></canvas>
+            </div>
+        </div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold">Savings &amp; Investments by Category</h3>
+            </div>
+            <div class="mt-4">
+                <canvas id="savingInvestmentCategoryChart" wire:ignore class="w-full"></canvas>
             </div>
         </div>
     </div>
@@ -64,18 +82,21 @@
 
     <div id="dashboardChartPayload" class="hidden"
          data-income-breakdown='@json($incomeCategoryBreakdown->toArray())'
-         data-expense-breakdown='@json($expenseCategoryBreakdown->toArray())'
+         data-spending-breakdown='@json($spendingCategoryBreakdown->toArray())'
+         data-saving-investment-breakdown='@json($savingInvestmentCategoryBreakdown->toArray())'
          data-transactions-url="{{ route('transactions', absolute: false) }}"></div>
 
     <script>
         function renderCharts(payload) {
             const incomeCategoryCtx = document.getElementById('incomeCategoryChart');
-            const expenseCategoryCtx = document.getElementById('expenseCategoryChart');
+            const spendingCategoryCtx = document.getElementById('spendingCategoryChart');
+            const savingInvestmentCategoryCtx = document.getElementById('savingInvestmentCategoryChart');
 
-            if (!incomeCategoryCtx || !expenseCategoryCtx || !payload) return;
+            if (!incomeCategoryCtx || !spendingCategoryCtx || !savingInvestmentCategoryCtx || !payload) return;
 
             if (window._incomeCategoryChart) window._incomeCategoryChart.destroy();
-            if (window._expenseCategoryChart) window._expenseCategoryChart.destroy();
+            if (window._spendingCategoryChart) window._spendingCategoryChart.destroy();
+            if (window._savingInvestmentCategoryChart) window._savingInvestmentCategoryChart.destroy();
 
             const colours = [
                 '#1d4ed8',
@@ -137,13 +158,22 @@
                 options: clickableChartOptions(payload.incomeCategoryBreakdown),
             });
 
-            window._expenseCategoryChart = new Chart(expenseCategoryCtx, {
+            window._spendingCategoryChart = new Chart(spendingCategoryCtx, {
                 type: 'pie',
                 data: {
-                    labels: payload.expenseCategoryBreakdown.map(item => item.category),
-                    datasets: [{ data: payload.expenseCategoryBreakdown.map(item => item.total), backgroundColor: colours }]
+                    labels: payload.spendingCategoryBreakdown.map(item => item.category),
+                    datasets: [{ data: payload.spendingCategoryBreakdown.map(item => item.total), backgroundColor: colours }]
                 },
-                options: clickableChartOptions(payload.expenseCategoryBreakdown),
+                options: clickableChartOptions(payload.spendingCategoryBreakdown),
+            });
+
+            window._savingInvestmentCategoryChart = new Chart(savingInvestmentCategoryCtx, {
+                type: 'pie',
+                data: {
+                    labels: payload.savingInvestmentCategoryBreakdown.map(item => item.category),
+                    datasets: [{ data: payload.savingInvestmentCategoryBreakdown.map(item => item.total), backgroundColor: colours }]
+                },
+                options: clickableChartOptions(payload.savingInvestmentCategoryBreakdown),
             });
         }
 
@@ -160,7 +190,8 @@
             try {
                 return {
                     incomeCategoryBreakdown: JSON.parse(payloadNode.dataset.incomeBreakdown ?? '[]'),
-                    expenseCategoryBreakdown: JSON.parse(payloadNode.dataset.expenseBreakdown ?? '[]'),
+                    spendingCategoryBreakdown: JSON.parse(payloadNode.dataset.spendingBreakdown ?? '[]'),
+                    savingInvestmentCategoryBreakdown: JSON.parse(payloadNode.dataset.savingInvestmentBreakdown ?? '[]'),
                     transactionsUrl: payloadNode.dataset.transactionsUrl,
                 };
             } catch (error) {

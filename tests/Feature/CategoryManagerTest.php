@@ -508,4 +508,60 @@ final class CategoryManagerTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
         $this->assertDatabaseHas('budgets', ['id' => $budget->id]);
     }
+
+    public function test_save_creates_expense_parent_with_reporting_treatment(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Investments')
+            ->set('type', Category::TYPE_EXPENSE)
+            ->set('expenseTreatment', Category::TREATMENT_INVESTMENT)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('categories', [
+            'user_id' => $user->id,
+            'name' => 'Investments',
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+    }
+
+    public function test_subcategory_stores_no_treatment_and_inherits_parent_treatment(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Emergency fund')
+            ->set('type', Category::TYPE_EXPENSE)
+            ->set('parentId', $parent->id)
+            ->set('expenseTreatment', Category::TREATMENT_INVESTMENT)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $category = Category::query()->where('name', 'Emergency fund')->firstOrFail();
+        $this->assertNull($category->expense_treatment);
+        $this->assertSame(Category::TREATMENT_SAVING, $category->effectiveExpenseTreatment());
+    }
+
+    public function test_cannot_reclassify_category_with_a_budget_as_saving(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        Budget::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('expenseTreatment', Category::TREATMENT_SAVING)
+            ->call('save')
+            ->assertHasErrors('save');
+
+        $this->assertSame(Category::TREATMENT_SPENDING, $category->fresh()->expense_treatment);
+    }
 }

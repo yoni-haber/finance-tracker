@@ -57,6 +57,7 @@ class BudgetManager extends Component
         $categories = Category::forUser($userId)
             ->expense()
             ->parents()
+            ->where('expense_treatment', Category::TREATMENT_SPENDING)
             ->orderBy('name')
             ->get();
 
@@ -217,6 +218,14 @@ class BudgetManager extends Component
                     ->where('user_id', Auth::id())
                     ->where('type', 'expense')
                     ->whereNull('parent_id'),
+                function ($attribute, $value, $fail): void {
+                    if ($value && !Category::forUser((int) Auth::id())
+                        ->whereKey($value)
+                        ->where('expense_treatment', Category::TREATMENT_SPENDING)
+                        ->exists()) {
+                        $fail('Budgets can only be created for Spending categories.');
+                    }
+                },
             ],
             'month' => ['required', 'integer', 'min:1', 'max:12'],
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],

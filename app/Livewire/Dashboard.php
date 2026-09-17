@@ -32,11 +32,14 @@ class Dashboard extends Component
         if ($userId === 0) {
             return view('livewire.dashboard', [
                 'income' => 0,
-                'expenses' => 0,
-                'net' => 0,
+                'spending' => 0,
+                'savedAndInvested' => 0,
+                'remainingAfterOutflows' => 0,
+                'retained' => 0,
                 'budgetSummaries' => collect(),
                 'incomeCategoryBreakdown' => collect(),
-                'expenseCategoryBreakdown' => collect(),
+                'spendingCategoryBreakdown' => collect(),
+                'savingInvestmentCategoryBreakdown' => collect(),
             ]);
         }
 
@@ -48,13 +51,24 @@ class Dashboard extends Component
             ),
         );
 
-        $expenses = Money::fromPennies(
+        $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
+        $spendingTransactions = $expenseTransactions->filter(
+            fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
+        );
+        $savingInvestmentTransactions = $expenseTransactions->reject(
+            fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
+        );
+
+        $allOutflows = Money::fromPennies(
             Money::normalize(
-                $transactions->where('type', Transaction::TYPE_EXPENSE)->sum('amount'),
+                $expenseTransactions->sum('amount'),
             ),
         );
 
-        $net = Money::subtract($income, $expenses);
+        $spending = Money::fromPennies(Money::normalize($spendingTransactions->sum('amount')));
+        $savedAndInvested = Money::fromPennies(Money::normalize($savingInvestmentTransactions->sum('amount')));
+        $remainingAfterOutflows = Money::subtract($income, $allOutflows);
+        $retained = Money::subtract($income, $spending);
 
         $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
@@ -111,21 +125,31 @@ class Dashboard extends Component
             ]);
 
         $enumerable = $this->categoryTotals($transactions, Transaction::TYPE_INCOME, $categoryParents);
-        $categoryExpenses = $this->categoryTotals($transactions, Transaction::TYPE_EXPENSE, $categoryParents);
+        $categorySpending = $this->categoryTotals($spendingTransactions, Transaction::TYPE_EXPENSE, $categoryParents);
+        $categorySavingInvestment = $this->categoryTotals($savingInvestmentTransactions, Transaction::TYPE_EXPENSE, $categoryParents);
 
         $this->dispatch('dashboard-charts-updated',
             incomeCategoryBreakdown: $enumerable->all(),
-            expenseCategoryBreakdown: $categoryExpenses->all(),
+            spendingCategoryBreakdown: $categorySpending->all(),
+            savingInvestmentCategoryBreakdown: $categorySavingInvestment->all(),
         );
 
         return view('livewire.dashboard', [
             'income' => $income,
-            'expenses' => $expenses,
-            'net' => $net,
+            'spending' => $spending,
+            'savedAndInvested' => $savedAndInvested,
+            'remainingAfterOutflows' => $remainingAfterOutflows,
+            'retained' => $retained,
             'budgetSummaries' => $budgetSummaries,
             'incomeCategoryBreakdown' => $enumerable,
-            'expenseCategoryBreakdown' => $categoryExpenses,
+            'spendingCategoryBreakdown' => $categorySpending,
+            'savingInvestmentCategoryBreakdown' => $categorySavingInvestment,
         ]);
+    }
+
+    private function expenseTreatment(Transaction $transaction): string
+    {
+        return $transaction->category?->effectiveExpenseTreatment() ?? Category::TREATMENT_SPENDING;
     }
 
     /**

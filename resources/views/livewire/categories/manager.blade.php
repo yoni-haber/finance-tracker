@@ -67,6 +67,14 @@
                         <div class="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
                             <div class="flex min-w-0 items-center gap-2">
                                 <p class="truncate font-semibold text-zinc-900 dark:text-white">{{ $parent->name }}</p>
+                                @php
+                                    $treatmentClasses = match ($parent->expense_treatment) {
+                                        \App\Models\Category::TREATMENT_SAVING => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+                                        \App\Models\Category::TREATMENT_INVESTMENT => 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+                                        default => 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+                                    };
+                                @endphp
+                                <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $treatmentClasses }}">{{ $parent->expenseTreatmentLabel() }}</span>
                                 <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ $parent->transactions_count }} transactions</span>
                             </div>
                             <div class="ml-3 flex shrink-0 gap-3 text-sm">
@@ -121,7 +129,7 @@
                 {{-- Parent (optional — makes this a subcategory) --}}
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Parent Category <span class="font-normal normal-case text-zinc-400">(optional)</span></label>
-                    <select wire:model="parentId" class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
+                    <select wire:model.live="parentId" class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
                         <option value="">No parent (top-level)</option>
                         @foreach ($parentOptions as $option)
                             <option value="{{ $option->id }}">{{ $option->name }}</option>
@@ -129,6 +137,25 @@
                     </select>
                     @error('parentId') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                 </div>
+
+                @if ($type === \App\Models\Category::TYPE_EXPENSE && $parentId === null)
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Reporting treatment</label>
+                        <select wire:model="expenseTreatment" class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
+                            <option value="spending">Spending</option>
+                            <option value="saving">Saving</option>
+                            <option value="investment">Investment</option>
+                        </select>
+                        <p class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            Spending is consumed money. Saving and Investment remain part of retained wealth and are reported separately. Changing this also recalculates historical dashboards and reports.
+                        </p>
+                        @error('expenseTreatment') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    </div>
+                @elseif ($type === \App\Models\Category::TYPE_EXPENSE)
+                    <p class="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                        Subcategories inherit their parent category’s reporting treatment.
+                    </p>
+                @endif
 
                 {{-- Name --}}
                 <div>
@@ -185,4 +212,3 @@
         </div>
     </flux:modal>
 </div>
-

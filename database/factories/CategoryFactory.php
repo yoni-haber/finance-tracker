@@ -17,22 +17,31 @@ class CategoryFactory extends Factory
 
     public function definition(): array
     {
+        $type = fake()->randomElement([Category::TYPE_INCOME, Category::TYPE_EXPENSE]);
+
         return [
             'user_id' => User::factory(),
             'name' => fake()->unique()->word(),
-            'type' => fake()->randomElement([Category::TYPE_INCOME, Category::TYPE_EXPENSE]),
+            'type' => $type,
+            'expense_treatment' => $type === Category::TYPE_EXPENSE ? Category::TREATMENT_SPENDING : null,
             'parent_id' => null,
         ];
     }
 
     public function income(): static
     {
-        return $this->state(['type' => Category::TYPE_INCOME]);
+        return $this->state([
+            'type' => Category::TYPE_INCOME,
+            'expense_treatment' => null,
+        ]);
     }
 
     public function expense(): static
     {
-        return $this->state(['type' => Category::TYPE_EXPENSE]);
+        return $this->state([
+            'type' => Category::TYPE_EXPENSE,
+            'expense_treatment' => Category::TREATMENT_SPENDING,
+        ]);
     }
 
     /** Create a subcategory belonging to the given parent. */
@@ -42,6 +51,7 @@ class CategoryFactory extends Factory
             'parent_id' => $parent->id,
             'user_id' => $parent->user_id,
             'type' => $parent->type,
+            'expense_treatment' => null,
         ]);
     }
 }

@@ -32,8 +32,8 @@
                 <select wire:model.live="filterType"
                         class="h-8 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All types</option>
-                    <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Income</option>
-                    <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Expense</option>
+                    <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Money in</option>
+                    <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Money out</option>
                 </select>
                 <button
                     wire:click="openModal"
@@ -52,7 +52,7 @@
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Date</th>
                         <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Category</th>
-                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Type</th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Direction</th>
                         <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Amount</th>
                         <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Notes</th>
                         <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Actions</th>
@@ -65,7 +65,7 @@
                             <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ $transaction->category->name ?? '—' }}</td>
                             <td class="px-3 py-2">
                                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' }}">
-                                    {{ ucfirst($transaction->type) }}
+                                    {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'Money in' : 'Money out' }}
                                 </span>
                                 @if ($transaction->is_recurring)
                                     <span class="ml-1 text-xs text-zinc-400" title="Recurring {{ ucfirst($transaction->frequency) }}">↻</span>
@@ -118,11 +118,11 @@
                         @error('amount') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Type</label>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Direction</label>
                         <select wire:model.live="type"
                                 class="mt-1.5 w-full rounded-md border border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
-                            <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Income</option>
-                            <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Expense</option>
+                            <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Money in</option>
+                            <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Money out</option>
                         </select>
                         @error('type') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
@@ -215,4 +215,3 @@
         </div>
     </flux:modal>
 </div>
-

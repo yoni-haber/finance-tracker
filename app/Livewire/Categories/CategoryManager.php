@@ -21,6 +21,8 @@ class CategoryManager extends Component
 
     public string $type = Category::TYPE_EXPENSE;
 
+    public string $expenseTreatment = Category::TREATMENT_SPENDING;
+
     public ?int $parentId = null;
 
     public ?int $categoryId = null;
@@ -69,6 +71,7 @@ class CategoryManager extends Component
         return [
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in([Category::TYPE_INCOME, Category::TYPE_EXPENSE])],
+            'expenseTreatment' => ['nullable', Rule::in(Category::expenseTreatments())],
             'parentId' => ['nullable', 'integer'],
         ];
     }
@@ -107,10 +110,16 @@ class CategoryManager extends Component
             return;
         }
 
+        $expenseTreatment = null;
+        if ($this->type === Category::TYPE_EXPENSE && $this->parentId === null) {
+            $expenseTreatment = $this->expenseTreatment;
+        }
+
         $data = [
             'user_id' => $userId,
             'name' => $this->name,
             'type' => $this->type,
+            'expense_treatment' => $expenseTreatment,
             'parent_id' => $this->parentId,
         ];
 
@@ -119,6 +128,15 @@ class CategoryManager extends Component
 
             if (!$category) {
                 $this->addError('save', 'Category not found.');
+
+                return;
+            }
+
+            if (
+                $category->hasBudgets()
+                && ($data['type'] !== Category::TYPE_EXPENSE || $data['expense_treatment'] !== Category::TREATMENT_SPENDING)
+            ) {
+                $this->addError('save', 'Remove this category’s budgets before changing it from Spending.');
 
                 return;
             }
@@ -146,6 +164,7 @@ class CategoryManager extends Component
         $this->categoryId = $category->id;
         $this->name = $category->name;
         $this->type = $category->type;
+        $this->expenseTreatment = $category->effectiveExpenseTreatment() ?? Category::TREATMENT_SPENDING;
         $this->parentId = $category->parent_id;
 
         $this->dispatch('open-category-modal');
@@ -224,6 +243,14 @@ class CategoryManager extends Component
     public function updatedType(): void
     {
         $this->parentId = null;
+        $this->expenseTreatment = Category::TREATMENT_SPENDING;
+    }
+
+    public function updatedParentId(): void
+    {
+        if ($this->parentId !== null) {
+            $this->expenseTreatment = Category::TREATMENT_SPENDING;
+        }
     }
 
     public function resetForm(): void
@@ -231,6 +258,7 @@ class CategoryManager extends Component
         $this->categoryId = null;
         $this->name = '';
         $this->type = Category::TYPE_EXPENSE;
+        $this->expenseTreatment = Category::TREATMENT_SPENDING;
         $this->parentId = null;
 
         $this->resetValidation();

@@ -93,6 +93,10 @@ final class DashboardTest extends TestCase
         $user = User::factory()->create();
         $salaryCategory = Category::factory()->create(['user_id' => $user->id, 'name' => 'Salary']);
         $groceriesCategory = Category::factory()->create(['user_id' => $user->id, 'name' => 'Groceries']);
+        $savingsCategory = Category::factory()->for($user)->expense()->create([
+            'name' => 'Savings',
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
 
         Budget::factory()->create([
             'user_id' => $user->id,
@@ -127,14 +131,22 @@ final class DashboardTest extends TestCase
                 'amount' => 50,
                 'date' => '2024-05-08',
             ],
+            [
+                'category_id' => $savingsCategory->id,
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => 300,
+                'date' => '2024-05-09',
+            ],
         ]);
 
         $testable = Livewire::actingAs($user)->test(Dashboard::class);
 
         $testable
             ->assertViewHas('income', '2500.00')
-            ->assertViewHas('expenses', '250.00')
-            ->assertViewHas('net', '2250.00');
+            ->assertViewHas('spending', '250.00')
+            ->assertViewHas('savedAndInvested', '300.00')
+            ->assertViewHas('remainingAfterOutflows', '1950.00')
+            ->assertViewHas('retained', '2250.00');
 
         $testable->assertViewHas('budgetSummaries', function ($summaries): bool {
             $groceries = $summaries->firstWhere('category', 'Groceries');
@@ -153,12 +165,18 @@ final class DashboardTest extends TestCase
                 && $uncategorised['total'] === '500.00';
         });
 
-        $testable->assertViewHas('expenseCategoryBreakdown', function ($breakdown): bool {
+        $testable->assertViewHas('spendingCategoryBreakdown', function ($breakdown): bool {
             $groceries = collect($breakdown)->firstWhere('category', 'Groceries');
             $uncategorised = collect($breakdown)->firstWhere('category', 'Uncategorised');
 
             return $groceries['total'] === '200.00'
                 && $uncategorised['total'] === '50.00';
+        });
+
+        $testable->assertViewHas('savingInvestmentCategoryBreakdown', function ($breakdown): bool {
+            $savings = collect($breakdown)->firstWhere('category', 'Savings');
+
+            return $savings['total'] === '300.00';
         });
     }
 
@@ -262,7 +280,7 @@ final class DashboardTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)
-            ->assertViewHas('expenseCategoryBreakdown', function ($breakdown) use ($foodParent): bool {
+            ->assertViewHas('spendingCategoryBreakdown', function ($breakdown) use ($foodParent): bool {
                 $food = collect($breakdown)->firstWhere('category', 'Food');
                 $groceries = collect($breakdown)->firstWhere('category', 'Groceries');
 
@@ -286,8 +304,10 @@ final class DashboardTest extends TestCase
         $view = $dashboard->render();
 
         $this->assertEquals(0, $view->getData()['income']);
-        $this->assertEquals(0, $view->getData()['expenses']);
-        $this->assertEquals(0, $view->getData()['net']);
+        $this->assertEquals(0, $view->getData()['spending']);
+        $this->assertEquals(0, $view->getData()['savedAndInvested']);
+        $this->assertEquals(0, $view->getData()['remainingAfterOutflows']);
+        $this->assertEquals(0, $view->getData()['retained']);
         $this->assertCount(0, $view->getData()['budgetSummaries']);
     }
 }
