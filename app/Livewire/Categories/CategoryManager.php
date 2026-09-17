@@ -71,7 +71,11 @@ class CategoryManager extends Component
         return [
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in([Category::TYPE_INCOME, Category::TYPE_EXPENSE])],
-            'expenseTreatment' => [Rule::in(Category::expenseTreatments())],
+            'expenseTreatment' => [Rule::in([
+                Category::TREATMENT_SPENDING,
+                Category::TREATMENT_SAVING,
+                Category::TREATMENT_INVESTMENT,
+            ])],
             'parentId' => ['nullable', 'integer'],
         ];
     }

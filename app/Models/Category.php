@@ -77,16 +77,6 @@ class Category extends Model
 
     const string TREATMENT_INVESTMENT = 'investment';
 
-    /** @return list<string> */
-    public static function expenseTreatments(): array
-    {
-        return [
-            self::TREATMENT_SPENDING,
-            self::TREATMENT_SAVING,
-            self::TREATMENT_INVESTMENT,
-        ];
-    }
-
     public function effectiveExpenseTreatment(): ?string
     {
         if ($this->type !== self::TYPE_EXPENSE) {

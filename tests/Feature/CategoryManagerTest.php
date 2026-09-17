@@ -528,6 +528,24 @@ final class CategoryManagerTest extends TestCase
         ]);
     }
 
+    public function test_save_rejects_an_unsupported_expense_treatment(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Invalid treatment')
+            ->set('type', Category::TYPE_EXPENSE)
+            ->set('expenseTreatment', 'unsupported')
+            ->call('save')
+            ->assertHasErrors(['expenseTreatment' => 'in']);
+
+        $this->assertDatabaseMissing('categories', [
+            'user_id' => $user->id,
+            'name' => 'Invalid treatment',
+        ]);
+    }
+
     public function test_subcategory_stores_no_treatment_and_inherits_parent_treatment(): void
     {
         $user = User::factory()->create();
@@ -615,6 +633,19 @@ final class CategoryManagerTest extends TestCase
             ->test(CategoryManager::class)
             ->call('edit', $category->id)
             ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
+    }
+
+    public function test_editing_an_investment_category_preserves_its_treatment(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertSet('expenseTreatment', Category::TREATMENT_INVESTMENT);
     }
 
     public function test_selecting_a_parent_resets_hidden_treatment_state_to_spending(): void
