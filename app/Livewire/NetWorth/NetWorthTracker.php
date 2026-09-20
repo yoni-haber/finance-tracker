@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\NetWorth;
 
 use App\Models\NetWorthEntry;
+use App\Support\Money;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,16 +13,21 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
- * @property-read float $calculatedNetWorthValue
+ * @property-read int $calculatedNetWorthValue
  * @property-read string $calculatedNetWorth
  * @property-read string $calculatedNetWorthStyle
+ * @property-read string $assetTotalFormatted
+ * @property-read string $liabilityTotalFormatted
  */
 #[Layout('components.layouts.app')]
 #[Title('Net Worth')]
 class NetWorthTracker extends Component
 {
+    use WithPagination;
+
     public string $date;
 
     /**
@@ -48,6 +54,10 @@ class NetWorthTracker extends Component
 
     public ?int $entryId = null;
 
+    public ?int $deletingEntryId = null;
+
+    public string $deletingEntryDate = '';
+
     public function mount(): void
     {
         $this->date = now()->toDateString();
@@ -58,7 +68,7 @@ class NetWorthTracker extends Component
         $entries = NetWorthEntry::where('user_id', Auth::id())
             ->with('lineItems')
             ->orderByDesc('date')
-            ->get();
+            ->paginate(25);
 
         return view('livewire.net-worth.tracker', [
             'entries' => $entries,
@@ -79,15 +89,15 @@ class NetWorthTracker extends Component
             ],
         );
 
-        $assetTotal = $this->sumLines($validated['assetLines']);
-        $liabilityTotal = $this->sumLines($validated['liabilityLines']);
+        $assetTotalPennies = $this->sumLines($validated['assetLines']);
+        $liabilityTotalPennies = $this->sumLines($validated['liabilityLines']);
 
         $data = [
             'user_id' => Auth::id(),
             'date' => $validated['date'],
-            'assets' => $assetTotal,
-            'liabilities' => $liabilityTotal,
-            'net_worth' => $assetTotal - $liabilityTotal,
+            'assets' => Money::fromPennies($assetTotalPennies),
+            'liabilities' => Money::fromPennies($liabilityTotalPennies),
+            'net_worth' => Money::fromPennies($assetTotalPennies - $liabilityTotalPennies),
         ];
 
         if (!$this->entryId) {
@@ -125,6 +135,7 @@ class NetWorthTracker extends Component
         });
 
         $this->resetForm();
+        $this->resetPage();
         session()->flash('status', 'Net worth entry saved.');
         $this->dispatch('close-networth-modal');
     }
@@ -145,45 +156,77 @@ class NetWorthTracker extends Component
             ->where('type', 'asset')
             ->map(fn ($item): array => [
                 'category' => $item->category,
-                'amount' => number_format((float) $item->amount, 2, '.', ''),
+                'amount' => (string) $item->amount,
             ])->values()->all();
 
         $liabilityLines = $entry->lineItems
             ->where('type', 'liability')
             ->map(fn ($item): array => [
                 'category' => $item->category,
-                'amount' => number_format((float) $item->amount, 2, '.', ''),
+                'amount' => (string) $item->amount,
             ])->values()->all();
 
         $this->assetLines = $assetLines ?: [[
             'category' => 'Assets',
-            'amount' => number_format((float) $entry->assets, 2, '.', ''),
+            'amount' => (string) $entry->assets,
         ]];
 
         $this->liabilityLines = $liabilityLines ?: [[
             'category' => 'Liabilities',
-            'amount' => number_format((float) $entry->liabilities, 2, '.', ''),
+            'amount' => (string) $entry->liabilities,
         ]];
 
         $this->dispatch('open-networth-modal');
     }
 
-    public function delete(int $entryId): void
+    public function confirmDelete(int $entryId): void
     {
-        NetWorthEntry::where('user_id', Auth::id())->where('id', $entryId)->delete();
+        $entry = NetWorthEntry::where('user_id', Auth::id())->findOrFail($entryId);
+
+        $this->deletingEntryId = $entry->id;
+        $this->deletingEntryDate = $entry->date->format('j M Y');
+        $this->dispatch('open-delete-networth-modal');
+    }
+
+    public function delete(): void
+    {
+        if (!$this->deletingEntryId) {
+            return;
+        }
+
+        NetWorthEntry::where('user_id', Auth::id())
+            ->where('id', $this->deletingEntryId)
+            ->delete();
+
+        $this->deletingEntryId = null;
+        $this->deletingEntryDate = '';
+        $this->resetPage();
         session()->flash('status', 'Net worth entry removed.');
+        $this->dispatch('close-delete-networth-modal');
     }
 
     #[Computed]
     public function calculatedNetWorth(): string
     {
-        return number_format($this->assetTotal() - $this->liabilityTotal(), 2);
+        return Money::formatPennies($this->calculatedNetWorthValue);
     }
 
     #[Computed]
-    public function calculatedNetWorthValue(): float
+    public function calculatedNetWorthValue(): int
     {
         return $this->assetTotal() - $this->liabilityTotal();
+    }
+
+    #[Computed]
+    public function assetTotalFormatted(): string
+    {
+        return Money::formatPennies($this->assetTotal());
+    }
+
+    #[Computed]
+    public function liabilityTotalFormatted(): string
+    {
+        return Money::formatPennies($this->liabilityTotal());
     }
 
     #[Computed]
@@ -227,17 +270,17 @@ class NetWorthTracker extends Component
         return [
             $property => 'array',
             $property . '.*.category' => 'required|string|max:255',
-            $property . '.*.amount' => 'required|numeric|min:0',
+            $property . '.*.amount' => 'required|numeric|min:0|decimal:0,2',
         ];
     }
 
     /**
      * @param array<mixed, array<string, string>> $lines
      */
-    protected function sumLines(array $lines): float
+    protected function sumLines(array $lines): int
     {
         return collect($lines)
-            ->sum(fn ($line): float => (float) $line['amount']);
+            ->sum(fn ($line): int => Money::normalize($line['amount']));
     }
 
     /**
@@ -253,7 +296,7 @@ class NetWorthTracker extends Component
                 'user_id' => Auth::id(),
                 'type' => $type,
                 'category' => trim($line['category']),
-                'amount' => (float) $line['amount'],
+                'amount' => Money::fromPennies(Money::normalize($line['amount'])),
             ])->all();
 
         if ($payload) {
@@ -261,12 +304,12 @@ class NetWorthTracker extends Component
         }
     }
 
-    protected function assetTotal(): float
+    protected function assetTotal(): int
     {
         return $this->sumLines($this->assetLines);
     }
 
-    protected function liabilityTotal(): float
+    protected function liabilityTotal(): int
     {
         return $this->sumLines($this->liabilityLines);
     }
@@ -275,15 +318,14 @@ class NetWorthTracker extends Component
     {
         $this->resetErrorBag(['newAssetCategory', 'newAssetAmount']);
 
-        if (trim($this->newAssetCategory) === '') {
-            $this->addError('newAssetCategory', 'Asset category is required.');
-
-            return;
-        }
+        $validated = $this->validate([
+            'newAssetCategory' => 'required|string|max:255',
+            'newAssetAmount' => 'required|numeric|min:0|decimal:0,2',
+        ]);
 
         $this->assetLines[] = [
-            'category' => trim($this->newAssetCategory),
-            'amount' => number_format((float) $this->newAssetAmount, 2, '.', ''),
+            'category' => trim((string) $validated['newAssetCategory']),
+            'amount' => Money::fromPennies(Money::normalize((string) $validated['newAssetAmount'])),
         ];
 
         $this->newAssetCategory = '';
@@ -294,15 +336,14 @@ class NetWorthTracker extends Component
     {
         $this->resetErrorBag(['newLiabilityCategory', 'newLiabilityAmount']);
 
-        if (trim($this->newLiabilityCategory) === '') {
-            $this->addError('newLiabilityCategory', 'Liability category is required.');
-
-            return;
-        }
+        $validated = $this->validate([
+            'newLiabilityCategory' => 'required|string|max:255',
+            'newLiabilityAmount' => 'required|numeric|min:0|decimal:0,2',
+        ]);
 
         $this->liabilityLines[] = [
-            'category' => trim($this->newLiabilityCategory),
-            'amount' => number_format((float) $this->newLiabilityAmount, 2, '.', ''),
+            'category' => trim((string) $validated['newLiabilityCategory']),
+            'amount' => Money::fromPennies(Money::normalize((string) $validated['newLiabilityAmount'])),
         ];
 
         $this->newLiabilityCategory = '';
@@ -351,11 +392,8 @@ class NetWorthTracker extends Component
             return;
         }
 
-        $this->{$property}[$index]['amount'] = number_format(
-            (float) $this->{$property}[$index]['amount'],
-            2,
-            '.',
-            '',
+        $this->{$property}[$index]['amount'] = Money::fromPennies(
+            Money::normalize($this->{$property}[$index]['amount']),
         );
     }
 }

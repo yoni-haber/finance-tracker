@@ -38,34 +38,34 @@
                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50" x-data="{ expanded: false }">
                             <td class="px-3 py-2 whitespace-nowrap text-zinc-700 dark:text-zinc-300">{{ $entry->date->format('M d, Y') }}</td>
                             <td class="px-3 py-2">
-                                <div x-show="!expanded" class="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">£{{ number_format($entry->assets, 2) }}</div>
+                                <div x-show="!expanded" class="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{{ \App\Support\Money::format($entry->assets) }}</div>
                                 <div x-show="expanded" class="space-y-0.5">
                                     @foreach ($entry->lineItems->where('type', 'asset') as $item)
                                         <div class="flex items-center justify-between gap-3 text-xs">
                                             <span class="text-zinc-600 dark:text-zinc-400">{{ $item->category }}</span>
-                                            <span class="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">£{{ number_format($item->amount, 2) }}</span>
+                                            <span class="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">{{ \App\Support\Money::format($item->amount) }}</span>
                                         </div>
                                     @endforeach
-                                    <div class="border-t border-zinc-200 pt-0.5 text-xs font-semibold tabular-nums text-emerald-700 dark:text-zinc-400 dark:border-zinc-700">£{{ number_format($entry->assets, 2) }}</div>
+                                    <div class="border-t border-zinc-200 pt-0.5 text-xs font-semibold tabular-nums text-emerald-700 dark:text-zinc-400 dark:border-zinc-700">{{ \App\Support\Money::format($entry->assets) }}</div>
                                 </div>
                             </td>
                             <td class="px-3 py-2">
-                                <div x-show="!expanded" class="font-medium tabular-nums text-rose-700 dark:text-rose-400">£{{ number_format($entry->liabilities, 2) }}</div>
+                                <div x-show="!expanded" class="font-medium tabular-nums text-rose-700 dark:text-rose-400">{{ \App\Support\Money::format($entry->liabilities) }}</div>
                                 <div x-show="expanded" class="space-y-0.5">
                                     @foreach ($entry->lineItems->where('type', 'liability') as $item)
                                         <div class="flex items-center justify-between gap-3 text-xs">
                                             <span class="text-zinc-600 dark:text-zinc-400">{{ $item->category }}</span>
-                                            <span class="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">£{{ number_format($item->amount, 2) }}</span>
+                                            <span class="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">{{ \App\Support\Money::format($item->amount) }}</span>
                                         </div>
                                     @endforeach
-                                    <div class="border-t border-zinc-200 pt-0.5 text-xs font-semibold tabular-nums text-rose-700 dark:text-zinc-400 dark:border-zinc-700">£{{ number_format($entry->liabilities, 2) }}</div>
+                                    <div class="border-t border-zinc-200 pt-0.5 text-xs font-semibold tabular-nums text-rose-700 dark:text-zinc-400 dark:border-zinc-700">{{ \App\Support\Money::format($entry->liabilities) }}</div>
                                 </div>
                             </td>
-                            <td class="px-3 py-2 font-semibold tabular-nums {{ $entry->net_worth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">£{{ number_format($entry->net_worth, 2) }}</td>
+                            <td class="px-3 py-2 font-semibold tabular-nums {{ $entry->net_worth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">{{ \App\Support\Money::format($entry->net_worth) }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" x-on:click="expanded = !expanded" class="text-xs font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" x-text="expanded ? 'Collapse' : 'Expand'"></button>
                                 <button type="button" wire:click="edit({{ $entry->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
-                                <button type="button" wire:click="delete({{ $entry->id }})" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
+                                <button type="button" wire:click="confirmDelete({{ $entry->id }})" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
                             </td>
                         </tr>
                     @empty
@@ -78,6 +78,11 @@
                 </tbody>
             </table>
         </div>
+        @if ($entries->hasPages())
+            <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                {{ $entries->links() }}
+            </div>
+        @endif
     </div>
 
     {{-- Net worth snapshot modal --}}
@@ -97,8 +102,8 @@
                         £{{ $this->calculatedNetWorth }}
                     </div>
                     <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        Assets £{{ number_format(array_sum(array_column($assetLines, 'amount')), 2) }}
-                        &nbsp;·&nbsp; Liabilities £{{ number_format(array_sum(array_column($liabilityLines, 'amount')), 2) }}
+                        Assets £{{ $this->assetTotalFormatted }}
+                        &nbsp;·&nbsp; Liabilities £{{ $this->liabilityTotalFormatted }}
                     </p>
                 </div>
             </div>
@@ -146,7 +151,7 @@
                                                            class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
                                                     @error('assetLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                                 @else
-                                                    <span class="font-medium tabular-nums">£{{ number_format((float) $asset['amount'], 2) }}</span>
+                                                    <span class="font-medium tabular-nums">{{ \App\Support\Money::format($asset['amount']) }}</span>
                                                 @endif
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
@@ -217,7 +222,7 @@
                                                            class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
                                                     @error('liabilityLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                                 @else
-                                                    <span class="font-medium tabular-nums">£{{ number_format((float) $liability['amount'], 2) }}</span>
+                                                    <span class="font-medium tabular-nums">{{ \App\Support\Money::format($liability['amount']) }}</span>
                                                 @endif
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
@@ -272,5 +277,30 @@
             </form>
         </div>
     </flux:modal>
-</div>
 
+    <flux:modal
+        name="delete-networth"
+        x-on:open-delete-networth-modal.window="$flux.modal('delete-networth').show()"
+        x-on:close-delete-networth-modal.window="$flux.modal('delete-networth').close()"
+        focusable
+        class="max-w-lg"
+    >
+        <div class="space-y-5">
+            <div>
+                <flux:heading size="lg">Delete net worth snapshot?</flux:heading>
+                <flux:subheading class="mt-2">
+                    This permanently deletes the snapshot{{ $deletingEntryDate ? ' from ' . $deletingEntryDate : '' }} and all of its line items.
+                </flux:subheading>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <flux:modal.close>
+                    <flux:button variant="ghost">Cancel</flux:button>
+                </flux:modal.close>
+                <flux:button variant="danger" wire:click="delete" wire:loading.attr="disabled" wire:target="delete">
+                    Delete snapshot
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+</div>
