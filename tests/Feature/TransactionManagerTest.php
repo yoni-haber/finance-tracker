@@ -316,7 +316,10 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id)
+            ->call('confirmDelete', $transaction->id, '2024-06-01')
+            ->assertDispatched('open-delete-transaction-modal')
+            ->call('delete')
+            ->assertDispatched('close-delete-transaction-modal')
             ->assertHasNoErrors();
 
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
@@ -334,7 +337,8 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id)
+            ->call('confirmDelete', $transaction->id, '2024-06-01')
+            ->call('delete', true)
             ->assertHasNoErrors();
 
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
@@ -352,7 +356,8 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id, '2024-06-01')
+            ->call('confirmDelete', $transaction->id, '2024-06-01')
+            ->call('delete', false)
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
@@ -374,7 +379,8 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id, 'not-a-date')
+            ->call('confirmDelete', $transaction->id, 'not-a-date')
+            ->call('delete', false)
             ->assertHasErrors('delete');
 
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
@@ -395,7 +401,7 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $otherTransaction->id);
+            ->call('confirmDelete', $otherTransaction->id);
     }
 
     public function test_updated_is_recurring_false_clears_frequency_and_recurring_until(): void

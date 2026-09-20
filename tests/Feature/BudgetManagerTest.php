@@ -318,13 +318,17 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->call('delete', $budget->id)
+            ->call('confirmDelete', $budget->id)
+            ->assertSet('deletingBudgetId', $budget->id)
+            ->assertDispatched('open-delete-budget-modal')
+            ->call('delete')
+            ->assertDispatched('close-delete-budget-modal')
             ->assertSee('Budget removed.');
 
         $this->assertDatabaseMissing('budgets', ['id' => $budget->id]);
     }
 
-    public function test_delete_silently_ignores_another_users_budget(): void
+    public function test_delete_confirmation_rejects_another_users_budget(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
@@ -333,11 +337,11 @@ final class BudgetManagerTest extends TestCase
             ->for(Category::factory()->for($otherUser), 'category')
             ->create();
 
+        $this->expectException(ModelNotFoundException::class);
+
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->call('delete', $otherBudget->id);
-
-        $this->assertDatabaseHas('budgets', ['id' => $otherBudget->id]);
+            ->call('confirmDelete', $otherBudget->id);
     }
 
     public function test_render_filters_by_category(): void
