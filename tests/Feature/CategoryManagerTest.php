@@ -60,6 +60,17 @@ final class CategoryManagerTest extends TestCase
             ->assertViewHas('parentOptions', fn ($p) => $p->doesntContain('id', $incomeParent->id));
     }
 
+    public function test_render_parent_options_exclude_category_being_edited(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertViewHas('parentOptions', fn ($parents): bool => !$parents->contains('id', $category->id));
+    }
+
     public function test_save_creates_income_parent_category(): void
     {
         $user = User::factory()->create();
@@ -234,6 +245,40 @@ final class CategoryManagerTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id, 'name' => 'New Name']);
     }
 
+    public function test_save_blocks_structural_change_when_category_has_children(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+        Category::factory()->subcategoryOf($parent)->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $parent->id)
+            ->assertSet('editingStructureLocked', true)
+            ->set('type', Category::TYPE_INCOME)
+            ->call('save')
+            ->assertHasErrors('save');
+
+        $this->assertSame(Category::TYPE_EXPENSE, $parent->fresh()?->type);
+    }
+
+    public function test_save_blocks_parent_change_when_category_has_transactions(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+        $newParent = Category::factory()->for($user)->expense()->create();
+        Transaction::factory()->for($user)->for($parent)->create(['type' => Transaction::TYPE_EXPENSE]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $parent->id)
+            ->set('parentId', $newParent->id)
+            ->call('save')
+            ->assertHasErrors('save');
+
+        $this->assertNull($parent->fresh()?->parent_id);
+    }
+
     public function test_delete_succeeds_when_category_has_no_transactions_or_budgets(): void
     {
         $user = User::factory()->create();
@@ -252,7 +297,10 @@ final class CategoryManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $category = Category::factory()->for($user)->expense()->create();
-        Transaction::factory()->for($user)->for($category)->create(['category_id' => $category->id]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'category_id' => $category->id,
+            'type' => Transaction::TYPE_EXPENSE,
+        ]);
 
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
@@ -477,7 +525,9 @@ final class CategoryManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $category = Category::factory()->for($user)->expense()->create();
-        $transaction = Transaction::factory()->for($user)->for($category)->create();
+        $transaction = Transaction::factory()->for($user)->for($category)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+        ]);
 
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
