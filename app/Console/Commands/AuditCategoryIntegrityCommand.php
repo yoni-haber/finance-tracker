@@ -7,15 +7,13 @@ namespace App\Console\Commands;
 use App\Support\CategoryIntegrityAuditor;
 use Illuminate\Console\Command;
 
+#[\Illuminate\Console\Attributes\Description('Audit category hierarchy and linked-record integrity without changing data')]
+#[\Illuminate\Console\Attributes\Signature('categories:audit')]
 final class AuditCategoryIntegrityCommand extends Command
 {
-    protected $signature = 'categories:audit';
-
-    protected $description = 'Audit category hierarchy and linked-record integrity without changing data';
-
-    public function handle(CategoryIntegrityAuditor $auditor): int
+    public function handle(CategoryIntegrityAuditor $categoryIntegrityAuditor): int
     {
-        $issues = $auditor->issues();
+        $issues = $categoryIntegrityAuditor->issues();
 
         if ($issues === []) {
             $this->components->info('Category integrity audit passed.');

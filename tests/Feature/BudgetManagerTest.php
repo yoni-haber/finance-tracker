@@ -298,7 +298,7 @@ final class BudgetManagerTest extends TestCase
         $otherUser = User::factory()->create();
         $otherBudget = Budget::factory()
             ->for($otherUser)
-            ->for(Category::factory()->for($otherUser), 'category')
+            ->for(Category::factory()->for($otherUser)->expense(), 'category')
             ->create();
 
         $this->expectException(ModelNotFoundException::class);
@@ -313,7 +313,7 @@ final class BudgetManagerTest extends TestCase
         $user = User::factory()->create();
         $budget = Budget::factory()
             ->for($user)
-            ->for(Category::factory()->for($user), 'category')
+            ->for(Category::factory()->for($user)->expense(), 'category')
             ->create();
 
         Livewire::actingAs($user)
@@ -330,7 +330,7 @@ final class BudgetManagerTest extends TestCase
         $otherUser = User::factory()->create();
         $otherBudget = Budget::factory()
             ->for($otherUser)
-            ->for(Category::factory()->for($otherUser), 'category')
+            ->for(Category::factory()->for($otherUser)->expense(), 'category')
             ->create();
 
         Livewire::actingAs($user)

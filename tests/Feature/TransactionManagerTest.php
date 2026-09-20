@@ -262,7 +262,7 @@ final class TransactionManagerTest extends TestCase
     public function test_edit_loads_all_fields_from_existing_transaction(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->income()->create();
         $transaction = Transaction::factory()->for($user)->create([
             'category_id' => $category->id,
             'type' => Transaction::TYPE_INCOME,
