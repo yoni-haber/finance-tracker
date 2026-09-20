@@ -266,6 +266,18 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('newAssetAmount', '0.00');
     }
 
+    public function test_add_asset_line_trims_category_name(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('newAssetCategory', '  Savings Account  ')
+            ->set('newAssetAmount', '10.00')
+            ->call('addAssetLine')
+            ->assertSet('assetLines', [['category' => 'Savings Account', 'amount' => '10.00']]);
+    }
+
     public function test_add_liability_line_empty_category_adds_error(): void
     {
         $user = User::factory()->create();
@@ -292,6 +304,18 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('liabilityLines', [['category' => 'Student Loan', 'amount' => '25000.00']])
             ->assertSet('newLiabilityCategory', '')
             ->assertSet('newLiabilityAmount', '0.00');
+    }
+
+    public function test_add_liability_line_trims_category_name(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('newLiabilityCategory', '  Student Loan  ')
+            ->set('newLiabilityAmount', '10.00')
+            ->call('addLiabilityLine')
+            ->assertSet('liabilityLines', [['category' => 'Student Loan', 'amount' => '10.00']]);
     }
 
     public function test_remove_asset_line_removes_correct_index_and_reindexes(): void
@@ -531,6 +555,35 @@ final class NetWorthTrackerTest extends TestCase
             ->assertDispatched('close-networth-modal');
     }
 
+    public function test_save_returns_history_to_first_page(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('gotoPage', 2)
+            ->assertSet('paginators.page', 2)
+            ->set('date', '2024-05-01')
+            ->set('assetLines', [['category' => 'Cash', 'amount' => '1000.00']])
+            ->set('liabilityLines', [])
+            ->call('save')
+            ->assertSet('paginators.page', 1);
+    }
+
+    public function test_delete_returns_history_to_first_page(): void
+    {
+        $user = User::factory()->create();
+        $entry = NetWorthEntry::factory()->for($user)->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('gotoPage', 2)
+            ->assertSet('paginators.page', 2)
+            ->call('confirmDelete', $entry->id)
+            ->call('delete')
+            ->assertSet('paginators.page', 1);
+    }
+
     public function test_save_does_not_dispatch_close_networth_modal_event_when_validation_fails(): void
     {
         $user = User::factory()->create();
@@ -617,6 +670,7 @@ final class NetWorthTrackerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
+            ->assertViewHas('entries', fn ($entries): bool => $entries->count() === 25)
             ->assertSee('Jan 26, 2024')
             ->assertDontSee('Jan 01, 2024')
             ->call('gotoPage', 2)

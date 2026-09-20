@@ -13,6 +13,8 @@ final class MoneyTest extends TestCase
     {
         $this->assertSame(1235, Money::normalize('12.345'));
         $this->assertSame(999, Money::normalize(9.99));
+        $this->assertSame(100, Money::normalize(1.0));
+        $this->assertSame(0, Money::normalize(-0.0));
         // Verify rounding: a sub-0.5 fractional result must floor, not ceil
         $this->assertSame(100, Money::normalize('1.001'));
     }

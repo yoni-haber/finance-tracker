@@ -11,14 +11,14 @@ class Money
 {
     public static function normalize(string|int|float $amount): int
     {
-        // BigDecimal intentionally rejects floats. Convert legacy float inputs at
-        // this boundary using a fixed decimal representation so their binary
-        // approximation never participates in the integer arithmetic below.
+        // BigDecimal intentionally rejects floats. Convert legacy float inputs to
+        // PHP's shortest round-trippable decimal representation at this boundary
+        // so binary floating-point values never participate in totals below.
         $decimal = is_float($amount)
-            ? rtrim(rtrim(sprintf('%.14F', $amount), '0'), '.')
+            ? json_encode($amount, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR)
             : $amount;
 
-        return BigDecimal::of($decimal === '-0' ? '0' : $decimal)
+        return BigDecimal::of($decimal)
             ->multipliedBy(100)
             ->toScale(0, RoundingMode::HalfUp)
             ->toInt();
@@ -55,7 +55,7 @@ class Money
     {
         $decimal = self::fromPennies($pennies);
         $negative = str_starts_with($decimal, '-');
-        [$whole, $fraction] = explode('.', ltrim($decimal, '-'), 2);
+        [$whole, $fraction] = explode('.', ltrim($decimal, '-'));
 
         return ($negative ? '-' : '') . number_format((int) $whole) . '.' . $fraction;
     }

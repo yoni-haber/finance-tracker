@@ -156,24 +156,24 @@ class NetWorthTracker extends Component
             ->where('type', 'asset')
             ->map(fn ($item): array => [
                 'category' => $item->category,
-                'amount' => (string) $item->amount,
+                'amount' => $item->amount,
             ])->values()->all();
 
         $liabilityLines = $entry->lineItems
             ->where('type', 'liability')
             ->map(fn ($item): array => [
                 'category' => $item->category,
-                'amount' => (string) $item->amount,
+                'amount' => $item->amount,
             ])->values()->all();
 
         $this->assetLines = $assetLines ?: [[
             'category' => 'Assets',
-            'amount' => (string) $entry->assets,
+            'amount' => $entry->assets,
         ]];
 
         $this->liabilityLines = $liabilityLines ?: [[
             'category' => 'Liabilities',
-            'amount' => (string) $entry->liabilities,
+            'amount' => $entry->liabilities,
         ]];
 
         $this->dispatch('open-networth-modal');
@@ -265,7 +265,7 @@ class NetWorthTracker extends Component
     }
 
     /** @return string[] */
-    protected function lineItemRules(string $property): array
+    private function lineItemRules(string $property): array
     {
         return [
             $property => 'array',
@@ -277,7 +277,7 @@ class NetWorthTracker extends Component
     /**
      * @param array<mixed, array<string, string>> $lines
      */
-    protected function sumLines(array $lines): int
+    private function sumLines(array $lines): int
     {
         return collect($lines)
             ->sum(fn ($line): int => Money::normalize($line['amount']));
@@ -286,7 +286,7 @@ class NetWorthTracker extends Component
     /**
      * @param array<mixed, array<string, string>> $lines
      */
-    protected function syncLineItems(NetWorthEntry $netWorthEntry, array $lines, string $type): void
+    private function syncLineItems(NetWorthEntry $netWorthEntry, array $lines, string $type): void
     {
         $netWorthEntry->lineItems()->where('type', $type)->delete();
 
@@ -304,12 +304,12 @@ class NetWorthTracker extends Component
         }
     }
 
-    protected function assetTotal(): int
+    private function assetTotal(): int
     {
         return $this->sumLines($this->assetLines);
     }
 
-    protected function liabilityTotal(): int
+    private function liabilityTotal(): int
     {
         return $this->sumLines($this->liabilityLines);
     }
@@ -386,7 +386,7 @@ class NetWorthTracker extends Component
         $this->editingLiabilityIndex = null;
     }
 
-    protected function formatLineAmount(string $property, int $index): void
+    private function formatLineAmount(string $property, int $index): void
     {
         if (!isset($this->{$property}[$index])) {
             return;
