@@ -12,27 +12,27 @@ use Throwable;
 
 class StatementFileCleaner
 {
-    public function delete(BankStatementImport $import): void
+    public function delete(BankStatementImport $bankStatementImport): void
     {
         $disk = Storage::disk(BankStatementConfig::statementsDisk());
-        $path = BankStatementConfig::statementPath((int) $import->id);
+        $path = BankStatementConfig::statementPath((int) $bankStatementImport->id);
 
         try {
             $exists = $disk->exists($path);
             $deleted = !$exists || $disk->delete($path);
         } catch (Throwable $throwable) {
-            $import->update(['file_cleanup_status' => BankStatementConfig::CLEANUP_FAILED]);
+            $bankStatementImport->update(['file_cleanup_status' => BankStatementConfig::CLEANUP_FAILED]);
 
-            throw new RuntimeException('The uploaded statement file could not be deleted.', previous: $throwable);
+            throw new RuntimeException('The uploaded statement file could not be deleted.', $throwable->getCode(), previous: $throwable);
         }
 
         if (!$deleted) {
-            $import->update(['file_cleanup_status' => BankStatementConfig::CLEANUP_FAILED]);
+            $bankStatementImport->update(['file_cleanup_status' => BankStatementConfig::CLEANUP_FAILED]);
 
             throw new RuntimeException('The uploaded statement file could not be deleted.');
         }
 
-        $import->update([
+        $bankStatementImport->update([
             'file_cleanup_status' => BankStatementConfig::CLEANUP_DELETED,
             'file_deleted_at' => now(),
         ]);

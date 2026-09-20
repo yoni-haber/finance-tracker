@@ -561,7 +561,7 @@ final class BankStatementImportProcessorTest extends TestCase
             ],
         ]);
 
-        $token = '5acd87cb-247f-4d6e-8b2b-b086628184fd';
+        $token = '00000000-0000-4000-8000-000000000003';
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
             'status' => BankStatementConfig::STATUS_PARSING,
             'processing_token' => $token,
@@ -570,7 +570,7 @@ final class BankStatementImportProcessorTest extends TestCase
         Storage::fake('local');
         Storage::put(sprintf('statements/%d.csv', $import->id), "Date,Description,Amount\n01/01/2026,Test,100.50");
 
-        $this->assertTrue((new BankStatementImportProcessor($import, $token))->process());
+        $this->assertTrue(new BankStatementImportProcessor($import, $token)->process());
         $this->assertSame(BankStatementConfig::STATUS_PARSED, $import->fresh()?->status);
     }
 }

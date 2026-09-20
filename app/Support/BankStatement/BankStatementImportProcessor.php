@@ -54,9 +54,9 @@ readonly class BankStatementImportProcessor
         $localPath = $this->copyToLocalTempFile($disk, $path);
 
         try {
-            $reader = new CsvFileReader($localPath, $config);
-            $parser = new TransactionRowParser($config, $this->bankStatementImport->statement_type);
-            $validation = $this->validateRows($reader, $parser);
+            $csvFileReader = new CsvFileReader($localPath, $config);
+            $transactionRowParser = new TransactionRowParser($config, $this->bankStatementImport->statement_type);
+            $validation = $this->validateRows($csvFileReader, $transactionRowParser);
 
             if ($validation['total'] === 0) {
                 $validation['errors'][] = ['row' => 0, 'message' => 'The statement contains no data rows.'];
@@ -77,7 +77,7 @@ readonly class BankStatementImportProcessor
                 return false;
             }
 
-            $this->stageRows($reader, $parser, $validation['total']);
+            $this->stageRows($csvFileReader, $transactionRowParser, $validation['total']);
 
             return true;
         } finally {
@@ -133,18 +133,18 @@ readonly class BankStatementImportProcessor
     }
 
     /** @return array{total: int, valid: int, rejected: int, errors: list<array{row: int, message: string}>} */
-    private function validateRows(CsvFileReader $reader, TransactionRowParser $parser): array
+    private function validateRows(CsvFileReader $csvFileReader, TransactionRowParser $transactionRowParser): array
     {
         $total = 0;
         $valid = 0;
         $rejected = 0;
         $errors = [];
 
-        foreach ($reader->rows() as $csvRow) {
+        foreach ($csvFileReader->rows() as $csvRow) {
             $total++;
 
             try {
-                $parser->parseRowStrict($csvRow['data']);
+                $transactionRowParser->parseRowStrict($csvRow['data']);
                 $valid++;
             } catch (InvalidArgumentException $exception) {
                 $rejected++;
@@ -154,30 +154,30 @@ readonly class BankStatementImportProcessor
             }
         }
 
-        return compact('total', 'valid', 'rejected', 'errors');
+        return ['total' => $total, 'valid' => $valid, 'rejected' => $rejected, 'errors' => $errors];
     }
 
     /** @throws Throwable */
-    private function stageRows(CsvFileReader $reader, TransactionRowParser $parser, int $total): void
+    private function stageRows(CsvFileReader $csvFileReader, TransactionRowParser $transactionRowParser, int $total): void
     {
-        DB::transaction(function () use ($reader, $parser, $total): void {
+        DB::transaction(function () use ($csvFileReader, $transactionRowParser, $total): void {
             $this->bankStatementImport->importedTransactions()->delete();
 
-            $detector = new DuplicateDetector($this->bankStatementImport->user_id);
+            $duplicateDetector = new DuplicateDetector($this->bankStatementImport->user_id);
             $seenHashes = [];
             $chunk = [];
 
-            foreach ($reader->rows() as $csvRow) {
-                $chunk[] = $parser->parseRowStrict($csvRow['data']);
+            foreach ($csvFileReader->rows() as $csvRow) {
+                $chunk[] = $transactionRowParser->parseRowStrict($csvRow['data']);
 
                 if (count($chunk) >= BankStatementConfig::TRANSACTION_CHUNK_SIZE) {
-                    $this->insertChunk($detector->detectDuplicates($chunk, $seenHashes, $this->bankStatementImport->id));
+                    $this->insertChunk($duplicateDetector->detectDuplicates($chunk, $seenHashes, $this->bankStatementImport->id));
                     $chunk = [];
                 }
             }
 
             if ($chunk !== []) {
-                $this->insertChunk($detector->detectDuplicates($chunk, $seenHashes, $this->bankStatementImport->id));
+                $this->insertChunk($duplicateDetector->detectDuplicates($chunk, $seenHashes, $this->bankStatementImport->id));
             }
 
             $this->bankStatementImport->update([

@@ -49,7 +49,7 @@ final class StatementImportHardeningTest extends TestCase
         ]]);
         Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n01/01/2026,Snapshot Row,12.34");
 
-        $this->assertTrue((new BankStatementImportProcessor($import))->process());
+        $this->assertTrue(new BankStatementImportProcessor($import)->process());
         $this->assertDatabaseHas('imported_transactions', [
             'import_id' => $import->id,
             'description' => 'SNAPSHOT ROW',
@@ -67,7 +67,7 @@ final class StatementImportHardeningTest extends TestCase
         ]);
         Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n01/01/2026,Valid,10.00\nnot-a-date,Invalid,20.00\n\n");
 
-        $this->assertFalse((new BankStatementImportProcessor($import))->process());
+        $this->assertFalse(new BankStatementImportProcessor($import)->process());
 
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
@@ -92,7 +92,7 @@ final class StatementImportHardeningTest extends TestCase
         ]);
         Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n01/01/2026,Repeated,10.00\n01/01/2026,Repeated,10.00");
 
-        $this->assertTrue((new BankStatementImportProcessor($import))->process());
+        $this->assertTrue(new BankStatementImportProcessor($import)->process());
 
         $rows = $import->importedTransactions()->orderBy('id')->get();
         $first = $rows->get(0);
@@ -112,11 +112,11 @@ final class StatementImportHardeningTest extends TestCase
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
             'status' => BankStatementConfig::STATUS_PARSING,
             'profile_config' => $this->config(),
-            'processing_token' => '31505b0d-c9b4-4257-b3dc-513d99a115ce',
+            'processing_token' => '00000000-0000-4000-8000-000000000001',
         ]);
         Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n01/01/2026,Row,10.00");
 
-        $result = (new BankStatementImportProcessor($import, '96124ca6-21ca-4bdb-8894-ceb72f21fb04'))->process();
+        $result = new BankStatementImportProcessor($import, '00000000-0000-4000-8000-000000000002')->process();
 
         $this->assertFalse($result);
         $import->refresh();
@@ -131,19 +131,19 @@ final class StatementImportHardeningTest extends TestCase
         $profile = BankProfile::factory()->for($user)->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
         ImportedTransaction::factory()->for($import, 'bankStatementImport')->count(51)->income(10)->create();
-        $excluded = $import->importedTransactions()->firstOrFail();
+        $importedTransaction = $import->importedTransactions()->firstOrFail();
 
-        $component = Livewire::actingAs($user)
+        $testable = Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id]);
 
-        $component->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 50 && $transactions->total() === 51);
-        $component
-            ->call('toggleTransactionSelection', $excluded->id)
+        $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 50 && $transactions->total() === 51);
+        $testable
+            ->call('toggleTransactionSelection', $importedTransaction->id)
             ->call('commitImport')
             ->assertRedirect(route('statements.import'));
 
         $this->assertCount(50, Transaction::where('user_id', $user->id)->get());
-        $this->assertFalse((bool) $excluded->fresh()?->is_committed);
+        $this->assertFalse((bool) $importedTransaction->fresh()?->is_committed);
     }
 
     public function test_duplicate_override_allows_explicit_commit(): void
@@ -172,9 +172,9 @@ final class StatementImportHardeningTest extends TestCase
             'file_cleanup_status' => BankStatementConfig::CLEANUP_DELETED,
         ]);
 
-        (new SweepStatementFileCleanupJob())->handle();
+        new SweepStatementFileCleanupJob()->handle();
 
         Queue::assertPushed(DeleteStatementFileJob::class, 1);
-        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $job): bool => $job->importId === $pending->id);
+        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $deleteStatementFileJob): bool => $deleteStatementFileJob->importId === $pending->id);
     }
 }
