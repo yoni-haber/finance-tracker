@@ -25,12 +25,20 @@ class PeriodSelector extends Component
 
     public function previousMonth(): void
     {
-        $this->applyPeriod($this->currentPeriod()->previous());
+        $currentPeriod = $this->currentPeriod();
+
+        if (!$currentPeriod->isMinimum()) {
+            $this->applyPeriod($currentPeriod->previous());
+        }
     }
 
     public function nextMonth(): void
     {
-        $this->applyPeriod($this->currentPeriod()->next());
+        $currentPeriod = $this->currentPeriod();
+
+        if (!$currentPeriod->isMaximum()) {
+            $this->applyPeriod($currentPeriod->next());
+        }
     }
 
     public function updatedMonth(): void
@@ -56,6 +64,8 @@ class PeriodSelector extends Component
     {
         return view('livewire.period-selector', [
             'years' => $this->yearOptions(),
+            'canGoPrevious' => !$this->currentPeriod()->isMinimum(),
+            'canGoNext' => !$this->currentPeriod()->isMaximum(),
         ]);
     }
 

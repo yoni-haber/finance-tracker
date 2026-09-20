@@ -82,6 +82,9 @@ per-user selection** so it stays consistent as the user moves between pages.
   when unset; `User::setSelectedPeriod($month, $year)` persists a change. Both
   read and write **clamp** to the supported bounds (month 1–12, year
   `SelectedPeriod::MIN_YEAR`–`MAX_YEAR`) via `SelectedPeriod::clamp()`.
+- **Boundaries:** previous/next navigation stops at January 2000 and December
+  2100. The corresponding control is disabled at each limit, and the component
+  neither persists nor broadcasts an out-of-range period.
 - **Picker:** `App\Livewire\PeriodSelector` (rendered in the sidebar layout,
   `resources/views/components/layouts/app/sidebar.blade.php`) is the single
   control. On change it persists to the user and dispatches a `period-changed`
@@ -115,9 +118,25 @@ Always set `$data['user_id'] = Auth::id()` before creating records.
 
 ## Recurring Transactions
 
-`Transaction::projectOccurrencesForMonth()` expands recurring rules (weekly / monthly / yearly) into in-memory clones via `replicateForDate()`. Clones carry a `projected` attribute. Skipped dates are stored as `TransactionException` rows.
+`Transaction::projectOccurrencesForRange()` expands recurring rules (weekly /
+monthly / yearly) into in-memory clones via `replicateForDate()`;
+`projectOccurrencesForMonth()` is its single-month convenience wrapper. Clones
+carry a `projected` attribute. Skipped dates are stored as
+`TransactionException` rows.
 
-Always access projected data through `TransactionReport::projectedForMonth()` - never query occurrences directly.
+Monthly and yearly rules retain the original date as their anchor. An occurrence
+is clamped to the final day of a shorter month or non-leap February, then returns
+to the original day when the calendar allows it (for example, January 31 becomes
+February 28/29 and then March 31; February 29 becomes February 28 in non-leap
+years and February 29 in leap years). Projection jumps directly to the first
+possible occurrence in the requested range instead of iterating through the
+entire history.
+
+Always access projected data through `TransactionReport`. Use
+`projectedForMonth()` for a screen month and `projectedForRange()` when consuming
+several months. The range API loads candidate transactions and relationships
+once, then expands and groups them in memory; reports must not issue one
+transaction query per month.
 
 ## Model Query Scopes
 

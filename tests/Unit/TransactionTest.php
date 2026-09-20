@@ -10,6 +10,7 @@ use App\Models\TransactionException;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 final class TransactionTest extends TestCase
@@ -231,5 +232,100 @@ final class TransactionTest extends TestCase
         $lastOccurrence = $occurrences->last();
         $this->assertInstanceOf(Transaction::class, $lastOccurrence);
         $this->assertSame('2024-01-12', $lastOccurrence->date->toDateString());
+    }
+
+    public function test_monthly_recurrence_preserves_the_original_month_end_anchor(): void
+    {
+        $transaction = Transaction::factory()
+            ->for(User::factory())
+            ->for(Category::factory())
+            ->recurring('monthly')
+            ->create(['date' => '2024-01-31']);
+
+        $dates = $transaction
+            ->projectOccurrencesForRange(Carbon::parse('2024-01-01'), Carbon::parse('2024-04-30'))
+            ->pluck('date')
+            ->map(fn (Carbon $date): string => $date->toDateString())
+            ->all();
+
+        $this->assertSame([
+            '2024-01-31',
+            '2024-02-29',
+            '2024-03-31',
+            '2024-04-30',
+        ], $dates);
+    }
+
+    public function test_monthly_recurrence_restores_anchor_after_non_leap_february(): void
+    {
+        $transaction = Transaction::factory()
+            ->for(User::factory())
+            ->for(Category::factory())
+            ->recurring('monthly')
+            ->create(['date' => '2023-01-29']);
+
+        $dates = $transaction
+            ->projectOccurrencesForRange(Carbon::parse('2023-02-01'), Carbon::parse('2023-03-31'))
+            ->pluck('date')
+            ->map(fn (Carbon $date): string => $date->toDateString())
+            ->all();
+
+        $this->assertSame(['2023-02-28', '2023-03-29'], $dates);
+    }
+
+    public function test_yearly_leap_day_recurrence_preserves_its_anchor(): void
+    {
+        $transaction = Transaction::factory()
+            ->for(User::factory())
+            ->for(Category::factory())
+            ->recurring('yearly')
+            ->create(['date' => '2020-02-29']);
+
+        $dates = $transaction
+            ->projectOccurrencesForRange(Carbon::parse('2021-01-01'), Carbon::parse('2024-12-31'))
+            ->pluck('date')
+            ->map(fn (Carbon $date): string => $date->toDateString())
+            ->all();
+
+        $this->assertSame([
+            '2021-02-28',
+            '2022-02-28',
+            '2023-02-28',
+            '2024-02-29',
+        ], $dates);
+    }
+
+    public function test_projection_can_jump_to_a_distant_range_and_respects_end_and_exceptions(): void
+    {
+        $transaction = Transaction::factory()
+            ->for(User::factory())
+            ->for(Category::factory())
+            ->recurring('monthly')
+            ->create([
+                'date' => '2000-01-31',
+                'recurring_until' => '2099-03-31',
+            ]);
+
+        TransactionException::create([
+            'transaction_id' => $transaction->id,
+            'date' => '2099-02-28',
+        ]);
+
+        $dates = $transaction
+            ->projectOccurrencesForRange(Carbon::parse('2099-01-01'), Carbon::parse('2099-04-30'))
+            ->pluck('date')
+            ->map(fn (Carbon $date): string => $date->toDateString())
+            ->all();
+
+        $this->assertSame(['2099-01-31', '2099-03-31'], $dates);
+    }
+
+    public function test_projection_rejects_an_inverted_range(): void
+    {
+        $transaction = Transaction::factory()->for(User::factory())->for(Category::factory())->create();
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $transaction->projectOccurrencesForRange(Carbon::parse('2024-02-01'), Carbon::parse('2024-01-31'));
     }
 }

@@ -48,6 +48,22 @@ final class SelectedPeriodTest extends TestCase
         $this->assertSame(2025, $next->year);
     }
 
+    public function test_previous_stops_at_the_minimum_period(): void
+    {
+        $minimum = new SelectedPeriod(1, SelectedPeriod::MIN_YEAR);
+
+        $this->assertTrue($minimum->isMinimum());
+        $this->assertSame($minimum, $minimum->previous());
+    }
+
+    public function test_next_stops_at_the_maximum_period(): void
+    {
+        $maximum = new SelectedPeriod(12, SelectedPeriod::MAX_YEAR);
+
+        $this->assertTrue($maximum->isMaximum());
+        $this->assertSame($maximum, $maximum->next());
+    }
+
     public function test_is_current_month_reflects_now(): void
     {
         Carbon::setTestNow('2024-05-15');

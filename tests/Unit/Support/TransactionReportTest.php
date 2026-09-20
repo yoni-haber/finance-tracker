@@ -8,7 +8,9 @@ use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Support\TransactionReport;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class TransactionReportTest extends TestCase
@@ -61,5 +63,61 @@ final class TransactionReportTest extends TestCase
         $this->assertTrue($transaction->relationLoaded('category'));
         $this->assertInstanceOf(Category::class, $transaction->category);
         $this->assertTrue($transaction->category->relationLoaded('parent'));
+    }
+
+    public function test_projects_a_range_with_one_transaction_query(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create();
+
+        Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'date' => '2024-01-31',
+        ]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'date' => '2024-02-10',
+        ]);
+
+        $transactionQueries = 0;
+        DB::listen(function ($query) use (&$transactionQueries): void {
+            if (preg_match('/from [`"]transactions[`"]/', $query->sql) === 1) {
+                $transactionQueries++;
+            }
+        });
+
+        $transactions = TransactionReport::projectedForRange(
+            $user->id,
+            Carbon::parse('2024-01-01'),
+            Carbon::parse('2024-03-31'),
+        );
+
+        $this->assertCount(4, $transactions);
+        $this->assertSame(1, $transactionQueries);
+        $this->assertSame(
+            ['2024-01-31', '2024-02-10', '2024-02-29', '2024-03-31'],
+            $transactions->pluck('date')->sort()->map(fn (Carbon $date): string => $date->toDateString())->values()->all(),
+        );
+    }
+
+    public function test_range_query_excludes_inactive_recurring_and_out_of_range_one_off_transactions(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create();
+
+        Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'date' => '2024-01-01',
+            'recurring_until' => '2024-02-01',
+        ]);
+        Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'date' => '2024-05-01',
+        ]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'date' => '2024-01-15',
+        ]);
+
+        $this->assertTrue(TransactionReport::projectedForRange(
+            $user->id,
+            Carbon::parse('2024-03-01'),
+            Carbon::parse('2024-03-31'),
+        )->isEmpty());
     }
 }

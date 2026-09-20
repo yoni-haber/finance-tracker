@@ -74,10 +74,16 @@ class ReportsHub extends Component
             default => 12,
         };
 
-        for ($i = $monthsCount - 1; $i >= 0; $i--) {
-            $monthDate = $start->copy()->subMonths($i);
+        $months = collect(range($monthsCount - 1, 0))
+            ->map(fn (int $offset) => $start->copy()->subMonths($offset));
+        $rangeStart = $months->first()?->copy()->startOfMonth() ?? $start->copy();
+        $rangeEnd = $months->last()?->copy()->endOfMonth() ?? $start->copy()->endOfMonth();
+        $transactionsByMonth = TransactionReport::projectedForRange($userId, $rangeStart, $rangeEnd)
+            ->groupBy(fn (Transaction $transaction): string => $transaction->date->format('Y-m'));
+
+        foreach ($months as $monthDate) {
             $labels[] = $monthDate->format('M Y');
-            $transactions = TransactionReport::projectedForMonth($userId, $monthDate->month, $monthDate->year);
+            $transactions = $transactionsByMonth->get($monthDate->format('Y-m'), collect());
             $income[] = (float) $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount');
             $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
             $spending[] = $expenseTransactions
