@@ -523,6 +523,7 @@ final class TransactionManagerTest extends TestCase
         $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
         $sub = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
         $other = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        $income = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
 
         Transaction::factory()->for($user)->create([
             'category_id' => $parent->id,
@@ -546,7 +547,7 @@ final class TransactionManagerTest extends TestCase
             'is_recurring' => false,
         ]);
         Transaction::factory()->for($user)->create([
-            'category_id' => $parent->id,
+            'category_id' => $income->id,
             'type' => Transaction::TYPE_INCOME,
             'amount' => '200.00',
             'date' => '2024-06-10',

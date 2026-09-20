@@ -18,8 +18,8 @@ final class TransactionReportTest extends TestCase
     public function test_filters_transactions_by_category_and_expands_recurring_entries(): void
     {
         $user = User::factory()->create();
-        $primaryCategory = Category::factory()->for($user)->create();
-        $otherCategory = Category::factory()->for($user)->create();
+        $primaryCategory = Category::factory()->for($user)->expense()->create();
+        $otherCategory = Category::factory()->for($user)->expense()->create();
 
         Transaction::factory()->for($user)->for($primaryCategory)->recurring('weekly')->create([
             'type' => Transaction::TYPE_EXPENSE,
