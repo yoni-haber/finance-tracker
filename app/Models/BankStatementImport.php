@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Override;
 
 /**
  * @property int $id
@@ -23,6 +24,15 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property int|null $bank_profile_id
  * @property string $statement_type
+ * @property array<string, mixed>|null $profile_config
+ * @property string|null $processing_token
+ * @property Carbon|null $processing_started_at
+ * @property int $total_rows
+ * @property int $valid_rows
+ * @property int $rejected_rows
+ * @property list<array{row: int, message: string}>|null $parse_errors
+ * @property string $file_cleanup_status
+ * @property Carbon|null $file_deleted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read BankProfile|null $bankProfile
@@ -52,11 +62,35 @@ use Illuminate\Support\Carbon;
     'status',
     'bank_profile_id',
     'statement_type',
+    'profile_config',
+    'processing_token',
+    'processing_started_at',
+    'total_rows',
+    'valid_rows',
+    'rejected_rows',
+    'parse_errors',
+    'file_cleanup_status',
+    'file_deleted_at',
 ])]
 class BankStatementImport extends Model
 {
     /** @use HasFactory<BankStatementImportFactory> */
     use HasFactory;
+
+    /** @return array<string, string> */
+    #[Override]
+    protected function casts(): array
+    {
+        return [
+            'profile_config' => 'array',
+            'processing_started_at' => 'datetime',
+            'total_rows' => 'integer',
+            'valid_rows' => 'integer',
+            'rejected_rows' => 'integer',
+            'parse_errors' => 'array',
+            'file_deleted_at' => 'datetime',
+        ];
+    }
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo

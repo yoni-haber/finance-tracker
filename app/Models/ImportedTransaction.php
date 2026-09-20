@@ -25,6 +25,8 @@ use Override;
  * @property string $hash
  * @property string|null $original_hash
  * @property bool $is_duplicate
+ * @property string|null $duplicate_reason
+ * @property bool $duplicate_override
  * @property bool $is_committed
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -63,6 +65,8 @@ use Override;
     'hash',
     'original_hash',
     'is_duplicate',
+    'duplicate_reason',
+    'duplicate_override',
     'is_committed',
 ])]
 class ImportedTransaction extends Model
@@ -80,6 +84,7 @@ class ImportedTransaction extends Model
             'date' => 'date',
             'amount' => 'decimal:2',
             'is_duplicate' => 'boolean',
+            'duplicate_override' => 'boolean',
             'is_committed' => 'boolean',
         ];
     }
@@ -114,6 +119,10 @@ class ImportedTransaction extends Model
      */
     public function scopeCommittable(Builder $builder): Builder
     {
-        return $builder->notDuplicate()->notCommitted();
+        return $builder
+            ->where(function (Builder $query): void {
+                $query->where('is_duplicate', false)->orWhere('duplicate_override', true);
+            })
+            ->notCommitted();
     }
 }

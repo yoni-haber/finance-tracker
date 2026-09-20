@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Actions\Logout;
+use App\Support\BankStatement\StatementFileCleaner;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -13,13 +14,26 @@ class extends \Livewire\Component {
     /**
      * Delete the currently authenticated user.
      */
-    public function deleteUser(Logout $logout): void
+    public function deleteUser(Logout $logout, StatementFileCleaner $fileCleaner): void
     {
         $this->validate([
             'password' => ['required', 'string', 'current_password'],
         ]);
 
-        tap(Auth::user(), $logout(...))->delete();
+        $user = Auth::user();
+
+        try {
+            foreach ($user->bankStatementImports()->get() as $import) {
+                $fileCleaner->delete($import);
+            }
+        } catch (\Throwable $throwable) {
+            report($throwable);
+            $this->addError('password', __('Your account was not deleted because an uploaded statement file could not be removed. Please try again.'));
+
+            return;
+        }
+
+        tap($user, $logout(...))->delete();
 
         $this->redirect('/', navigate: true);
     }

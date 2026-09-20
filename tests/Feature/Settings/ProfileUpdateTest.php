@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Settings;
 
+use App\Models\BankProfile;
+use App\Models\BankStatementImport;
 use App\Models\User;
+use App\Support\BankStatementConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
 
@@ -87,5 +91,30 @@ final class ProfileUpdateTest extends TestCase
         $testable->assertHasErrors(['password']);
 
         $this->assertNotNull($user->fresh());
+    }
+
+    public function test_storage_failure_leaves_account_and_import_records_intact(): void
+    {
+        Storage::shouldReceive('disk')->andReturnSelf();
+        Storage::shouldReceive('exists')->once()->andReturn(true);
+        Storage::shouldReceive('delete')->once()->andReturn(false);
+
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'file_cleanup_status' => BankStatementConfig::CLEANUP_PENDING,
+        ]);
+
+        $this->actingAs($user);
+
+        Volt::test('settings.delete-user-form')
+            ->set('password', 'password')
+            ->call('deleteUser')
+            ->assertHasErrors(['password']);
+
+        $this->assertNotNull($user->fresh());
+        $freshImport = $import->fresh();
+        $this->assertNotNull($freshImport);
+        $this->assertSame(BankStatementConfig::CLEANUP_FAILED, $freshImport->file_cleanup_status);
     }
 }

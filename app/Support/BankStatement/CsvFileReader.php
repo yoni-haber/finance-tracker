@@ -7,15 +7,48 @@ namespace App\Support\BankStatement;
 use App\Models\BankProfile;
 use App\Support\BankStatementConfig;
 use Exception;
+use Generator;
 use Illuminate\Support\Collection;
 use SplFileObject;
 
 readonly class CsvFileReader
 {
+    /** @param array<string, mixed>|BankProfile|null $bankProfile */
     public function __construct(
         private string $filePath,
-        private ?BankProfile $bankProfile = null,
+        private BankProfile|array|null $bankProfile = null,
     ) {}
+
+    /**
+     * Lazily yield non-empty data rows together with their physical CSV line number.
+     *
+     * @return Generator<int, array{number: int, data: array<int, string|null>}>
+     */
+    public function rows(): Generator
+    {
+        if (!file_exists($this->filePath)) {
+            throw new Exception('CSV file not found: ' . $this->filePath);
+        }
+
+        $file = new SplFileObject($this->filePath, 'r');
+        $hasHeader = $this->hasHeader();
+        $lineNumber = 0;
+
+        while (!$file->eof()) {
+            $row = $file->fgetcsv(separator: ',', enclosure: '"', escape: '');
+            $lineNumber++;
+
+            if ($lineNumber === 1 && $hasHeader) {
+                continue;
+            }
+
+            if (!$row || array_filter($row, fn ($value): bool => trim((string) $value) !== '') === []) {
+                continue;
+            }
+
+            yield ['number' => $lineNumber, 'data' => $row];
+        }
+    }
 
     /**
      * Read CSV file and return filtered rows
@@ -26,40 +59,15 @@ readonly class CsvFileReader
      */
     public function readRows(): Collection
     {
-        if (!file_exists($this->filePath)) {
-            throw new Exception('CSV file not found: ' . $this->filePath);
+        return collect($this->rows())->pluck('data')->values();
+    }
+
+    private function hasHeader(): bool
+    {
+        if ($this->bankProfile instanceof BankProfile) {
+            return (bool) ($this->bankProfile->config['has_header'] ?? BankStatementConfig::CSV_HAS_HEADER_DEFAULT);
         }
 
-        $file = new SplFileObject($this->filePath, 'r');
-
-        $rows = collect();
-        $isFirstRow = true;
-        $hasHeader = $this->bankProfile instanceof BankProfile ? ($this->bankProfile->config['has_header'] ?? BankStatementConfig::CSV_HAS_HEADER_DEFAULT) : BankStatementConfig::CSV_HAS_HEADER_DEFAULT;
-
-        while (!$file->eof()) {
-            $row = $file->fgetcsv(separator: ',', enclosure: '"', escape: '');
-
-            if ($isFirstRow && $hasHeader) {
-                $isFirstRow = false;
-                continue;
-            }
-
-            $isFirstRow = false;
-
-            // Defensive: SplFileObject::fgetcsv() currently returns [null] at EOF (a truthy array,
-            // caught by the array_filter check below), so this branch is never reached.
-            // It guards against fgetcsv() returning false or null in a future PHP version.
-            if (!$row) {
-                continue;
-            }
-
-            if (array_filter($row) === []) {
-                continue;
-            }
-
-            $rows->push($row);
-        }
-
-        return $rows;
+        return (bool) (($this->bankProfile['has_header'] ?? null) ?? BankStatementConfig::CSV_HAS_HEADER_DEFAULT);
     }
 }

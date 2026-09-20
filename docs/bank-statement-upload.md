@@ -33,11 +33,15 @@ Tracks one upload operation end-to-end.
 - `status` — current lifecycle state
 - `bank_profile_id` — which profile to parse with
 - `statement_type` — copied from the profile at upload time
+- `profile_config` — immutable parsing configuration captured at upload time; legacy unprocessed imports snapshot their profile on first processing
+- `processing_token` / `processing_started_at` — stable per-job ownership for safe queue retries
+- `total_rows`, `valid_rows`, `rejected_rows`, `parse_errors` — strict validation outcome (up to the first 100 row errors)
+- `file_cleanup_status` / `file_deleted_at` — durable source-file cleanup state
 
 ### `imported_transactions`
 Staging table. Records live here until the user commits the import, then real `Transaction` rows are created.
 
-Key columns: `hash`, `original_hash`, `is_duplicate`, `is_committed`, `category_id` (nullable, no FK).
+Key columns: `hash`, `original_hash`, `is_duplicate`, `duplicate_reason`, `duplicate_override`, `is_committed`, `category_id` (nullable, no FK).
 
 - **`hash`** — updated if the user edits a transaction's description/amount/date on the review page
 - **`original_hash`** — set at parse time from the raw CSV data; never changed. Used as `Transaction.hash` on commit so re-uploading the same file is always detected as a duplicate.
@@ -55,6 +59,9 @@ Key columns: `hash`, `original_hash`, `is_duplicate`, `is_committed`, `category_
 | `TransactionRowParser` | Maps a CSV row to a transaction array using the bank profile |
 | `DuplicateDetector` | Generates hashes and checks for duplicates |
 | `StatementImportCommitter` | Creates `Transaction` records and marks the import committed |
+| `StatementFileCleaner` | Verifies deletion of uploaded source files and records cleanup state |
+| `DeleteStatementFileJob` | Retries a failed committed-import cleanup |
+| `SweepStatementFileCleanupJob` | Hourly recovery sweep for committed imports with pending/failed cleanup |
 
 ## File Storage
 
@@ -80,13 +87,13 @@ the temp file. Helpers: `BankStatementConfig::statementsDisk()` and
 
 **Dispatch:** `StatementImportManager::uploadStatement()` calls `ParseBankStatementJob::dispatch($import->id)` immediately after storing the CSV and creating the import record.
 
-**Claim mechanism:** The processor atomically transitions the import from `uploaded` (or `failed`) → `parsing` using a single `UPDATE … WHERE status IN ('uploaded', 'failed')`. If that UPDATE affects 0 rows, meaning another worker already holds the claim or the import is in a terminal state, processing is skipped. An import already in `parsing` is treated as actively owned by another worker and is never claimed, preventing concurrent processing.
+**Claim mechanism:** Every dispatched job owns a stable UUID for all of its attempts. The processor atomically transitions `uploaded` → `parsing`, or reclaims `parsing` only when the stored token matches that same job. A duplicate job with another token cannot process the import. Unexpected exceptions leave the token in place so Laravel can safely retry the owning job.
 
 **Retriable vs non-retriable failures:**
 - **Non-retriable** (missing CSV file, missing bank profile): the processor catches these, marks the import `failed`, and returns `false` without throwing. The job completes without triggering a retry.
 - **Retriable** (unexpected exceptions): the processor lets these propagate. Laravel retries the job up to 3 times. Once all attempts are exhausted, the job's `failed()` callback marks the import `failed`.
 
-**Atomicity:** Row inserts and the `parsed` status update happen inside a single database transaction. Existing staged rows are deleted first, so re-processing a `failed` import is safe and idempotent.
+**Atomicity:** Row inserts and the `parsed` status update happen inside a single database transaction. Staging is rebuilt by the owning job, so retrying after an exception is idempotent.
 
 ### Recovering a Stuck Import
 
@@ -101,31 +108,36 @@ An import stuck at `parsing` means a worker died mid-job. Reset it to `uploaded`
 
 1. User selects a CSV and a bank profile on `/statements/import`.
 2. `StatementImportManager::uploadStatement()` stores the file as `statements/{import_id}.csv`, creates a `BankStatementImport` record, and dispatches `ParseBankStatementJob`.
-3. The job atomically claims the import (`uploaded` or `failed` → `parsing`) - an import already in `parsing` is skipped to prevent concurrent processing. The job then delegates to `BankStatementImportProcessor`.
-4. The processor reads the CSV, parses each row via `TransactionRowParser`, runs `DuplicateDetector::detectDuplicates()`, and bulk-inserts results into `imported_transactions`. Both `hash` and `original_hash` are set to the same value at this point. Import status → `parsed`.
+3. The job atomically claims the import with its stable processing token and delegates to `BankStatementImportProcessor`.
+4. The processor lazily reads the CSV twice. The first pass strictly validates every non-blank data row; any invalid date, amount, required value, or an empty statement rejects the whole import and records counts plus the first 100 errors. The second pass detects duplicates in batches and stages rows without loading the whole file into memory. Both `hash` and `original_hash` are set to the same value. Import status → `parsed`.
 5. The UI polls for status and redirects to `/statements/review/{importId}` on completion.
-6. The user can edit transaction details, assign categories, and correct income/expense type. Edits regenerate `hash`; `original_hash` is never touched. **Bulk actions** are available when ≥1 non-duplicate rows are selected: bulk category assignment (all selected must share the same type; chosen category type must match) and bulk delete (requires confirmation). Both clear the selection on success.
-7. On commit, `StatementImportCommitter` creates a `Transaction` for each non-duplicate, non-committed staged row, sets `Transaction.hash = original_hash`, marks staged rows `is_committed = true`, updates import status → `committed`, and deletes the CSV file.
+6. The 50-row review paginator defaults all committable rows to selected and stores only inclusion/exclusion exceptions, so large imports are never represented as an in-memory ID list. The user can edit details, assign categories, correct income/expense type, deselect rows across pages, and use bulk actions. Type edits accept only `income` or `expense` and clear an incompatible category.
+7. On commit, ownership and category type are revalidated, then `StatementImportCommitter` creates a `Transaction` for each selected, non-duplicate, non-committed staged row. It sets `Transaction.hash = original_hash`, marks staged rows committed, and updates the import status. File deletion is attempted after the database commit; failure is recorded and retried by the queue and hourly sweep.
 
 ## Deduplication
 
 Hash input: `userId|date|amount|description` (SHA-1).
 
-A transaction is flagged as a duplicate if its hash (or `original_hash`) matches either:
+A transaction is flagged with a reason if its hash (or `original_hash`) matches:
 - a `Transaction.hash` in the user's permanent history, or
-- a `hash` or `original_hash` on any of the user's `imported_transactions`.
+- a `hash` or `original_hash` on an earlier import, or
+- an earlier row in the same upload.
 
-Duplicates are stored and shown in the review UI but excluded from the commit.
+Duplicates are stored and shown in the review UI, excluded by default, and may be explicitly included with the duplicate override. For credit-card profiles, charges remain expenses and credits/refunds remain income throughout parsing, review, and commit.
 
 ## Error Handling
 
 | Scenario | Behaviour |
 |---|---|
-| Malformed CSV row | Row skipped, warning logged, processing continues |
+| Malformed CSV row | Entire import rejected; row counts and errors displayed |
 | Missing bank profile | Import marked `failed` immediately (non-retriable) |
 | Job exception | Retried up to 3 times; `failed()` callback marks import `failed` |
 | Re-upload of same file | All transactions flagged duplicate; commit creates no new records |
 | Profile deletion conflict | Blocked if profile is used by any import |
+| Upload storage failure | Incomplete import is removed after confirming no file remains |
+| Cancel storage failure | Import records remain intact and an actionable error is shown |
+| Commit cleanup failure | Import remains committed; cleanup is queued and swept hourly |
+| Account cleanup failure | Account deletion stops before deleting any database records |
 
 ## Routes
 

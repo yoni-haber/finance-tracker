@@ -179,8 +179,9 @@ final class ParseBankStatementJobTest extends TestCase
         $parseBankStatementJob->handle();
 
         $import->refresh();
-        // Parser should complete successfully but skip invalid rows
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $import->status);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $import->status);
+        $this->assertSame(1, $import->total_rows);
+        $this->assertSame(1, $import->rejected_rows);
 
         // Should not create any transactions due to invalid data
         $this->assertCount(0, $import->importedTransactions);

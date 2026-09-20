@@ -17,8 +17,10 @@ class BankStatementConfig
     // Date parsing formats (in order of preference)
     const array SUPPORTED_DATE_FORMATS = [
         'd/m/Y',
+        'j/n/Y',
         'Y-m-d',
         'm/d/Y',
+        'n/j/Y',
         'd-m-Y',
     ];
 
@@ -44,6 +46,16 @@ class BankStatementConfig
     const string STATUS_COMMITTED = 'committed';
 
     const int TRANSACTION_CHUNK_SIZE = 1000;
+
+    const int REVIEW_PAGE_SIZE = 50;
+
+    const int MAX_PARSE_ERRORS = 100;
+
+    const string CLEANUP_PENDING = 'pending';
+
+    const string CLEANUP_DELETED = 'deleted';
+
+    const string CLEANUP_FAILED = 'failed';
 
     const string HASH_ALGORITHM = 'sha1';
 
