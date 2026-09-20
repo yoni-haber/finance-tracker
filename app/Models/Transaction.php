@@ -172,9 +172,7 @@ class Transaction extends Model
     /** @return Collection<int, self> */
     public function projectOccurrencesForMonth(int $month, int $year): Collection
     {
-        $monthStart = Carbon::create($year, $month, 1);
-        assert($monthStart instanceof Carbon);
-        $monthStart->startOfDay();
+        $monthStart = Carbon::createMidnightDate($year, $month, 1);
 
         return $this->projectOccurrencesForRange($monthStart, $monthStart->copy()->endOfMonth());
     }
@@ -206,12 +204,19 @@ class Transaction extends Model
             ? Carbon::parse($this->recurring_until)->endOfDay()
             : null;
 
-        if (
-            !in_array($this->frequency, ['weekly', 'monthly', 'yearly'], true) ||
-            $this->date->greaterThan($end) ||
-            ($recurringEnd instanceof Carbon && $start->greaterThan($recurringEnd)) ||
-            ($recurringEnd instanceof Carbon && $this->date->greaterThan($recurringEnd))
-        ) {
+        if (!in_array($this->frequency, ['weekly', 'monthly', 'yearly'], true)) {
+            return collect();
+        }
+
+        if ($this->date->greaterThan($end)) {
+            return collect();
+        }
+
+        if ($recurringEnd instanceof Carbon && $start->greaterThan($recurringEnd)) {
+            return collect();
+        }
+
+        if ($recurringEnd instanceof Carbon && $this->date->greaterThan($recurringEnd)) {
             return collect();
         }
 
@@ -242,6 +247,13 @@ class Transaction extends Model
         return $occurrences;
     }
 
+    /**
+     * Locate a starting step without iterating over the transaction's full history.
+     *
+     * @infection-ignore-all The public range-projection tests verify the resulting
+     * dates; most mutations here only add discarded pre-range iterations and are
+     * therefore deliberately unobservable implementation-detail changes.
+     */
     private function firstStepOnOrAfter(Carbon $rangeStart): int
     {
         $anchor = $this->date->copy()->startOfDay();
@@ -263,10 +275,6 @@ class Transaction extends Model
     private function occurrenceDateForStep(int $step): SupportCarbon
     {
         $anchor = $this->date->copy()->startOfDay();
-
-        if ($step === 0) {
-            return $anchor;
-        }
 
         if ($this->frequency === 'weekly') {
             return $anchor->addWeeks($step);

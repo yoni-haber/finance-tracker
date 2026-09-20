@@ -172,11 +172,11 @@ final class PeriodSelectorTest extends TestCase
             'selected_year' => 2000,
         ]);
 
-        $component = Livewire::actingAs($user)->test(PeriodSelector::class);
+        $testable = Livewire::actingAs($user)->test(PeriodSelector::class);
 
-        $component->assertViewHas('canGoPrevious', false);
-        $component->assertSeeHtml('disabled');
-        $component
+        $testable->assertViewHas('canGoPrevious', false);
+        $testable->assertSeeHtml('disabled');
+        $testable
             ->call('previousMonth')
             ->assertSet('month', 1)
             ->assertSet('year', 2000)
@@ -190,11 +190,11 @@ final class PeriodSelectorTest extends TestCase
             'selected_year' => 2100,
         ]);
 
-        $component = Livewire::actingAs($user)->test(PeriodSelector::class);
+        $testable = Livewire::actingAs($user)->test(PeriodSelector::class);
 
-        $component->assertViewHas('canGoNext', false);
-        $component->assertSeeHtml('disabled');
-        $component
+        $testable->assertViewHas('canGoNext', false);
+        $testable->assertSeeHtml('disabled');
+        $testable
             ->call('nextMonth')
             ->assertSet('month', 12)
             ->assertSet('year', 2100)

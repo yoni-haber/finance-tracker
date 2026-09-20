@@ -50,18 +50,18 @@ final class SelectedPeriodTest extends TestCase
 
     public function test_previous_stops_at_the_minimum_period(): void
     {
-        $minimum = new SelectedPeriod(1, SelectedPeriod::MIN_YEAR);
+        $selectedPeriod = new SelectedPeriod(1, SelectedPeriod::MIN_YEAR);
 
-        $this->assertTrue($minimum->isMinimum());
-        $this->assertSame($minimum, $minimum->previous());
+        $this->assertTrue($selectedPeriod->isMinimum());
+        $this->assertSame($selectedPeriod, $selectedPeriod->previous());
     }
 
     public function test_next_stops_at_the_maximum_period(): void
     {
-        $maximum = new SelectedPeriod(12, SelectedPeriod::MAX_YEAR);
+        $selectedPeriod = new SelectedPeriod(12, SelectedPeriod::MAX_YEAR);
 
-        $this->assertTrue($maximum->isMaximum());
-        $this->assertSame($maximum, $maximum->next());
+        $this->assertTrue($selectedPeriod->isMaximum());
+        $this->assertSame($selectedPeriod, $selectedPeriod->next());
     }
 
     public function test_is_current_month_reflects_now(): void

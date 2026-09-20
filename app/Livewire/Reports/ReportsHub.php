@@ -9,6 +9,7 @@ use App\Models\NetWorthEntry;
 use App\Models\Transaction;
 use App\Support\TransactionReport;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -76,14 +77,18 @@ class ReportsHub extends Component
 
         $months = collect(range($monthsCount - 1, 0))
             ->map(fn (int $offset) => $start->copy()->subMonths($offset));
-        $rangeStart = $months->first()?->copy()->startOfMonth() ?? $start->copy();
-        $rangeEnd = $months->last()?->copy()->endOfMonth() ?? $start->copy()->endOfMonth();
+        $firstMonth = $months->first();
+        $lastMonth = $months->last();
+        assert($firstMonth instanceof Carbon);
+        assert($lastMonth instanceof Carbon);
+        $rangeStart = $firstMonth->copy()->startOfMonth();
+        $rangeEnd = $lastMonth->copy()->endOfMonth();
         $transactionsByMonth = TransactionReport::projectedForRange($userId, $rangeStart, $rangeEnd)
             ->groupBy(fn (Transaction $transaction): string => $transaction->date->format('Y-m'));
 
-        foreach ($months as $monthDate) {
-            $labels[] = $monthDate->format('M Y');
-            $transactions = $transactionsByMonth->get($monthDate->format('Y-m'), collect());
+        foreach ($months as $month) {
+            $labels[] = $month->format('M Y');
+            $transactions = $transactionsByMonth->get($month->format('Y-m'), collect());
             $income[] = (float) $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount');
             $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
             $spending[] = $expenseTransactions
