@@ -311,4 +311,16 @@ final class DashboardTest extends TestCase
         $this->assertArrayNotHasKey('retained', $view->getData());
         $this->assertCount(0, $view->getData()['budgetSummaries']);
     }
+
+    public function test_empty_category_charts_show_accessible_empty_states(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(Dashboard::class)
+            ->assertSee('No income recorded for this period.')
+            ->assertSee('No spending recorded for this period.')
+            ->assertSee('No saving or investment transactions recorded for this period.')
+            ->assertDontSeeHtml('<canvas id="incomeCategoryChart"');
+    }
 }
