@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Support;
 
 use App\Support\Money;
+use JsonException;
 use PHPUnit\Framework\TestCase;
 
 final class MoneyTest extends TestCase
@@ -49,5 +50,12 @@ final class MoneyTest extends TestCase
     {
         $this->assertSame(999999999999, Money::normalize('9999999999.99'));
         $this->assertSame('9,999,999,999.99', Money::formatPennies(999999999999));
+    }
+
+    public function test_non_finite_float_is_rejected_at_the_json_boundary(): void
+    {
+        $this->expectException(JsonException::class);
+
+        Money::normalize(INF);
     }
 }

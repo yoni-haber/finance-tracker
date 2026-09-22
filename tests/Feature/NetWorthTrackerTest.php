@@ -668,9 +668,11 @@ final class NetWorthTrackerTest extends TestCase
             ]);
         }
 
-        Livewire::actingAs($user)
-            ->test(NetWorthTracker::class)
-            ->assertViewHas('entries', fn ($entries): bool => $entries->count() === 25)
+        $component = Livewire::actingAs($user)->test(NetWorthTracker::class);
+
+        $component->assertViewHas('entries', fn ($entries): bool => $entries->count() === 25);
+
+        $component
             ->assertSee('Jan 26, 2024')
             ->assertDontSee('Jan 01, 2024')
             ->call('gotoPage', 2)
