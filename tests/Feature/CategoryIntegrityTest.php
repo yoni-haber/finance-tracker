@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
@@ -14,6 +15,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\PendingCommand;
+use Mockery;
 use Tests\TestCase;
 
 final class CategoryIntegrityTest extends TestCase
@@ -129,6 +131,204 @@ final class CategoryIntegrityTest extends TestCase
         $this->assertInstanceOf(PendingCommand::class, $command);
         $command
             ->expectsOutputToContain('Category integrity problems were found.')
+            ->expectsTable(
+                ['Problem', 'Affected record IDs'],
+                [['invalid transaction categories', (string) $transactionId]],
+            )
             ->assertFailed();
+    }
+
+    public function test_auditor_reports_each_invalid_parent_relationship_and_ignores_valid_parents(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $validParent = Category::factory()->for($owner)->expense()->create();
+        $validChild = Category::factory()->subcategoryOf($validParent)->create();
+        $missingParent = Category::factory()->for($owner)->expense()->create();
+        $selfParent = Category::factory()->for($owner)->expense()->create();
+        $crossUser = Category::factory()->for($other)->expense()->create();
+        $incomeParent = Category::factory()->for($owner)->income()->create();
+        $crossType = Category::factory()->for($owner)->expense()->create();
+        $thirdLevel = Category::factory()->for($owner)->expense()->create();
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            DB::table('categories')->where('id', $missingParent->id)->update(['parent_id' => 999999]);
+            DB::table('categories')->where('id', $selfParent->id)->update(['parent_id' => $selfParent->id]);
+            DB::table('categories')->where('id', $crossUser->id)->update(['parent_id' => $validParent->id]);
+            DB::table('categories')->where('id', $crossType->id)->update(['parent_id' => $incomeParent->id]);
+            DB::table('categories')->where('id', $thirdLevel->id)->update(['parent_id' => $validChild->id]);
+        } finally {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        $issues = app(CategoryIntegrityAuditor::class)->issues();
+
+        $this->assertSame([
+            $missingParent->id,
+            $selfParent->id,
+            $crossUser->id,
+            $crossType->id,
+            $thirdLevel->id,
+        ], $issues['invalid category parents']);
+        $this->assertNotContains($validChild->id, $issues['invalid category parents']);
+    }
+
+    public function test_auditor_normalizes_duplicate_category_names_within_each_scope(): void
+    {
+        $categories = collect([
+            (object) ['id' => 1, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'Groceries'],
+            (object) ['id' => 2, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'GROCERIES '],
+            (object) ['id' => 3, 'user_id' => 10, 'parent_id' => null, 'type' => 'income', 'name' => 'Groceries'],
+            (object) ['id' => 4, 'user_id' => 11, 'parent_id' => null, 'type' => 'expense', 'name' => 'Groceries'],
+            (object) ['id' => 20, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'Food'],
+            (object) ['id' => 21, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'Transport'],
+            (object) ['id' => 5, 'user_id' => 10, 'parent_id' => 20, 'type' => 'expense', 'name' => 'Lunch'],
+            (object) ['id' => 6, 'user_id' => 10, 'parent_id' => 20, 'type' => 'expense', 'name' => 'LUNCH '],
+            (object) ['id' => 7, 'user_id' => 10, 'parent_id' => 21, 'type' => 'expense', 'name' => 'Lunch'],
+        ]);
+
+        $categoryQuery = Mockery::mock();
+        $categoryQuery->shouldReceive('select')->once()->andReturnSelf();
+        $categoryQuery->shouldReceive('orderBy')->once()->with('id')->andReturnSelf();
+        $categoryQuery->shouldReceive('get')->once()->andReturn($categories);
+
+        $emptyLinkedQuery = Mockery::mock();
+        $emptyLinkedQuery->shouldReceive('leftJoin')->twice()->andReturnSelf();
+        $emptyLinkedQuery->shouldReceive('whereNotNull')->once()->andReturnSelf();
+        $emptyLinkedQuery->shouldReceive('where')->twice()->andReturnSelf();
+        $emptyLinkedQuery->shouldReceive('orderBy')->twice()->andReturnSelf();
+        $emptyLinkedQuery->shouldReceive('pluck')->twice()->andReturn(collect());
+
+        DB::shouldReceive('table')->once()->with('categories')->andReturn($categoryQuery);
+        DB::shouldReceive('table')->once()->with('transactions')->andReturn($emptyLinkedQuery);
+        DB::shouldReceive('table')->once()->with('budgets')->andReturn($emptyLinkedQuery);
+
+        $issues = app(CategoryIntegrityAuditor::class)->issues();
+
+        $this->assertSame([1, 2, 5, 6], $issues['duplicate category scopes']);
+        $this->assertArrayNotHasKey('invalid category parents', $issues);
+    }
+
+    public function test_auditor_reports_every_invalid_transaction_category_relationship(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $expense = Category::factory()->for($owner)->expense()->create();
+        $valid = Transaction::factory()->for($owner)->for($expense)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+        ]);
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            $missingCategoryId = DB::table('transactions')->insertGetId($this->transactionAttributes(
+                userId: $owner->id,
+                categoryId: 999999,
+                type: Transaction::TYPE_EXPENSE,
+            ));
+            $crossUserId = DB::table('transactions')->insertGetId($this->transactionAttributes(
+                userId: $other->id,
+                categoryId: $expense->id,
+                type: Transaction::TYPE_EXPENSE,
+            ));
+            $crossTypeId = DB::table('transactions')->insertGetId($this->transactionAttributes(
+                userId: $owner->id,
+                categoryId: $expense->id,
+                type: Transaction::TYPE_INCOME,
+            ));
+        } finally {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        $issues = app(CategoryIntegrityAuditor::class)->issues();
+
+        $this->assertSame(
+            [$missingCategoryId, $crossUserId, $crossTypeId],
+            $issues['invalid transaction categories'],
+        );
+        $this->assertNotContains($valid->id, $issues['invalid transaction categories']);
+    }
+
+    public function test_auditor_reports_every_invalid_budget_category_relationship(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $spending = Category::factory()->for($owner)->expense()->create();
+        $income = Category::factory()->for($owner)->income()->create();
+        $saving = Category::factory()->for($owner)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+        $nullTreatment = Category::factory()->for($owner)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SPENDING,
+        ]);
+        $child = Category::factory()->subcategoryOf($spending)->create();
+        $valid = Budget::factory()->for($owner)->for($spending)->create();
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            DB::table('categories')->where('id', $nullTreatment->id)->update(['expense_treatment' => null]);
+
+            $missingCategoryId = DB::table('budgets')->insertGetId($this->budgetAttributes($owner->id, 999999));
+            $crossUserId = DB::table('budgets')->insertGetId($this->budgetAttributes($other->id, $spending->id));
+            $incomeId = DB::table('budgets')->insertGetId($this->budgetAttributes($owner->id, $income->id));
+            $childId = DB::table('budgets')->insertGetId($this->budgetAttributes($owner->id, $child->id));
+            $nullTreatmentId = DB::table('budgets')->insertGetId($this->budgetAttributes($owner->id, $nullTreatment->id));
+            $savingId = DB::table('budgets')->insertGetId($this->budgetAttributes($owner->id, $saving->id));
+        } finally {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        $issues = app(CategoryIntegrityAuditor::class)->issues();
+
+        $this->assertSame(
+            [$missingCategoryId, $crossUserId, $incomeId, $childId, $nullTreatmentId, $savingId],
+            $issues['invalid budget categories'],
+        );
+        $this->assertNotContains($valid->id, $issues['invalid budget categories']);
+    }
+
+    public function test_auditor_summary_includes_every_issue_name_and_id_in_order(): void
+    {
+        $summary = app(CategoryIntegrityAuditor::class)->summary([
+            'invalid category parents' => [7, 11],
+            'invalid transaction categories' => [13],
+        ]);
+
+        $this->assertSame(
+            'invalid category parents [7, 11]; invalid transaction categories [13]',
+            $summary,
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function transactionAttributes(int $userId, int $categoryId, string $type): array
+    {
+        return [
+            'user_id' => $userId,
+            'category_id' => $categoryId,
+            'type' => $type,
+            'amount' => '10.00',
+            'date' => '2026-09-19',
+            'is_recurring' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function budgetAttributes(int $userId, int $categoryId): array
+    {
+        return [
+            'user_id' => $userId,
+            'category_id' => $categoryId,
+            'amount' => '100.00',
+            'month' => 9,
+            'year' => 2026,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
     }
 }
