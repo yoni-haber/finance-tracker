@@ -20,9 +20,9 @@ use Override;
  * @property int $id
  * @property int $user_id
  * @property Carbon $date
- * @property numeric $assets
- * @property numeric $liabilities
- * @property numeric $net_worth
+ * @property string $assets
+ * @property string $liabilities
+ * @property string $net_worth
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, NetWorthLineItem> $lineItems

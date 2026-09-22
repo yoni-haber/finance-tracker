@@ -32,9 +32,7 @@ class Dashboard extends Component
         $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
 
         $income = Money::fromPennies(
-            Money::normalize(
-                $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount'),
-            ),
+            $this->sumPennies($transactions->where('type', Transaction::TYPE_INCOME)),
         );
 
         $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
@@ -45,8 +43,8 @@ class Dashboard extends Component
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
 
-        $spending = Money::fromPennies(Money::normalize($spendingTransactions->sum('amount')));
-        $savedAndInvested = Money::fromPennies(Money::normalize($savingInvestmentTransactions->sum('amount')));
+        $spending = Money::fromPennies($this->sumPennies($spendingTransactions));
+        $savedAndInvested = Money::fromPennies($this->sumPennies($savingInvestmentTransactions));
 
         $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
@@ -71,14 +69,13 @@ class Dashboard extends Component
                 ->merge($budget->category->children->pluck('id'))
                 ->all();
 
-            $spentPennies = Money::normalize(
+            $spentPennies = $this->sumPennies(
                 $transactions
                     // Avoid counting projected recurring entries that fall later in the current month
                     // so "actual" reflects spending up to the present day.
                     ->filter(fn ($transaction) => $transaction->date->lessThanOrEqualTo($periodEnd))
                     ->filter(fn ($transaction): bool => in_array($transaction->category_id, $categoryIds))
-                    ->where('type', Transaction::TYPE_EXPENSE)
-                    ->sum('amount'),
+                    ->where('type', Transaction::TYPE_EXPENSE),
             );
 
             return [
@@ -157,10 +154,18 @@ class Dashboard extends Component
                     'category' => $categoryDetails['name'] ?? 'Uncategorised',
                     'category_id' => is_int($category) ? $category : null,
                     'type' => $type,
-                    'total' => Money::fromPennies(
-                        Money::normalize($items->sum('amount')),
-                    ),
+                    'total' => Money::fromPennies($this->sumPennies($items)),
                 ];
             })->values();
+    }
+
+    /**
+     * @param Collection<int, Transaction> $transactions
+     */
+    private function sumPennies(Collection $transactions): int
+    {
+        return $transactions->sum(
+            fn (Transaction $transaction): int => Money::normalize((string) $transaction->amount),
+        );
     }
 }

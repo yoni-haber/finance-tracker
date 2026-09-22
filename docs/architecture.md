@@ -48,7 +48,18 @@ User
 
 ### Monetary Values
 
-All amounts are stored as `decimal:2` strings. Use `Money::add()` / `Money::subtract()` for arithmetic. For manual totals, convert to pennies with `Money::normalize()` and back with `Money::fromPennies()`. Never use raw float arithmetic.
+All amounts are stored as `decimal:2` strings. `Money::normalize()` parses them with
+`brick/math`, rounds half-up at the penny boundary, and returns an integer number
+of pennies. Arithmetic is performed only on those integers; `Money::fromPennies()`
+converts the result back to a database-safe decimal string and `Money::format()`
+handles display formatting. Never use raw float arithmetic for financial totals.
+
+Net-worth snapshots follow the same boundary: Livewire keeps amount inputs as
+decimal strings, totals them in pennies, then persists decimal strings. History is
+paginated in groups of 25 with line items eager-loaded for the visible page.
+
+Composite indexes support the period-based budget lookup and the line-item type
+lookup used by the paginated net-worth screen.
 
 ## Request Flow
 

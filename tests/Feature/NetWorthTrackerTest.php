@@ -37,9 +37,9 @@ final class NetWorthTrackerTest extends TestCase
 
         $this->assertInstanceOf(NetWorthEntry::class, $entry);
         $this->assertEquals('2024-05-10', $entry->date->toDateString());
-        $this->assertEqualsWithDelta(150.0, (float) $entry->assets, PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(40.0, (float) $entry->liabilities, PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(110.0, (float) $entry->net_worth, PHP_FLOAT_EPSILON);
+        $this->assertSame('150.00', $entry->assets);
+        $this->assertSame('40.00', $entry->liabilities);
+        $this->assertSame('110.00', $entry->net_worth);
 
         $this->assertDatabaseHas('net_worth_line_items', [
             'net_worth_entry_id' => $entry->id,
@@ -96,9 +96,9 @@ final class NetWorthTrackerTest extends TestCase
         /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::first();
         $this->assertSame($firstEntryId, $entry->id);
-        $this->assertEqualsWithDelta(2000.0, (float) $entry->assets, PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(500.0, (float) $entry->liabilities, PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(1500.0, (float) $entry->net_worth, PHP_FLOAT_EPSILON);
+        $this->assertSame('2000.00', $entry->assets);
+        $this->assertSame('500.00', $entry->liabilities);
+        $this->assertSame('1500.00', $entry->net_worth);
     }
 
     public function test_save_adds_error_when_entry_id_not_found(): void
@@ -140,9 +140,9 @@ final class NetWorthTrackerTest extends TestCase
 
         /** @var NetWorthEntry $updated */
         $updated = $entry->fresh();
-        $this->assertEqualsWithDelta(3000.0, (float) $updated->assets, PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(1000.0, (float) $updated->liabilities, PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(2000.0, (float) $updated->net_worth, PHP_FLOAT_EPSILON);
+        $this->assertSame('3000.00', $updated->assets);
+        $this->assertSame('1000.00', $updated->liabilities);
+        $this->assertSame('2000.00', $updated->net_worth);
     }
 
     public function test_edit_loads_entry_with_line_items_into_component_properties(): void
@@ -213,13 +213,17 @@ final class NetWorthTrackerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
-            ->call('delete', $entry->id)
+            ->call('confirmDelete', $entry->id)
+            ->assertSet('deletingEntryId', $entry->id)
+            ->assertDispatched('open-delete-networth-modal')
+            ->call('delete')
+            ->assertDispatched('close-delete-networth-modal')
             ->assertSee('Net worth entry removed.');
 
         $this->assertDatabaseMissing('net_worth_entries', ['id' => $entry->id]);
     }
 
-    public function test_delete_silently_ignores_another_users_entry(): void
+    public function test_delete_confirmation_rejects_another_users_entry(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
@@ -227,11 +231,11 @@ final class NetWorthTrackerTest extends TestCase
         /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($otherUser)->create();
 
+        $this->expectException(ModelNotFoundException::class);
+
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
-            ->call('delete', $entry->id);
-
-        $this->assertDatabaseHas('net_worth_entries', ['id' => $entry->id]);
+            ->call('confirmDelete', $entry->id);
     }
 
     public function test_add_asset_line_empty_category_adds_error_and_does_not_append_line(): void
@@ -262,6 +266,18 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('newAssetAmount', '0.00');
     }
 
+    public function test_add_asset_line_trims_category_name(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('newAssetCategory', '  Savings Account  ')
+            ->set('newAssetAmount', '10.00')
+            ->call('addAssetLine')
+            ->assertSet('assetLines', [['category' => 'Savings Account', 'amount' => '10.00']]);
+    }
+
     public function test_add_liability_line_empty_category_adds_error(): void
     {
         $user = User::factory()->create();
@@ -288,6 +304,18 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('liabilityLines', [['category' => 'Student Loan', 'amount' => '25000.00']])
             ->assertSet('newLiabilityCategory', '')
             ->assertSet('newLiabilityAmount', '0.00');
+    }
+
+    public function test_add_liability_line_trims_category_name(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('newLiabilityCategory', '  Student Loan  ')
+            ->set('newLiabilityAmount', '10.00')
+            ->call('addLiabilityLine')
+            ->assertSet('liabilityLines', [['category' => 'Student Loan', 'amount' => '10.00']]);
     }
 
     public function test_remove_asset_line_removes_correct_index_and_reindexes(): void
@@ -413,7 +441,7 @@ final class NetWorthTrackerTest extends TestCase
             ->set('liabilityLines', [['category' => 'Debt', 'amount' => '2000.00']]);
 
         $this->assertSame('3,000.00', $testable->get('calculatedNetWorth'));
-        $this->assertEqualsWithDelta(3000.0, $testable->get('calculatedNetWorthValue'), PHP_FLOAT_EPSILON);
+        $this->assertSame(300000, $testable->get('calculatedNetWorthValue'));
     }
 
     public function test_calculated_net_worth_style_returns_emerald_when_positive_and_rose_when_negative(): void
@@ -527,6 +555,35 @@ final class NetWorthTrackerTest extends TestCase
             ->assertDispatched('close-networth-modal');
     }
 
+    public function test_save_returns_history_to_first_page(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('gotoPage', 2)
+            ->assertSet('paginators.page', 2)
+            ->set('date', '2024-05-01')
+            ->set('assetLines', [['category' => 'Cash', 'amount' => '1000.00']])
+            ->set('liabilityLines', [])
+            ->call('save')
+            ->assertSet('paginators.page', 1);
+    }
+
+    public function test_delete_returns_history_to_first_page(): void
+    {
+        $user = User::factory()->create();
+        $entry = NetWorthEntry::factory()->for($user)->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('gotoPage', 2)
+            ->assertSet('paginators.page', 2)
+            ->call('confirmDelete', $entry->id)
+            ->call('delete')
+            ->assertSet('paginators.page', 1);
+    }
+
     public function test_save_does_not_dispatch_close_networth_modal_event_when_validation_fails(): void
     {
         $user = User::factory()->create();
@@ -574,5 +631,51 @@ final class NetWorthTrackerTest extends TestCase
         $this->assertCount(1, $freshEntry->lineItems()->where('type', 'liability')->get());
         $this->assertDatabaseMissing('net_worth_line_items', ['category' => 'Old Savings']);
         $this->assertDatabaseHas('net_worth_line_items', ['category' => 'Checking']);
+    }
+
+    public function test_totals_decimal_strings_without_float_drift(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-10-01')
+            ->set('assetLines', [
+                ['category' => 'Coin', 'amount' => '0.10'],
+                ['category' => 'Interest', 'amount' => '0.20'],
+            ])
+            ->set('liabilityLines', [['category' => 'Fee', 'amount' => '0.01']])
+            ->assertSet('calculatedNetWorth', '0.29')
+            ->assertSet('calculatedNetWorthValue', 29)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('net_worth_entries', [
+            'user_id' => $user->id,
+            'assets' => '0.30',
+            'liabilities' => '0.01',
+            'net_worth' => '0.29',
+        ]);
+    }
+
+    public function test_history_is_paginated_at_twenty_five_entries(): void
+    {
+        $user = User::factory()->create();
+
+        foreach (range(1, 26) as $day) {
+            NetWorthEntry::factory()->for($user)->create([
+                'date' => sprintf('2024-01-%02d', $day),
+            ]);
+        }
+
+        $testable = Livewire::actingAs($user)->test(NetWorthTracker::class);
+
+        $testable->assertViewHas('entries', fn ($entries): bool => $entries->count() === 25);
+
+        $testable
+            ->assertSee('Jan 26, 2024')
+            ->assertDontSee('Jan 01, 2024')
+            ->call('gotoPage', 2)
+            ->assertSee('Jan 01, 2024');
     }
 }
