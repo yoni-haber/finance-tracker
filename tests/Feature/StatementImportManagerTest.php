@@ -403,12 +403,17 @@ final class StatementImportManagerTest extends TestCase
         Queue::shouldReceive('dispatch')
             ->andThrow(new Exception('Job dispatch failed'));
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->set('csvFile', $csvFile)
             ->set('bankProfileId', $bankProfile->id)
             ->call('uploadStatement')
             ->assertHasErrors(['csvFile' => 'Failed to upload file. Please try again.']);
+
+        $this->assertDatabaseCount('bank_statement_imports', 0);
+        $this->assertNull($component->get('currentImport'));
+        $this->assertFalse($component->get('polling'));
+        Storage::disk('local')->assertDirectoryEmpty('statements');
     }
 
     public function test_cancel_import_with_no_current_import(): void

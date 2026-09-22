@@ -289,7 +289,13 @@ final class ParseBankStatementJobTest extends TestCase
     {
         $user = User::factory()->create();
         $profile = BankProfile::factory()->create();
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_UPLOADED]);
+        $startedAt = now()->subMinute();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'status' => BankStatementConfig::STATUS_PARSING,
+            'processing_token' => 'retry-token',
+            'processing_started_at' => $startedAt,
+            'parse_errors' => [['row' => 9, 'message' => 'Earlier failure']],
+        ]);
 
         $parseBankStatementJob = new ParseBankStatementJob($import->id);
         $parseBankStatementJob->failed(new RuntimeException('Something went wrong'));
@@ -297,6 +303,28 @@ final class ParseBankStatementJobTest extends TestCase
         $freshImport = $import->fresh();
         $this->assertNotNull($freshImport);
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $freshImport->status);
+        $this->assertNull($freshImport->processing_token);
+        $this->assertNull($freshImport->processing_started_at);
+        $this->assertSame([
+            ['row' => 0, 'message' => 'Processing failed after all retry attempts.'],
+        ], $freshImport->parse_errors);
+    }
+
+    public function test_constructor_preserves_an_explicit_processing_token(): void
+    {
+        $job = new ParseBankStatementJob(123, 'stable-token');
+
+        $this->assertSame(123, $job->importId);
+        $this->assertSame('stable-token', $job->processingToken);
+    }
+
+    public function test_constructor_generates_a_non_empty_processing_token_when_none_is_supplied(): void
+    {
+        $first = new ParseBankStatementJob(1);
+        $second = new ParseBankStatementJob(1);
+
+        $this->assertNotSame('', $first->processingToken);
+        $this->assertNotSame($first->processingToken, $second->processingToken);
     }
 
     public function test_failed_is_a_no_op_when_import_not_found(): void
