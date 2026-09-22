@@ -47,7 +47,8 @@ final class RecurringTransactionTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id, 'invalid-date')
+            ->call('confirmDelete', $transaction->id, 'invalid-date')
+            ->call('delete', false)
             ->assertHasErrors('delete');
 
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
@@ -66,7 +67,8 @@ final class RecurringTransactionTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id, '2024-05-08')
+            ->call('confirmDelete', $transaction->id, '2024-05-08')
+            ->call('delete', false)
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);

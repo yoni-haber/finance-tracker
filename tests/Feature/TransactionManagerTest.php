@@ -316,10 +316,37 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id)
+            ->call('confirmDelete', $transaction->id, '2024-06-01')
+            ->assertDispatched('open-delete-transaction-modal')
+            ->call('delete')
+            ->assertDispatched('close-delete-transaction-modal')
             ->assertHasNoErrors();
 
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
+    }
+
+    public function test_delete_confirmation_uses_description_and_fallback_label(): void
+    {
+        $user = User::factory()->create();
+        $described = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'description' => 'Groceries',
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+        $unnamed = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'description' => '',
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('confirmDelete', $described->id)
+            ->assertSet('deletingDescription', 'Groceries')
+            ->call('confirmDelete', $unnamed->id)
+            ->assertSet('deletingDescription', 'this transaction');
     }
 
     public function test_delete_removes_entire_recurring_series_when_no_occurrence_date(): void
@@ -334,8 +361,15 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id)
-            ->assertHasNoErrors();
+            ->call('confirmDelete', $transaction->id, '2024-06-01')
+            ->call('delete', true)
+            ->assertHasNoErrors()
+            ->assertSee('Recurring transaction series removed.')
+            ->assertSet('deletingTransactionId', null)
+            ->assertSet('deletingOccurrenceDate', null)
+            ->assertSet('deletingDescription', '')
+            ->assertSet('deletingIsRecurring', false)
+            ->assertDispatched('close-delete-transaction-modal');
 
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
     }
@@ -352,8 +386,15 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id, '2024-06-01')
-            ->assertHasNoErrors();
+            ->call('confirmDelete', $transaction->id, '2024-06-01')
+            ->call('delete')
+            ->assertHasNoErrors()
+            ->assertSee('Transaction occurrence removed.')
+            ->assertSet('deletingTransactionId', null)
+            ->assertSet('deletingOccurrenceDate', null)
+            ->assertSet('deletingDescription', '')
+            ->assertSet('deletingIsRecurring', false)
+            ->assertDispatched('close-delete-transaction-modal');
 
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
         $this->assertDatabaseHas('transaction_exceptions', [
@@ -374,7 +415,8 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $transaction->id, 'not-a-date')
+            ->call('confirmDelete', $transaction->id, 'not-a-date')
+            ->call('delete', false)
             ->assertHasErrors('delete');
 
         $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
@@ -395,7 +437,7 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('delete', $otherTransaction->id);
+            ->call('confirmDelete', $otherTransaction->id);
     }
 
     public function test_updated_is_recurring_false_clears_frequency_and_recurring_until(): void

@@ -346,4 +346,16 @@ final class ReportsHubTest extends TestCase
         $netWorthData = $testable->get('netWorthChartData');
         $this->assertSame('Mar 22, 2024', $netWorthData['labels'][0]);
     }
+
+    public function test_empty_reports_render_fallback_content_instead_of_blank_canvases(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(ReportsHub::class)
+            ->assertSee('No income or outflow data is available for this range.')
+            ->assertSee('No net worth snapshots are available for the last 12 months.')
+            ->assertSee('View chart data')
+            ->assertDontSeeHtml('<canvas id="netWorthChart"');
+    }
 }

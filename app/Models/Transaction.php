@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon as SupportCarbon;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use Override;
 
 /**
@@ -171,96 +172,124 @@ class Transaction extends Model
     /** @return Collection<int, self> */
     public function projectOccurrencesForMonth(int $month, int $year): Collection
     {
-        // Target month window
-        $monthStart = Carbon::create($year, $month);
-        assert($monthStart instanceof Carbon);
-        $monthEnd = $monthStart->copy()->endOfMonth();
+        $monthStart = Carbon::createMidnightDate($year, $month, 1);
 
-        /**
-         * NON-RECURRING TRANSACTION
-         * Return the transaction only if its date falls within the month
-         */
+        return $this->projectOccurrencesForRange($monthStart, $monthStart->copy()->endOfMonth());
+    }
+
+    /**
+     * Return all effective occurrences inside an inclusive date range.
+     *
+     * Monthly and yearly recurrences are always derived from the original date,
+     * so clamping an occurrence to a short month does not change the series anchor.
+     *
+     * @return Collection<int, self>
+     */
+    public function projectOccurrencesForRange(DateTimeInterface $rangeStart, DateTimeInterface $rangeEnd): Collection
+    {
+        $start = Carbon::instance($rangeStart)->copy()->startOfDay();
+        $end = Carbon::instance($rangeEnd)->copy()->endOfDay();
+
+        if ($start->greaterThan($end)) {
+            throw new InvalidArgumentException('The recurrence range start must not be after its end.');
+        }
+
         if (!$this->is_recurring) {
-            return $this->date->between($monthStart, $monthEnd)
+            return $this->date->betweenIncluded($start, $end)
                 ? collect([$this->replicateForDate($this->date, false)])
                 : collect();
         }
 
-        // Optional recurring end date
         $recurringEnd = $this->recurring_until
-            ? Carbon::parse($this->recurring_until)
+            ? Carbon::parse($this->recurring_until)->endOfDay()
             : null;
 
-        /**
-         * RECURRING TRANSACTION
-         * Early return if:
-         * - the transaction has no frequency
-         * - the last recurrence date is before the month started
-         * - the transaction date is after the last recurrence date
-         */
-        if (
-            !$this->frequency ||
-            ($recurringEnd instanceof Carbon && $monthStart->greaterThan($recurringEnd)) ||
-            ($recurringEnd instanceof Carbon && $this->date->greaterThan($recurringEnd))
-        ) {
+        if (!in_array($this->frequency, ['weekly', 'monthly', 'yearly'], true)) {
             return collect();
         }
 
-        /**
-         * Limit recurrence generation to the earliest of:
-         * - end of the month
-         * - recurring_until (if defined)
-         */
-        $generationEnd = $recurringEnd instanceof Carbon && $recurringEnd->lessThan($monthEnd)
-            ? $recurringEnd
-            : $monthEnd;
+        if ($this->date->greaterThan($end)) {
+            return collect();
+        }
 
-        /**
-         * Dates that should be skipped (exceptions)
-         * Normalised to Y-m-d for fast comparison
-         */
+        if ($recurringEnd instanceof Carbon && $start->greaterThan($recurringEnd)) {
+            return collect();
+        }
+
+        if ($recurringEnd instanceof Carbon && $this->date->greaterThan($recurringEnd)) {
+            return collect();
+        }
+
+        $generationEnd = $recurringEnd instanceof Carbon && $recurringEnd->lessThan($end)
+            ? $recurringEnd
+            : $end;
+
         $skippedDates = $this->occurrenceExceptions
             ->pluck('date')
             ->map(fn (DateTimeInterface|WeekDay|Month|string|int|float|null $date): string => Carbon::parse($date)->toDateString())
-            ->flip(); // enables O(1) lookups
+            ->flip();
 
-        // Frequency → interval mapping
-        $intervals = [
-            'weekly' => fn (Carbon $date) => $date->addWeek(),
-            'monthly' => fn (Carbon $date) => $date->addMonth(),
-            'yearly' => fn (Carbon $date) => $date->addYear(),
-        ];
-
-        // If the frequency is invalid, return empty
-        if (!isset($intervals[$this->frequency])) {
-            return collect();
-        }
-
-        $intervalFn = $intervals[$this->frequency];
         $occurrences = collect();
-        $transactionDate = $this->date->copy();
+        $step = $this->firstStepOnOrAfter($start);
+        $occurrenceDate = $this->occurrenceDateForStep($step);
 
-        /**
-         * Generate recurrence dates up to the allowed limit
-         */
-        while ($transactionDate->lessThanOrEqualTo($generationEnd)) {
-            $dateKey = $transactionDate->toDateString();
+        while ($occurrenceDate->lessThanOrEqualTo($generationEnd)) {
+            $dateKey = $occurrenceDate->toDateString();
 
-            // Include only occurrences inside the target month and not skipped
-            if (
-                $transactionDate->between($monthStart, $monthEnd) &&
-                !$skippedDates->has($dateKey)
-            ) {
-                $occurrences->push(
-                    $this->replicateForDate($transactionDate),
-                );
+            if ($occurrenceDate->greaterThanOrEqualTo($start) && !$skippedDates->has($dateKey)) {
+                $occurrences->push($this->replicateForDate($occurrenceDate));
             }
 
-            // Advance to the next recurrence
-            $intervalFn($transactionDate);
+            $step++;
+            $occurrenceDate = $this->occurrenceDateForStep($step);
         }
 
         return $occurrences;
+    }
+
+    /**
+     * Locate a starting step without iterating over the transaction's full history.
+     *
+     * @infection-ignore-all The public range-projection tests verify the resulting
+     * dates; most mutations here only add discarded pre-range iterations and are
+     * therefore deliberately unobservable implementation-detail changes.
+     */
+    private function firstStepOnOrAfter(Carbon $rangeStart): int
+    {
+        $anchor = $this->date->copy()->startOfDay();
+
+        if ($anchor->greaterThanOrEqualTo($rangeStart)) {
+            return 0;
+        }
+
+        $step = match ($this->frequency) {
+            'weekly' => intdiv((int) $anchor->diffInDays($rangeStart), 7),
+            'monthly' => ($rangeStart->year - $anchor->year) * 12 + $rangeStart->month - $anchor->month,
+            'yearly' => $rangeStart->year - $anchor->year,
+            default => 0,
+        };
+
+        return $this->occurrenceDateForStep($step)->lessThan($rangeStart) ? $step + 1 : $step;
+    }
+
+    private function occurrenceDateForStep(int $step): SupportCarbon
+    {
+        $anchor = $this->date->copy()->startOfDay();
+
+        if ($this->frequency === 'weekly') {
+            return $anchor->addWeeks($step);
+        }
+
+        if ($this->frequency === 'monthly') {
+            $month = $anchor->copy()->startOfMonth()->addMonthsNoOverflow($step);
+
+            return $month->day(min($anchor->day, $month->daysInMonth));
+        }
+
+        $year = $anchor->year + $step;
+        $month = $anchor->copy()->startOfMonth()->year($year);
+
+        return $month->day(min($anchor->day, $month->daysInMonth));
     }
 
     /**
