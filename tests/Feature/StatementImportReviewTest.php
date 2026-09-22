@@ -137,6 +137,176 @@ final class StatementImportReviewTest extends TestCase
             ->assertViewHas('selectedCount', 2);
     }
 
+    public function test_render_classifies_fractional_and_zero_amount_selection_boundaries(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $zero = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 0.0]);
+        $income = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 0.5]);
+        $expense = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => -0.5]);
+
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectAllTransactions', false)
+            ->set('selectionExceptionIds', []);
+
+        $testable->assertViewHas('selectedCount', 0);
+        $testable->assertViewHas('bulkSelectionType');
+        $testable->set('selectionExceptionIds', [$zero->id]);
+        $testable->assertViewHas('bulkSelectionType', Transaction::TYPE_INCOME);
+        $testable->set('selectionExceptionIds', [$income->id]);
+        $testable->assertViewHas('bulkSelectionType', Transaction::TYPE_INCOME);
+        $testable->set('selectionExceptionIds', [$expense->id]);
+        $testable->assertViewHas('bulkSelectionType', Transaction::TYPE_EXPENSE);
+        $testable->set('selectionExceptionIds', [$income->id, $expense->id]);
+        $testable->assertViewHas('bulkSelectionType', null);
+    }
+
+    public function test_render_exposes_only_the_transaction_pending_deletion(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id]);
+        $testable->assertViewHas('deletingTransaction');
+        $testable
+            ->call('confirmDeleteTransaction', $transaction->id)
+            ->assertSet('deletingTransactionId', $transaction->id)
+            ->assertViewHas('deletingTransaction', fn (?ImportedTransaction $importedTransaction): bool => $importedTransaction?->is($transaction) === true);
+    }
+
+    public function test_edit_recomputes_and_resets_all_duplicate_metadata(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-01-01',
+            'description' => 'ORIGINAL',
+            'amount' => 10.0,
+            'is_duplicate' => true,
+            'duplicate_reason' => 'previous_import',
+            'duplicate_override' => true,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('editTransaction', $transaction->id)
+            ->set('editForm.description', 'Unique edit')
+            ->set('editForm.amount', '25.00')
+            ->set('editForm.type', Transaction::TYPE_INCOME)
+            ->call('updateTransaction');
+
+        $fresh = $transaction->fresh();
+        $this->assertNotNull($fresh);
+        $expectedHash = new DuplicateDetector($user->id)->generateTransactionHash($user->id, '2026-01-01', 25.0, 'UNIQUE EDIT');
+        $this->assertSame($expectedHash, $fresh->hash);
+        $this->assertFalse($fresh->is_duplicate);
+        $this->assertNull($fresh->duplicate_reason);
+        $this->assertFalse($fresh->duplicate_override);
+
+        Transaction::factory()->for($user)->create(['hash' => $expectedHash]);
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('editTransaction', $transaction->id)
+            ->call('updateTransaction');
+
+        $duplicate = $transaction->fresh();
+        $this->assertNotNull($duplicate);
+        $this->assertSame($expectedHash, $duplicate->hash);
+        $this->assertTrue($duplicate->is_duplicate);
+        $this->assertSame('edited_match', $duplicate->duplicate_reason);
+        $this->assertFalse($duplicate->duplicate_override);
+    }
+
+    public function test_type_update_preserves_valid_category_clears_invalid_category_and_refreshes_duplicate_metadata(): void
+    {
+        $user = User::factory()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-01-01',
+            'description' => 'TYPE CHANGE',
+            'amount' => 10.0,
+            'category_id' => $incomeCategory->id,
+            'is_duplicate' => true,
+            'duplicate_reason' => 'previous_import',
+            'duplicate_override' => true,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('updateType', $transaction->id, Transaction::TYPE_INCOME);
+        $income = $transaction->fresh();
+        $this->assertNotNull($income);
+        $this->assertSame($incomeCategory->id, $income->category_id);
+        $this->assertFalse($income->is_duplicate);
+        $this->assertNull($income->duplicate_reason);
+        $this->assertFalse($income->duplicate_override);
+
+        $expenseHash = new DuplicateDetector($user->id)->generateTransactionHash($user->id, '2026-01-01', -10.0, 'TYPE CHANGE');
+        Transaction::factory()->for($user)->create(['hash' => $expenseHash]);
+        Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('updateType', $transaction->id, Transaction::TYPE_EXPENSE);
+        $expense = $transaction->fresh();
+        $this->assertNotNull($expense);
+        $this->assertSame('-10.00', $expense->amount);
+        $this->assertNull($expense->category_id);
+        $this->assertSame($expenseHash, $expense->hash);
+        $this->assertTrue($expense->is_duplicate);
+        $this->assertSame('edited_match', $expense->duplicate_reason);
+        $this->assertFalse($expense->duplicate_override);
+    }
+
+    public function test_duplicate_override_only_toggles_duplicate_rows_in_both_directions(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $unique = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['duplicate_override' => false]);
+        $duplicate = ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->create(['duplicate_override' => false]);
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+
+        $testable->call('toggleDuplicateOverride', $unique->id);
+        $this->assertFalse($unique->fresh()?->duplicate_override);
+
+        $testable->call('toggleDuplicateOverride', $duplicate->id);
+        $this->assertTrue($duplicate->fresh()?->duplicate_override);
+        $testable->call('toggleDuplicateOverride', $duplicate->id);
+        $freshDuplicate = $duplicate->fresh();
+        $this->assertInstanceOf(ImportedTransaction::class, $freshDuplicate);
+        $this->assertFalse($freshDuplicate->duplicate_override);
+    }
+
+    public function test_selection_toggle_inverts_default_and_explicit_modes_and_reset_actions(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $first = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertSet('selectAllTransactions', true);
+        $testable->assertViewHas('selectedCount', 2);
+        $testable->call('toggleTransactionSelection', $first->id)->assertSet('selectionExceptionIds', [$first->id]);
+        $testable->assertViewHas('selectedCount', 1);
+        $testable->call('toggleTransactionSelection', $first->id)->assertSet('selectionExceptionIds', []);
+        $testable->assertViewHas('selectedCount', 2);
+        $testable->call('clearTransactionSelection')->assertSet('selectAllTransactions', false)->assertSet('selectionExceptionIds', []);
+        $testable->assertViewHas('selectedCount', 0);
+        $testable->call('toggleTransactionSelection', $first->id)->assertSet('selectionExceptionIds', [$first->id]);
+        $testable->assertViewHas('selectedCount', 1);
+        $testable->call('selectAllTransactions')->assertSet('selectAllTransactions', true)->assertSet('selectionExceptionIds', []);
+        $testable->assertViewHas('selectedCount', 2);
+    }
+
     public function test_edits_transaction_successfully(): void
     {
         $user = User::factory()->create();

@@ -60,6 +60,8 @@ final class DuplicateDetectorTest extends TestCase
         $transactions = $duplicateDetector->detectDuplicates($transactions);
 
         $this->assertFalse($transactions[0]['is_duplicate']);
+        $this->assertNull($transactions[0]['duplicate_reason']);
+        $this->assertArrayHasKey('hash', $transactions[0]);
     }
 
     public function test_detect_duplicates_marks_as_duplicate_when_hash_matches_transaction(): void
@@ -81,6 +83,7 @@ final class DuplicateDetectorTest extends TestCase
         $transactions = $duplicateDetector->detectDuplicates($transactions);
 
         $this->assertTrue($transactions[0]['is_duplicate']);
+        $this->assertSame('existing_transaction', $transactions[0]['duplicate_reason']);
     }
 
     public function test_detect_duplicates_marks_as_duplicate_when_hash_matches_imported_transaction(): void
@@ -105,6 +108,85 @@ final class DuplicateDetectorTest extends TestCase
         $transactions = $duplicateDetector->detectDuplicates($transactions);
 
         $this->assertTrue($transactions[0]['is_duplicate']);
+        $this->assertSame('previous_import', $transactions[0]['duplicate_reason']);
+    }
+
+    public function test_detect_duplicates_checks_original_hash_and_ignores_the_current_import(): void
+    {
+        $user = User::factory()->create();
+        $duplicateDetector = new DuplicateDetector($user->id);
+        $row = ['date' => '2024-01-15', 'amount' => 50.00, 'description' => 'Supermarket'];
+        $hash = $duplicateDetector->generateTransactionHash($user->id, $row['date'], $row['amount'], $row['description']);
+        $profile = BankProfile::factory()->for($user)->create();
+        $current = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
+        ImportedTransaction::factory()->for($current, 'bankStatementImport')->create([
+            'hash' => 'edited-hash',
+            'original_hash' => $hash,
+        ]);
+
+        $withoutExclusion = $duplicateDetector->detectDuplicates([$row]);
+        $seenHashes = [];
+        $withExclusion = $duplicateDetector->detectDuplicates([$row], $seenHashes, $current->id);
+
+        $this->assertTrue($withoutExclusion[0]['is_duplicate']);
+        $this->assertSame('previous_import', $withoutExclusion[0]['duplicate_reason']);
+        $this->assertFalse($withExclusion[0]['is_duplicate']);
+        $this->assertNull($withExclusion[0]['duplicate_reason']);
+    }
+
+    public function test_detect_duplicates_tracks_seen_hashes_across_batches_and_within_a_batch(): void
+    {
+        $user = User::factory()->create();
+        $duplicateDetector = new DuplicateDetector($user->id);
+        $row = ['date' => '2024-01-15', 'amount' => 50.00, 'description' => 'Repeated'];
+        $seenHashes = [];
+
+        $firstBatch = $duplicateDetector->detectDuplicates([$row, $row], $seenHashes);
+        $secondBatch = $duplicateDetector->detectDuplicates([$row], $seenHashes);
+
+        $this->assertFalse($firstBatch[0]['is_duplicate']);
+        $this->assertNull($firstBatch[0]['duplicate_reason']);
+        $this->assertTrue($firstBatch[1]['is_duplicate']);
+        $this->assertSame('same_file', $firstBatch[1]['duplicate_reason']);
+        $this->assertTrue($secondBatch[0]['is_duplicate']);
+        $this->assertSame('same_file', $secondBatch[0]['duplicate_reason']);
+        $this->assertSame([$firstBatch[0]['hash'] => true], $seenHashes);
+    }
+
+    public function test_existing_transaction_reason_has_priority_over_previous_import_and_seen_hash(): void
+    {
+        $user = User::factory()->create();
+        $duplicateDetector = new DuplicateDetector($user->id);
+        $row = ['date' => '2024-01-15', 'amount' => 50.00, 'description' => 'Repeated'];
+        $hash = $duplicateDetector->generateTransactionHash($user->id, $row['date'], $row['amount'], $row['description']);
+        Transaction::factory()->for($user)->create(['hash' => $hash]);
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['hash' => $hash, 'original_hash' => $hash]);
+        $seenHashes = [$hash => true];
+
+        $result = $duplicateDetector->detectDuplicates([$row], $seenHashes);
+
+        $this->assertTrue($result[0]['is_duplicate']);
+        $this->assertSame('existing_transaction', $result[0]['duplicate_reason']);
+    }
+
+    public function test_duplicate_detection_is_scoped_to_the_detector_user(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $duplicateDetector = new DuplicateDetector($user->id);
+        $row = ['date' => '2024-01-15', 'amount' => 50.00, 'description' => 'Scoped'];
+        $hash = $duplicateDetector->generateTransactionHash($user->id, $row['date'], $row['amount'], $row['description']);
+        Transaction::factory()->for($other)->create(['hash' => $hash]);
+        $profile = BankProfile::factory()->for($other)->create();
+        $import = BankStatementImport::factory()->for($other)->for($profile, 'bankProfile')->create();
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['hash' => $hash, 'original_hash' => $hash]);
+
+        $result = $duplicateDetector->detectDuplicates([$row]);
+
+        $this->assertFalse($result[0]['is_duplicate']);
+        $this->assertNull($result[0]['duplicate_reason']);
     }
 
     public function test_detect_duplicates_handles_empty_collection(): void

@@ -177,4 +177,70 @@ final class StatementImportHardeningTest extends TestCase
         Queue::assertPushed(DeleteStatementFileJob::class, 1);
         Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $deleteStatementFileJob): bool => $deleteStatementFileJob->importId === $pending->id);
     }
+
+    public function test_legacy_import_snapshots_profile_configuration_and_statement_type_once(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->creditCard()->create(['config' => $this->config()]);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'profile_config' => null,
+            'statement_type' => BankStatementConfig::STATEMENT_TYPE_BANK,
+        ]);
+        Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n01/01/2026,Purchase,12.34");
+
+        $this->assertTrue(new BankStatementImportProcessor($import)->process());
+
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertEquals($this->config(), $fresh->profile_config);
+        $this->assertSame(BankStatementConfig::STATEMENT_TYPE_CREDIT_CARD, $fresh->statement_type);
+        $this->assertSame('-12.34', $fresh->importedTransactions()->sole()->amount);
+    }
+
+    public function test_empty_import_records_the_exact_no_data_error(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create(['config' => $this->config()]);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'profile_config' => $this->config(),
+        ]);
+        Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n\n");
+
+        $this->assertFalse(new BankStatementImportProcessor($import)->process());
+
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(BankStatementConfig::STATUS_FAILED, $fresh->status);
+        $this->assertSame(0, $fresh->total_rows);
+        $this->assertSame(0, $fresh->valid_rows);
+        $this->assertSame(1, $fresh->rejected_rows);
+        $this->assertSame([['row' => 0, 'message' => 'The statement contains no data rows.']], $fresh->parse_errors);
+    }
+
+    public function test_invalid_row_errors_are_capped_at_one_hundred_while_counts_remain_complete(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create(['config' => $this->config()]);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create([
+            'profile_config' => $this->config(),
+        ]);
+        $invalidRows = array_fill(0, 101, 'invalid-date,Invalid,10.00');
+        Storage::put(BankStatementConfig::statementPath($import->id), "Date,Description,Amount\n" . implode("\n", $invalidRows));
+
+        $this->assertFalse(new BankStatementImportProcessor($import)->process());
+
+        $fresh = $import->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(101, $fresh->total_rows);
+        $this->assertSame(0, $fresh->valid_rows);
+        $this->assertSame(101, $fresh->rejected_rows);
+        $errors = $fresh->parse_errors;
+        $this->assertIsArray($errors);
+        $this->assertCount(BankStatementConfig::MAX_PARSE_ERRORS, $errors);
+        $this->assertSame(2, $errors[0]['row']);
+        $this->assertSame(101, $errors[99]['row']);
+    }
 }

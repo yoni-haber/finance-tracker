@@ -200,4 +200,30 @@ final class CsvFileReaderTest extends TestCase
         $this->assertCount(3, $rows);
         $this->assertSame(['first', 'row'], $rows->get(0));
     }
+
+    public function test_rows_preserve_physical_line_numbers_while_ignoring_blank_lines(): void
+    {
+        $path = $this->createCsvFile("Header1,Header2\nfirst,row\n   , \nsecond,row\n");
+        $csvFileReader = new CsvFileReader($path, ['has_header' => true]);
+
+        $rows = iterator_to_array($csvFileReader->rows());
+
+        $this->assertSame([
+            0 => ['number' => 2, 'data' => ['first', 'row']],
+            1 => ['number' => 4, 'data' => ['second', 'row']],
+        ], $rows);
+    }
+
+    public function test_array_configuration_can_disable_the_header(): void
+    {
+        $path = $this->createCsvFile("first,row\nsecond,row\n");
+        $csvFileReader = new CsvFileReader($path, ['has_header' => false]);
+
+        $rows = iterator_to_array($csvFileReader->rows());
+
+        $this->assertSame(1, $rows[0]['number']);
+        $this->assertSame(['first', 'row'], $rows[0]['data']);
+        $this->assertSame(2, $rows[1]['number']);
+        $this->assertSame(['second', 'row'], $rows[1]['data']);
+    }
 }

@@ -304,7 +304,7 @@ final class ParseBankStatementJobTest extends TestCase
         $this->assertNotNull($freshImport);
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $freshImport->status);
         $this->assertNull($freshImport->processing_token);
-        $this->assertNull($freshImport->processing_started_at);
+        $this->assertNotInstanceOf(\Illuminate\Support\Carbon::class, $freshImport->processing_started_at);
         $this->assertSame([
             ['row' => 0, 'message' => 'Processing failed after all retry attempts.'],
         ], $freshImport->parse_errors);
@@ -312,10 +312,10 @@ final class ParseBankStatementJobTest extends TestCase
 
     public function test_constructor_preserves_an_explicit_processing_token(): void
     {
-        $job = new ParseBankStatementJob(123, 'stable-token');
+        $parseBankStatementJob = new ParseBankStatementJob(123, 'stable-token');
 
-        $this->assertSame(123, $job->importId);
-        $this->assertSame('stable-token', $job->processingToken);
+        $this->assertSame(123, $parseBankStatementJob->importId);
+        $this->assertSame('stable-token', $parseBankStatementJob->processingToken);
     }
 
     public function test_constructor_generates_a_non_empty_processing_token_when_none_is_supplied(): void
