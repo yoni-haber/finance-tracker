@@ -287,9 +287,7 @@ class Transaction extends Model
         }
 
         $year = $anchor->year + $step;
-        $month = SupportCarbon::create($year, $anchor->month, 1);
-        assert($month instanceof SupportCarbon);
-        $month->startOfDay();
+        $month = $anchor->copy()->startOfMonth()->year($year);
 
         return $month->day(min($anchor->day, $month->daysInMonth));
     }

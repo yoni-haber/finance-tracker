@@ -11,6 +11,7 @@ use App\Support\TransactionReport;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 final class TransactionReportTest extends TestCase
@@ -119,5 +120,48 @@ final class TransactionReportTest extends TestCase
             Carbon::parse('2024-03-01'),
             Carbon::parse('2024-03-31'),
         )->isEmpty());
+    }
+
+    public function test_range_query_only_hydrates_transactions_that_can_contribute_occurrences(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create();
+
+        Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'date' => '2024-01-01',
+        ]);
+        Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'date' => '2024-01-01',
+            'recurring_until' => '2024-02-01',
+        ]);
+        Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'date' => '2024-04-01',
+        ]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'date' => '2024-03-15',
+        ]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'date' => '2024-01-15',
+        ]);
+
+        $retrievedTransactions = 0;
+        $eventName = 'eloquent.retrieved: ' . Transaction::class;
+
+        Event::listen($eventName, function () use (&$retrievedTransactions): void {
+            $retrievedTransactions++;
+        });
+
+        try {
+            $transactions = TransactionReport::projectedForRange(
+                $user->id,
+                Carbon::parse('2024-03-01'),
+                Carbon::parse('2024-03-31'),
+            );
+        } finally {
+            Event::forget($eventName);
+        }
+
+        $this->assertCount(2, $transactions);
+        $this->assertSame(2, $retrievedTransactions);
     }
 }
