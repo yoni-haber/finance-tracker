@@ -93,10 +93,10 @@ per-user selection** so it stays consistent as the user moves between pages.
   when unset; `User::setSelectedPeriod($month, $year)` persists a change. Both
   read and write **clamp** to the supported bounds (month 1–12, year
   `SelectedPeriod::MIN_YEAR`–`MAX_YEAR`) via `SelectedPeriod::clamp()`.
-- **Picker:** `App\Livewire\PeriodSelector` (rendered in the sidebar layout,
-  `resources/views/components/layouts/app/sidebar.blade.php`) is the single
-  control. On change it persists to the user and dispatches a `period-changed`
-  event carrying `{ month, year }`.
+- **Picker:** `App\Livewire\PeriodSelector` is rendered in the sidebar only on
+  Dashboard, Transactions, and Budgets, the three screens that consume the
+  global period. On change it persists to the user and dispatches a
+  `period-changed` event carrying `{ month, year }`.
 - **Consumers:** screen components `use` the
   `App\Livewire\Concerns\InteractsWithSelectedPeriod` trait, which exposes public
   `periodMonth` / `periodYear`, initialises them from the user on mount
@@ -129,6 +129,13 @@ Always set `$data['user_id'] = Auth::id()` before creating records.
 `Transaction::projectOccurrencesForMonth()` expands recurring rules (weekly / monthly / yearly) into in-memory clones via `replicateForDate()`. Clones carry a `projected` attribute. Skipped dates are stored as `TransactionException` rows.
 
 Always access projected data through `TransactionReport::projectedForMonth()` - never query occurrences directly.
+
+## Charts and Accessible Data
+
+Chart.js is installed as an exact npm dependency and bundled through Vite; no
+runtime CDN is required. `resources/js/charts.js` owns chart creation and cleanup
+across Livewire navigation. Every chart has a text label and an equivalent data
+table, while an explicit empty state replaces canvases with no meaningful data.
 
 ## Model Query Scopes
 

@@ -67,7 +67,9 @@
                             <td class="px-3 py-2 text-right font-medium tabular-nums text-zinc-900 dark:text-white">£{{ number_format($budget->amount, 2) }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" wire:click="edit({{ $budget->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
-                                <button type="button" wire:click="delete({{ $budget->id }})" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
+                                <button type="button" wire:click="confirmDelete({{ $budget->id }})"
+                                        wire:loading.attr="disabled" wire:target="confirmDelete"
+                                        class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
                             </td>
                         </tr>
                     @empty
@@ -138,12 +140,37 @@
                             Cancel
                         </button>
                     </flux:modal.close>
-                    <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                        Save budget
+                    <button type="submit" wire:loading.attr="disabled" wire:target="save"
+                            class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                        <span wire:loading.remove wire:target="save">Save budget</span>
+                        <span wire:loading wire:target="save">Saving…</span>
                     </button>
                 </div>
             </form>
         </div>
     </flux:modal>
-</div>
 
+    <flux:modal
+        name="delete-budget"
+        x-on:open-delete-budget-modal.window="$flux.modal('delete-budget').show()"
+        x-on:close-delete-budget-modal.window="$flux.modal('delete-budget').close()"
+        focusable
+        class="max-w-lg"
+    >
+        <div class="space-y-5">
+            <div>
+                <flux:heading size="lg">Delete budget?</flux:heading>
+                <flux:subheading class="mt-2">
+                    This permanently deletes the budget{{ $deletingBudgetLabel ? ' for ' . $deletingBudgetLabel : '' }}. Existing transactions are not removed.
+                </flux:subheading>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <flux:modal.close><flux:button variant="ghost">Cancel</flux:button></flux:modal.close>
+                <flux:button variant="danger" wire:click="delete" wire:loading.attr="disabled" wire:target="delete">
+                    Delete budget
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+</div>
