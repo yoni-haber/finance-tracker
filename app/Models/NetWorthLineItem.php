@@ -20,7 +20,7 @@ use Override;
  * @property int $user_id
  * @property string $type
  * @property string $category
- * @property numeric $amount
+ * @property string $amount
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read NetWorthEntry $netWorthEntry

@@ -77,10 +77,13 @@
                             <td class="px-3 py-2 max-w-xs truncate text-zinc-500 dark:text-zinc-400">{{ $transaction->description }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" wire:click="edit({{ $transaction->id }})"
+                                        wire:loading.attr="disabled" wire:target="edit({{ $transaction->id }})"
                                         class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
                                 <button
                                     type="button"
-                                    wire:click="delete({{ $transaction->id }}, '{{ \Carbon\Carbon::parse($transaction->date)->toDateString() }}')"
+                                    wire:click="confirmDelete({{ $transaction->id }}, '{{ \Carbon\Carbon::parse($transaction->date)->toDateString() }}')"
+                                    wire:loading.attr="disabled"
+                                    wire:target="confirmDelete"
                                     class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400"
                                 >Delete</button>
                             </td>
@@ -207,11 +210,52 @@
                             Cancel
                         </button>
                     </flux:modal.close>
-                    <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                        Save transaction
+                    <button type="submit" wire:loading.attr="disabled" wire:target="save"
+                            class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                        <span wire:loading.remove wire:target="save">Save transaction</span>
+                        <span wire:loading wire:target="save">Saving…</span>
                     </button>
                 </div>
             </form>
+        </div>
+    </flux:modal>
+
+    <flux:modal
+        name="delete-transaction"
+        x-on:open-delete-transaction-modal.window="$flux.modal('delete-transaction').show()"
+        x-on:close-delete-transaction-modal.window="$flux.modal('delete-transaction').close()"
+        focusable
+        class="max-w-lg"
+    >
+        <div class="space-y-5">
+            <div>
+                <flux:heading size="lg">Delete transaction?</flux:heading>
+                <flux:subheading class="mt-2">
+                    @if ($deletingIsRecurring)
+                        Choose whether to remove only the occurrence on {{ $deletingOccurrenceDate }} or the entire recurring series for <strong>{{ $deletingDescription }}</strong>.
+                    @else
+                        This permanently deletes <strong>{{ $deletingDescription }}</strong>.
+                    @endif
+                </flux:subheading>
+            </div>
+
+            @error('delete') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
+
+            <div class="flex flex-wrap justify-end gap-3">
+                <flux:modal.close><flux:button variant="ghost">Cancel</flux:button></flux:modal.close>
+                @if ($deletingIsRecurring)
+                    <flux:button variant="danger" wire:click="delete(false)" wire:loading.attr="disabled" wire:target="delete">
+                        Delete this occurrence
+                    </flux:button>
+                    <flux:button variant="danger" wire:click="delete(true)" wire:loading.attr="disabled" wire:target="delete">
+                        Delete entire series
+                    </flux:button>
+                @else
+                    <flux:button variant="danger" wire:click="delete" wire:loading.attr="disabled" wire:target="delete">
+                        Delete transaction
+                    </flux:button>
+                @endif
+            </div>
         </div>
     </flux:modal>
 </div>

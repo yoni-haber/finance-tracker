@@ -48,7 +48,18 @@ User
 
 ### Monetary Values
 
-All amounts are stored as `decimal:2` strings. Use `Money::add()` / `Money::subtract()` for arithmetic. For manual totals, convert to pennies with `Money::normalize()` and back with `Money::fromPennies()`. Never use raw float arithmetic.
+All amounts are stored as `decimal:2` strings. `Money::normalize()` parses them with
+`brick/math`, rounds half-up at the penny boundary, and returns an integer number
+of pennies. Arithmetic is performed only on those integers; `Money::fromPennies()`
+converts the result back to a database-safe decimal string and `Money::format()`
+handles display formatting. Never use raw float arithmetic for financial totals.
+
+Net-worth snapshots follow the same boundary: Livewire keeps amount inputs as
+decimal strings, totals them in pennies, then persists decimal strings. History is
+paginated in groups of 25 with line items eager-loaded for the visible page.
+
+Composite indexes support the period-based budget lookup and the line-item type
+lookup used by the paginated net-worth screen.
 
 ## Request Flow
 
@@ -85,10 +96,10 @@ per-user selection** so it stays consistent as the user moves between pages.
 - **Boundaries:** previous/next navigation stops at January 2000 and December
   2100. The corresponding control is disabled at each limit, and the component
   neither persists nor broadcasts an out-of-range period.
-- **Picker:** `App\Livewire\PeriodSelector` (rendered in the sidebar layout,
-  `resources/views/components/layouts/app/sidebar.blade.php`) is the single
-  control. On change it persists to the user and dispatches a `period-changed`
-  event carrying `{ month, year }`.
+- **Picker:** `App\Livewire\PeriodSelector` is rendered in the sidebar only on
+  Dashboard, Transactions, and Budgets, the three screens that consume the
+  global period. On change it persists to the user and dispatches a
+  `period-changed` event carrying `{ month, year }`.
 - **Consumers:** screen components `use` the
   `App\Livewire\Concerns\InteractsWithSelectedPeriod` trait, which exposes public
   `periodMonth` / `periodYear`, initialises them from the user on mount
@@ -137,6 +148,13 @@ Always access projected data through `TransactionReport`. Use
 several months. The range API loads candidate transactions and relationships
 once, then expands and groups them in memory; reports must not issue one
 transaction query per month.
+
+## Charts and Accessible Data
+
+Chart.js is installed as an exact npm dependency and bundled through Vite; no
+runtime CDN is required. `resources/js/charts.js` owns chart creation and cleanup
+across Livewire navigation. Every chart has a text label and an equivalent data
+table, while an explicit empty state replaces canvases with no meaningful data.
 
 ## Model Query Scopes
 
