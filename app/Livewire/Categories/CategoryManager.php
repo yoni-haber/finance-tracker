@@ -283,7 +283,7 @@ class CategoryManager extends Component
     {
         $this->parentId = null;
         $this->editingStructureLocked = $this->categoryId !== null
-            && (bool) Category::forUser((int) Auth::id())->find($this->categoryId)?->hasStructuralDependencies();
+            && Category::forUser((int) Auth::id())->find($this->categoryId)?->hasStructuralDependencies();
         $this->expenseTreatment = Category::TREATMENT_SPENDING;
     }
 
