@@ -187,12 +187,25 @@ final class CategoryIntegrityTest extends TestCase
             (object) ['id' => 5, 'user_id' => 10, 'parent_id' => 20, 'type' => 'expense', 'name' => 'Lunch'],
             (object) ['id' => 6, 'user_id' => 10, 'parent_id' => 20, 'type' => 'expense', 'name' => 'LUNCH '],
             (object) ['id' => 7, 'user_id' => 10, 'parent_id' => 21, 'type' => 'expense', 'name' => 'Lunch'],
+            (object) ['id' => 8, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'Boundary'],
+            (object) ['id' => 9, 'user_id' => 10, 'parent_id' => 1, 'type' => 'expense', 'name' => 'Boundary'],
+            (object) ['id' => 10, 'user_id' => 10, 'parent_id' => -1, 'type' => 'expense', 'name' => 'Boundary'],
+            (object) ['id' => 11, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'ÄPFEL'],
+            (object) ['id' => 12, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'äpfel'],
+            (object) ['id' => 100, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'Repeated A'],
+            (object) ['id' => 101, 'user_id' => 10, 'parent_id' => null, 'type' => 'expense', 'name' => 'REPEATED A'],
+            (object) ['id' => 100, 'user_id' => 10, 'parent_id' => 20, 'type' => 'expense', 'name' => 'Repeated B'],
+            (object) ['id' => 102, 'user_id' => 10, 'parent_id' => 20, 'type' => 'expense', 'name' => 'REPEATED B'],
+            (object) ['id' => 200, 'user_id' => 10, 'parent_id' => 997, 'type' => 'expense', 'name' => 'Invalid A'],
+            (object) ['id' => 201, 'user_id' => 10, 'parent_id' => 998, 'type' => 'expense', 'name' => 'Invalid B'],
+            (object) ['id' => 200, 'user_id' => 10, 'parent_id' => 999, 'type' => 'expense', 'name' => 'Invalid C'],
+            (object) ['id' => 202, 'user_id' => 10, 'parent_id' => 996, 'type' => 'expense', 'name' => 'Invalid D'],
         ]);
 
-        $categoryQuery = Mockery::mock();
-        $categoryQuery->shouldReceive('select')->once()->andReturnSelf();
-        $categoryQuery->shouldReceive('orderBy')->once()->with('id')->andReturnSelf();
-        $categoryQuery->shouldReceive('get')->once()->andReturn($categories);
+        $mock = Mockery::mock();
+        $mock->shouldReceive('select')->once()->andReturnSelf();
+        $mock->shouldReceive('orderBy')->once()->with('id')->andReturnSelf();
+        $mock->shouldReceive('get')->once()->andReturn($categories);
 
         $emptyLinkedQuery = Mockery::mock();
         $emptyLinkedQuery->shouldReceive('leftJoin')->twice()->andReturnSelf();
@@ -201,14 +214,44 @@ final class CategoryIntegrityTest extends TestCase
         $emptyLinkedQuery->shouldReceive('orderBy')->twice()->andReturnSelf();
         $emptyLinkedQuery->shouldReceive('pluck')->twice()->andReturn(collect());
 
-        DB::shouldReceive('table')->once()->with('categories')->andReturn($categoryQuery);
+        DB::shouldReceive('table')->once()->with('categories')->andReturn($mock);
         DB::shouldReceive('table')->once()->with('transactions')->andReturn($emptyLinkedQuery);
         DB::shouldReceive('table')->once()->with('budgets')->andReturn($emptyLinkedQuery);
 
         $issues = app(CategoryIntegrityAuditor::class)->issues();
 
-        $this->assertSame([1, 2, 5, 6], $issues['duplicate category scopes']);
-        $this->assertArrayNotHasKey('invalid category parents', $issues);
+        $this->assertSame([1, 2, 5, 6, 11, 12, 100, 101, 102], $issues['duplicate category scopes']);
+        $this->assertSame([10, 200, 201, 202], $issues['invalid category parents']);
+    }
+
+    public function test_auditor_returns_reindexed_integer_ids_from_database_results(): void
+    {
+        $mock = Mockery::mock();
+        $mock->shouldReceive('select')->once()->andReturnSelf();
+        $mock->shouldReceive('orderBy')->once()->with('id')->andReturnSelf();
+        $mock->shouldReceive('get')->once()->andReturn(collect());
+
+        $transactionQuery = Mockery::mock();
+        $transactionQuery->shouldReceive('leftJoin')->once()->andReturnSelf();
+        $transactionQuery->shouldReceive('whereNotNull')->once()->andReturnSelf();
+        $transactionQuery->shouldReceive('where')->once()->andReturnSelf();
+        $transactionQuery->shouldReceive('orderBy')->once()->andReturnSelf();
+        $transactionQuery->shouldReceive('pluck')->once()->andReturn(collect([4 => '31', 8 => '32']));
+
+        $budgetQuery = Mockery::mock();
+        $budgetQuery->shouldReceive('leftJoin')->once()->andReturnSelf();
+        $budgetQuery->shouldReceive('where')->once()->andReturnSelf();
+        $budgetQuery->shouldReceive('orderBy')->once()->andReturnSelf();
+        $budgetQuery->shouldReceive('pluck')->once()->andReturn(collect([3 => '41', 9 => '42']));
+
+        DB::shouldReceive('table')->once()->with('categories')->andReturn($mock);
+        DB::shouldReceive('table')->once()->with('transactions')->andReturn($transactionQuery);
+        DB::shouldReceive('table')->once()->with('budgets')->andReturn($budgetQuery);
+
+        $issues = app(CategoryIntegrityAuditor::class)->issues();
+
+        $this->assertSame([31, 32], $issues['invalid transaction categories']);
+        $this->assertSame([41, 42], $issues['invalid budget categories']);
     }
 
     public function test_auditor_reports_every_invalid_transaction_category_relationship(): void

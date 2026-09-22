@@ -247,8 +247,8 @@ final class CategoryTest extends TestCase
         try {
             $category->update(['parent_id' => $category->id]);
             $this->fail('Expected self-parenting to be rejected.');
-        } catch (DomainException $exception) {
-            $this->assertSame('A category cannot be its own parent.', $exception->getMessage());
+        } catch (DomainException $domainException) {
+            $this->assertSame('A category cannot be its own parent.', $domainException->getMessage());
         }
 
         $this->assertNull($category->fresh()?->parent_id);

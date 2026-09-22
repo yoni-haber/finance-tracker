@@ -253,15 +253,21 @@ final class CategoryManagerTest extends TestCase
         $parent = Category::factory()->for($user)->expense()->create();
         Category::factory()->subcategoryOf($parent)->create();
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(CategoryManager::class)
             ->call('edit', $parent->id)
             ->assertSet('editingStructureLocked', true)
             ->set('type', Category::TYPE_INCOME)
             ->call('save')
-            ->assertHasErrors('save');
+            ->assertHasErrors([
+                'save' => 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.',
+            ]);
 
         $this->assertSame(Category::TYPE_EXPENSE, $parent->fresh()?->type);
+        $this->assertSame(
+            ['A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.'],
+            $component->instance()->getErrorBag()->get('save'),
+        );
     }
 
     public function test_save_blocks_parent_change_when_category_has_transactions(): void
@@ -271,14 +277,20 @@ final class CategoryManagerTest extends TestCase
         $newParent = Category::factory()->for($user)->expense()->create();
         Transaction::factory()->for($user)->for($parent)->create(['type' => Transaction::TYPE_EXPENSE]);
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(CategoryManager::class)
             ->call('edit', $parent->id)
             ->set('parentId', $newParent->id)
             ->call('save')
-            ->assertHasErrors('save');
+            ->assertHasErrors([
+                'save' => 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.',
+            ]);
 
         $this->assertNull($parent->fresh()?->parent_id);
+        $this->assertSame(
+            ['A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.'],
+            $component->instance()->getErrorBag()->get('save'),
+        );
     }
 
     public function test_delete_succeeds_when_category_has_no_transactions_or_budgets(): void
@@ -408,6 +420,19 @@ final class CategoryManagerTest extends TestCase
             ->assertSet('editingStructureLocked', true)
             ->set('type', Category::TYPE_INCOME)
             ->assertSet('editingStructureLocked', true);
+    }
+
+    public function test_updated_type_treats_a_missing_edited_category_as_unlocked(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('categoryId', 999999)
+            ->set('type', Category::TYPE_INCOME)
+            ->assertSet('editingStructureLocked', false)
+            ->assertSet('parentId', null)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
     }
 
     public function test_reset_form_clears_all_fields_to_defaults(): void
@@ -780,8 +805,8 @@ final class CategoryManagerTest extends TestCase
         $user = User::factory()->create();
         $category = Category::factory()->for($user)->expense()->create(['name' => 'Original']);
 
-        Category::updating(static function (Category $updating): void {
-            if ($updating->name === 'Rejected by model') {
+        Category::updating(static function (Category $category): void {
+            if ($category->name === 'Rejected by model') {
                 throw new DomainException('Model rejected the update.');
             }
         });
@@ -802,8 +827,8 @@ final class CategoryManagerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        Category::creating(static function (Category $creating): void {
-            if ($creating->name === 'Rejected by model') {
+        Category::creating(static function (Category $category): void {
+            if ($category->name === 'Rejected by model') {
                 throw new DomainException('Model rejected the create.');
             }
         });
@@ -828,18 +853,18 @@ final class CategoryManagerTest extends TestCase
         $category = Category::factory()->for($user)->expense()->create(['name' => 'Original']);
         $inserted = false;
 
-        Category::updating(static function (Category $updating) use (&$inserted): void {
-            if ($updating->name !== 'Raced update' || $inserted) {
+        Category::updating(static function (Category $category) use (&$inserted): void {
+            if ($category->name !== 'Raced update' || $inserted) {
                 return;
             }
 
             $inserted = true;
             DB::table('categories')->insert([
-                'user_id' => $updating->user_id,
-                'name' => $updating->name,
-                'type' => $updating->type,
-                'expense_treatment' => $updating->expense_treatment,
-                'parent_id' => $updating->parent_id,
+                'user_id' => $category->user_id,
+                'name' => $category->name,
+                'type' => $category->type,
+                'expense_treatment' => $category->expense_treatment,
+                'parent_id' => $category->parent_id,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -863,18 +888,18 @@ final class CategoryManagerTest extends TestCase
         $user = User::factory()->create();
         $inserted = false;
 
-        Category::creating(static function (Category $creating) use (&$inserted): void {
-            if ($creating->name !== 'Raced create' || $inserted) {
+        Category::creating(static function (Category $category) use (&$inserted): void {
+            if ($category->name !== 'Raced create' || $inserted) {
                 return;
             }
 
             $inserted = true;
             DB::table('categories')->insert([
-                'user_id' => $creating->user_id,
-                'name' => $creating->name,
-                'type' => $creating->type,
-                'expense_treatment' => $creating->expense_treatment,
-                'parent_id' => $creating->parent_id,
+                'user_id' => $category->user_id,
+                'name' => $category->name,
+                'type' => $category->type,
+                'expense_treatment' => $category->expense_treatment,
+                'parent_id' => $category->parent_id,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
