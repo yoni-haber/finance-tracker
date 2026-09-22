@@ -43,6 +43,14 @@ class TransactionManager extends Component
 
     public ?int $transactionId = null;
 
+    public ?int $deletingTransactionId = null;
+
+    public ?string $deletingOccurrenceDate = null;
+
+    public string $deletingDescription = '';
+
+    public bool $deletingIsRecurring = false;
+
     #[Url(as: 'category')]
     public ?int $filterParentCategory = null;
 
@@ -155,20 +163,42 @@ class TransactionManager extends Component
         $this->dispatch('open-transaction-modal');
     }
 
-    public function delete(int $transactionId, ?string $occurrenceDate = null): void
+    public function confirmDelete(int $transactionId, ?string $occurrenceDate = null): void
     {
         $transaction = Transaction::forUser((int) Auth::id())->findOrFail($transactionId);
 
+        $this->deletingTransactionId = $transaction->id;
+        $this->deletingOccurrenceDate = $occurrenceDate;
+        $this->deletingDescription = $transaction->description ?: 'this transaction';
+        $this->deletingIsRecurring = $transaction->is_recurring;
+        $this->dispatch('open-delete-transaction-modal');
+    }
+
+    public function delete(bool $entireSeries = false): void
+    {
+        if (!$this->deletingTransactionId) {
+            return;
+        }
+
+        $transaction = Transaction::forUser((int) Auth::id())->findOrFail($this->deletingTransactionId);
+
         if ($transaction->is_recurring) {
-            if ($occurrenceDate === null) {
+            if ($entireSeries) {
                 $transaction->delete();
-                session()->flash('status', 'Transaction removed.');
+                session()->flash('status', 'Recurring transaction series removed.');
+                $this->finishDelete();
+
+                return;
+            }
+
+            if ($this->deletingOccurrenceDate === null) {
+                $this->addError('delete', 'An occurrence date is required.');
 
                 return;
             }
 
             try {
-                $parsedDate = Carbon::createFromFormat('Y-m-d', $occurrenceDate, config('app.timezone'));
+                $parsedDate = Carbon::createFromFormat('Y-m-d', $this->deletingOccurrenceDate, config('app.timezone'));
                 assert($parsedDate instanceof Carbon);
             } catch (InvalidFormatException) {
                 $this->addError('delete', 'Invalid occurrence date.');
@@ -178,12 +208,23 @@ class TransactionManager extends Component
 
             $transaction->occurrenceExceptions()->firstOrCreate(['date' => $parsedDate->toDateString()]);
             session()->flash('status', 'Transaction occurrence removed.');
+            $this->finishDelete();
 
             return;
         }
 
         $transaction->delete();
         session()->flash('status', 'Transaction removed.');
+        $this->finishDelete();
+    }
+
+    private function finishDelete(): void
+    {
+        $this->deletingTransactionId = null;
+        $this->deletingOccurrenceDate = null;
+        $this->deletingDescription = '';
+        $this->deletingIsRecurring = false;
+        $this->dispatch('close-delete-transaction-modal');
     }
 
     /** Clear the selected category when the transaction type changes. */

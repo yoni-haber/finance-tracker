@@ -34,6 +34,10 @@ class BudgetManager extends Component
 
     public ?int $filterCategory = null;
 
+    public ?int $deletingBudgetId = null;
+
+    public string $deletingBudgetLabel = '';
+
     public function mount(): void
     {
         $selectedPeriod = $this->selectedPeriod();
@@ -115,10 +119,36 @@ class BudgetManager extends Component
         $this->dispatch('open-budget-modal');
     }
 
-    public function delete(int $budgetId): void
+    public function confirmDelete(int $budgetId): void
     {
-        Budget::where('user_id', Auth::id())->where('id', $budgetId)->delete();
+        $budget = Budget::with('category')
+            ->where('user_id', Auth::id())
+            ->findOrFail($budgetId);
+
+        $this->deletingBudgetId = $budget->id;
+        $this->deletingBudgetLabel = sprintf(
+            '%s for %s %d',
+            $budget->category->name,
+            now()->startOfYear()->month($budget->month)->format('F'),
+            $budget->year,
+        );
+        $this->dispatch('open-delete-budget-modal');
+    }
+
+    public function delete(): void
+    {
+        if (!$this->deletingBudgetId) {
+            return;
+        }
+
+        Budget::where('user_id', Auth::id())
+            ->where('id', $this->deletingBudgetId)
+            ->delete();
+
+        $this->deletingBudgetId = null;
+        $this->deletingBudgetLabel = '';
         session()->flash('status', 'Budget removed.');
+        $this->dispatch('close-delete-budget-modal');
     }
 
     public function copyFromPreviousMonth(): void
