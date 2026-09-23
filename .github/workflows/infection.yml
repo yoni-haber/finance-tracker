@@ -46,4 +46,4 @@ jobs:
         run: docker compose run --rm app npm run build
 
       - name: Run Infection
-        run: docker compose run --rm app vendor/bin/infection --threads=1 --no-progress --git-diff-filter=AM --git-diff-base=origin/${{ github.base_ref || 'main' }}
+        run: docker compose run --rm app vendor/bin/infection --threads=1 --no-progress --show-mutations=max --git-diff-filter=AM --git-diff-base=origin/${{ github.base_ref || 'main' }}

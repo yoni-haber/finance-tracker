@@ -160,7 +160,7 @@ final class StatementImportReviewTest extends TestCase
         $testable->set('selectionExceptionIds', [$expense->id]);
         $testable->assertViewHas('bulkSelectionType', Transaction::TYPE_EXPENSE);
         $testable->set('selectionExceptionIds', [$income->id, $expense->id]);
-        $testable->assertViewHas('bulkSelectionType', null);
+        $testable->assertViewHas('bulkSelectionType');
     }
 
     public function test_render_exposes_only_the_transaction_pending_deletion(): void
