@@ -118,7 +118,7 @@
                 {{-- Type --}}
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Type</label>
-                    <select wire:model.live="type" class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
+                    <select wire:model.live="type" @disabled($editingStructureLocked) class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
                         <option value="expense">Expense</option>
                         <option value="income">Income</option>
                     </select>
@@ -128,13 +128,18 @@
                 {{-- Parent (optional — makes this a subcategory) --}}
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Parent Category <span class="font-normal normal-case text-zinc-400">(optional)</span></label>
-                    <select wire:model.live="parentId" class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
+                    <select wire:model.live="parentId" @disabled($editingStructureLocked) class="mt-1.5 w-full rounded-md border border-gray-300 bg-white text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
                         <option value="">No parent (top-level)</option>
                         @foreach ($parentOptions as $option)
                             <option value="{{ $option->id }}">{{ $option->name }}</option>
                         @endforeach
                     </select>
                     @error('parentId') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    @if ($editingStructureLocked)
+                        <p class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            Type and parent are locked because this category is in use. You can still rename it.
+                        </p>
+                    @endif
                 </div>
 
                 @if ($type === \App\Models\Category::TYPE_EXPENSE && $parentId === null)

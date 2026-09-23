@@ -21,8 +21,9 @@ final class TransactionTest extends TestCase
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $food = Category::factory()->for($user)->create();
-        $salary = Category::factory()->for($user)->create();
+        $food = Category::factory()->for($user)->expense()->create();
+        $salary = Category::factory()->for($user)->income()->create();
+        $otherFood = Category::factory()->for($otherUser)->expense()->create();
 
         $januaryExpense = Transaction::factory()->for($user)->for($food)->create([
             'type' => Transaction::TYPE_EXPENSE,
@@ -32,7 +33,7 @@ final class TransactionTest extends TestCase
             'type' => Transaction::TYPE_INCOME,
             'date' => '2024-02-01',
         ]);
-        Transaction::factory()->for($otherUser)->for($food)->create([
+        Transaction::factory()->for($otherUser)->for($otherFood)->create([
             'type' => Transaction::TYPE_EXPENSE,
             'date' => '2024-01-05',
         ]);
@@ -60,7 +61,7 @@ final class TransactionTest extends TestCase
 
     public function test_non_recurring_transaction_in_month_returns_clone(): void
     {
-        $transaction = Transaction::factory()->for(User::factory())->for(Category::factory())->create([
+        $transaction = Transaction::factory()->create([
             'type' => Transaction::TYPE_EXPENSE,
             'date' => '2024-02-10',
         ]);
@@ -79,7 +80,7 @@ final class TransactionTest extends TestCase
 
     public function test_non_recurring_transaction_outside_month_returns_empty(): void
     {
-        $transaction = Transaction::factory()->for(User::factory())->for(Category::factory())->create([
+        $transaction = Transaction::factory()->create([
             'type' => Transaction::TYPE_EXPENSE,
             'date' => '2024-01-15',
         ]);
@@ -91,7 +92,7 @@ final class TransactionTest extends TestCase
 
     public function test_projection_for_month_includes_a_transaction_on_the_first_day(): void
     {
-        $transaction = Transaction::factory()->for(User::factory())->for(Category::factory())->create([
+        $transaction = Transaction::factory()->create([
             'type' => Transaction::TYPE_EXPENSE,
             'date' => '2024-02-01',
         ]);
@@ -105,8 +106,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_transaction_with_historical_last_recurrence_returns_empty(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create([
                 'date' => Carbon::create(2024, 1, 1),
@@ -121,8 +120,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_transaction_after_last_recurrence_returns_empty(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create([
                 'date' => Carbon::create(2024, 3, 15),
@@ -137,8 +134,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_transactions_skip_exceptions_and_use_frequency(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create([
                 'type' => Transaction::TYPE_INCOME,
@@ -166,8 +161,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_without_frequency_returns_empty(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->create([
                 'is_recurring' => true,
                 'frequency' => null,
@@ -182,8 +175,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_with_invalid_frequency_stops_iteration_after_first_occurrence(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('weekly')
             ->create([
                 'date' => Carbon::create(2024, 2, 5),
@@ -199,8 +190,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_end_before_month_returns_empty(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('weekly')
             ->create([
                 'date' => Carbon::create(2024, 1, 1),
@@ -215,8 +204,6 @@ final class TransactionTest extends TestCase
     public function test_recurring_start_after_recurring_end_returns_empty(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create([
                 'date' => Carbon::create(2024, 3, 1),
@@ -231,14 +218,10 @@ final class TransactionTest extends TestCase
     public function test_out_of_range_series_short_circuit_before_loading_exceptions(): void
     {
         $startsAfterRange = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('weekly')
             ->create(['date' => '2024-02-01']);
 
         $endedBeforeRange = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('weekly')
             ->create([
                 'date' => '2024-01-01',
@@ -246,8 +229,6 @@ final class TransactionTest extends TestCase
             ]);
 
         $invalidSeriesBounds = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('weekly')
             ->create([
                 'date' => '2024-02-01',
@@ -273,8 +254,6 @@ final class TransactionTest extends TestCase
     public function test_recurrence_generation_considers_earliest_of_recurring_end_and_month_end(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('weekly')
             ->create([
                 'date' => Carbon::create(2024, 1, 5),
@@ -292,8 +271,6 @@ final class TransactionTest extends TestCase
     public function test_monthly_recurrence_preserves_the_original_month_end_anchor(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create(['date' => '2024-01-31']);
 
@@ -314,8 +291,6 @@ final class TransactionTest extends TestCase
     public function test_monthly_recurrence_restores_anchor_after_non_leap_february(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create(['date' => '2023-01-29']);
 
@@ -331,8 +306,6 @@ final class TransactionTest extends TestCase
     public function test_yearly_leap_day_recurrence_preserves_its_anchor(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('yearly')
             ->create(['date' => '2020-02-29']);
 
@@ -356,8 +329,6 @@ final class TransactionTest extends TestCase
 
         try {
             $transaction = Transaction::factory()
-                ->for(User::factory())
-                ->for(Category::factory())
                 ->recurring('yearly')
                 ->create(['date' => '2020-01-01']);
 
@@ -374,8 +345,6 @@ final class TransactionTest extends TestCase
     public function test_projection_can_jump_to_a_distant_range_and_respects_end_and_exceptions(): void
     {
         $transaction = Transaction::factory()
-            ->for(User::factory())
-            ->for(Category::factory())
             ->recurring('monthly')
             ->create([
                 'date' => '2000-01-31',
@@ -398,7 +367,7 @@ final class TransactionTest extends TestCase
 
     public function test_projection_rejects_an_inverted_range(): void
     {
-        $transaction = Transaction::factory()->for(User::factory())->for(Category::factory())->create();
+        $transaction = Transaction::factory()->create();
 
         $this->expectException(InvalidArgumentException::class);
 

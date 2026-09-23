@@ -46,8 +46,10 @@ final class BudgetTest extends TestCase
     public function test_it_retrieves_transactions_for_budget_month_and_category(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
-        $otherCategory = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        $otherCategory = Category::factory()->for($user)->expense()->create();
+        $otherUser = User::factory()->create();
+        $otherUserCategory = Category::factory()->for($otherUser)->expense()->create();
 
         $budget = Budget::factory()
             ->for($user)
@@ -62,6 +64,7 @@ final class BudgetTest extends TestCase
             ->for($user)
             ->for($category)
             ->create([
+                'type' => Transaction::TYPE_EXPENSE,
                 'date' => '2025-03-10',
             ]);
 
@@ -70,6 +73,7 @@ final class BudgetTest extends TestCase
             ->for($user)
             ->for($otherCategory)
             ->create([
+                'type' => Transaction::TYPE_EXPENSE,
                 'date' => '2025-03-12',
             ]);
 
@@ -78,14 +82,16 @@ final class BudgetTest extends TestCase
             ->for($user)
             ->for($category)
             ->create([
+                'type' => Transaction::TYPE_EXPENSE,
                 'date' => '2025-04-01',
             ]);
 
         // different user
         Transaction::factory()
-            ->for(User::factory())
-            ->for($category)
+            ->for($otherUser)
+            ->for($otherUserCategory)
             ->create([
+                'type' => Transaction::TYPE_EXPENSE,
                 'date' => '2025-03-15',
             ]);
 
@@ -94,6 +100,7 @@ final class BudgetTest extends TestCase
             ->for($user)
             ->for($category)
             ->create([
+                'type' => Transaction::TYPE_EXPENSE,
                 'date' => '2025-03-25',
             ]);
 

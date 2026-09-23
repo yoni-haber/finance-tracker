@@ -20,7 +20,7 @@ final class BudgetComparisonTest extends TestCase
     public function test_budget_remaining_is_calculated(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Budget::factory()->for($user)->for($category)->create([
             'month' => 4,

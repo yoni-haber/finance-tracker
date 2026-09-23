@@ -9,8 +9,10 @@ use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
+use DomainException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -58,6 +60,17 @@ final class CategoryManagerTest extends TestCase
             ->test(CategoryManager::class)
             ->assertViewHas('parentOptions', fn ($p) => $p->contains('id', $expenseParent->id))
             ->assertViewHas('parentOptions', fn ($p) => $p->doesntContain('id', $incomeParent->id));
+    }
+
+    public function test_render_parent_options_exclude_category_being_edited(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->assertViewHas('parentOptions', fn ($parents): bool => !$parents->contains('id', $category->id));
     }
 
     public function test_save_creates_income_parent_category(): void
@@ -234,6 +247,52 @@ final class CategoryManagerTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $category->id, 'name' => 'New Name']);
     }
 
+    public function test_save_blocks_structural_change_when_category_has_children(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+        Category::factory()->subcategoryOf($parent)->create();
+
+        $component = Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $parent->id)
+            ->assertSet('editingStructureLocked', true)
+            ->set('type', Category::TYPE_INCOME)
+            ->call('save')
+            ->assertHasErrors([
+                'save' => 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.',
+            ]);
+
+        $this->assertSame(Category::TYPE_EXPENSE, $parent->fresh()?->type);
+        $this->assertSame(
+            ['A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.'],
+            $component->instance()->getErrorBag()->get('save'),
+        );
+    }
+
+    public function test_save_blocks_parent_change_when_category_has_transactions(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create();
+        $newParent = Category::factory()->for($user)->expense()->create();
+        Transaction::factory()->for($user)->for($parent)->create(['type' => Transaction::TYPE_EXPENSE]);
+
+        $component = Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $parent->id)
+            ->set('parentId', $newParent->id)
+            ->call('save')
+            ->assertHasErrors([
+                'save' => 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.',
+            ]);
+
+        $this->assertNull($parent->fresh()?->parent_id);
+        $this->assertSame(
+            ['A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.'],
+            $component->instance()->getErrorBag()->get('save'),
+        );
+    }
+
     public function test_delete_succeeds_when_category_has_no_transactions_or_budgets(): void
     {
         $user = User::factory()->create();
@@ -252,7 +311,10 @@ final class CategoryManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $category = Category::factory()->for($user)->expense()->create();
-        Transaction::factory()->for($user)->for($category)->create(['category_id' => $category->id]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'category_id' => $category->id,
+            'type' => Transaction::TYPE_EXPENSE,
+        ]);
 
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
@@ -331,7 +393,46 @@ final class CategoryManagerTest extends TestCase
             ->set('type', 'expense')
             ->set('parentId', $parent->id)
             ->set('type', 'income')
-            ->assertSet('parentId', null);
+            ->assertSet('parentId', null)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING)
+            ->assertSet('editingStructureLocked', false);
+    }
+
+    public function test_updated_type_keeps_structure_locked_only_for_an_edited_category_with_dependencies(): void
+    {
+        $user = User::factory()->create();
+        $empty = Category::factory()->for($user)->expense()->create();
+        $used = Category::factory()->for($user)->expense()->create();
+        Transaction::factory()->for($user)->for($used)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $empty->id)
+            ->assertSet('editingStructureLocked', false)
+            ->set('type', Category::TYPE_INCOME)
+            ->assertSet('editingStructureLocked', false);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $used->id)
+            ->assertSet('editingStructureLocked', true)
+            ->set('type', Category::TYPE_INCOME)
+            ->assertSet('editingStructureLocked', true);
+    }
+
+    public function test_updated_type_treats_a_missing_edited_category_as_unlocked(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('categoryId', 999999)
+            ->set('type', Category::TYPE_INCOME)
+            ->assertSet('editingStructureLocked', false)
+            ->assertSet('parentId', null)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING);
     }
 
     public function test_reset_form_clears_all_fields_to_defaults(): void
@@ -347,7 +448,9 @@ final class CategoryManagerTest extends TestCase
             ->assertSet('categoryId', null)
             ->assertSet('name', '')
             ->assertSet('type', Category::TYPE_EXPENSE)
-            ->assertSet('parentId', null);
+            ->assertSet('parentId', null)
+            ->assertSet('expenseTreatment', Category::TREATMENT_SPENDING)
+            ->assertSet('editingStructureLocked', false);
     }
 
     public function test_open_modal_dispatches_event_and_resets_form(): void
@@ -477,7 +580,9 @@ final class CategoryManagerTest extends TestCase
     {
         $user = User::factory()->create();
         $category = Category::factory()->for($user)->expense()->create();
-        $transaction = Transaction::factory()->for($user)->for($category)->create();
+        $transaction = Transaction::factory()->for($user)->for($category)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+        ]);
 
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
@@ -674,5 +779,144 @@ final class CategoryManagerTest extends TestCase
             ->assertSeeHtml('rounded-full bg-violet-100')
             ->assertSeeHtml('font-medium text-violet-700')
             ->assertDontSee('Changing this also recalculates historical dashboards and reports.');
+    }
+
+    public function test_save_allows_an_empty_category_to_change_type(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('type', Category::TYPE_INCOME)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertDispatched('close-category-modal');
+
+        $freshCategory = $category->fresh();
+        $this->assertInstanceOf(Category::class, $freshCategory);
+        $this->assertSame(Category::TYPE_INCOME, $freshCategory->type);
+        $this->assertNull($freshCategory->parent_id);
+    }
+
+    public function test_save_catches_domain_exception_when_updating_and_returns_without_success_actions(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Original']);
+
+        Category::updating(static function (Category $category): void {
+            if ($category->name === 'Rejected by model') {
+                throw new DomainException('Model rejected the update.');
+            }
+        });
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('name', 'Rejected by model')
+            ->call('save')
+            ->assertHasErrors(['save' => 'Model rejected the update.'])
+            ->assertNotDispatched('close-category-modal')
+            ->assertDontSee('Category saved.');
+
+        $this->assertSame('Original', $category->fresh()?->name);
+    }
+
+    public function test_save_catches_domain_exception_when_creating_and_returns_without_success_actions(): void
+    {
+        $user = User::factory()->create();
+
+        Category::creating(static function (Category $category): void {
+            if ($category->name === 'Rejected by model') {
+                throw new DomainException('Model rejected the create.');
+            }
+        });
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Rejected by model')
+            ->call('save')
+            ->assertHasErrors(['save' => 'Model rejected the create.'])
+            ->assertNotDispatched('close-category-modal')
+            ->assertDontSee('Category saved.');
+
+        $this->assertDatabaseMissing('categories', [
+            'user_id' => $user->id,
+            'name' => 'Rejected by model',
+        ]);
+    }
+
+    public function test_save_catches_database_uniqueness_race_when_updating(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Original']);
+        $inserted = false;
+
+        Category::updating(static function (Category $category) use (&$inserted): void {
+            if ($category->name !== 'Raced update' || $inserted) {
+                return;
+            }
+
+            $inserted = true;
+            DB::table('categories')->insert([
+                'user_id' => $category->user_id,
+                'name' => $category->name,
+                'type' => $category->type,
+                'expense_treatment' => $category->expense_treatment,
+                'parent_id' => $category->parent_id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('name', 'Raced update')
+            ->call('save')
+            ->assertHasErrors(['name' => 'A category with this name already exists.'])
+            ->assertNotDispatched('close-category-modal')
+            ->assertDontSee('Category saved.');
+
+        $this->assertSame('Original', $category->fresh()?->name);
+        $this->assertDatabaseCount('categories', 2);
+    }
+
+    public function test_save_catches_database_uniqueness_race_when_creating(): void
+    {
+        $user = User::factory()->create();
+        $inserted = false;
+
+        Category::creating(static function (Category $category) use (&$inserted): void {
+            if ($category->name !== 'Raced create' || $inserted) {
+                return;
+            }
+
+            $inserted = true;
+            DB::table('categories')->insert([
+                'user_id' => $category->user_id,
+                'name' => $category->name,
+                'type' => $category->type,
+                'expense_treatment' => $category->expense_treatment,
+                'parent_id' => $category->parent_id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->set('name', 'Raced create')
+            ->call('save')
+            ->assertHasErrors(['name' => 'A category with this name already exists.'])
+            ->assertNotDispatched('close-category-modal')
+            ->assertDontSee('Category saved.');
+
+        $this->assertDatabaseCount('categories', 1);
+        $this->assertDatabaseHas('categories', [
+            'user_id' => $user->id,
+            'name' => 'Raced create',
+        ]);
     }
 }

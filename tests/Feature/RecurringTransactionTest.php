@@ -21,7 +21,7 @@ final class RecurringTransactionTest extends TestCase
     public function test_recurring_transactions_project_across_month(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
 
         Transaction::factory()->for($user)->for($category)->recurring('weekly')->create([
             'type' => Transaction::TYPE_EXPENSE,
@@ -38,7 +38,7 @@ final class RecurringTransactionTest extends TestCase
     public function test_delete_rejects_invalid_occurrence_date(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $transaction = Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
             'type' => Transaction::TYPE_EXPENSE,
             'amount' => 50,
@@ -58,7 +58,7 @@ final class RecurringTransactionTest extends TestCase
     public function test_delete_skips_single_recurring_occurrence_without_removing_series(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->expense()->create();
         $transaction = Transaction::factory()->for($user)->for($category)->recurring('weekly')->create([
             'type' => Transaction::TYPE_EXPENSE,
             'amount' => 25,

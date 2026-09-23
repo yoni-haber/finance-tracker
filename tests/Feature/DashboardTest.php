@@ -91,8 +91,8 @@ final class DashboardTest extends TestCase
         Carbon::setTestNow('2024-05-15');
 
         $user = User::factory()->create();
-        $salaryCategory = Category::factory()->create(['user_id' => $user->id, 'name' => 'Salary']);
-        $groceriesCategory = Category::factory()->create(['user_id' => $user->id, 'name' => 'Groceries']);
+        $salaryCategory = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
+        $groceriesCategory = Category::factory()->for($user)->expense()->create(['name' => 'Groceries']);
         $savingsCategory = Category::factory()->for($user)->expense()->create([
             'name' => 'Savings',
             'expense_treatment' => Category::TREATMENT_SAVING,
@@ -186,7 +186,7 @@ final class DashboardTest extends TestCase
         Carbon::setTestNow('2024-05-10');
 
         $user = User::factory()->create();
-        $groceriesCategory = Category::factory()->create(['user_id' => $user->id, 'name' => 'Groceries']);
+        $groceriesCategory = Category::factory()->for($user)->expense()->create(['name' => 'Groceries']);
 
         Budget::factory()->create([
             'user_id' => $user->id,
