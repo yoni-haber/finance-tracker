@@ -209,7 +209,7 @@ final class StatementImportReviewTest extends TestCase
     public function test_commits_import_successfully(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->income()->create();
+        $category = Category::factory()->for($user)->create();
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
@@ -633,11 +633,10 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx1->id, $tx2->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
             ->call('bulkAssignCategory', $category->id)
             ->assertHasNoErrors()
-            ->assertSet('selectionExceptionIds', []);
+            ->assertSet('selectedTransactionIds', []);
 
         $fresh1 = $tx1->fresh();
         $fresh2 = $tx2->fresh();
@@ -658,10 +657,9 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx->id])
+            ->set('selectedTransactionIds', [$tx->id])
             ->call('bulkAssignCategory', $category->id)
-            ->assertSet('selectionExceptionIds', []);
+            ->assertSet('selectedTransactionIds', []);
     }
 
     public function test_bulk_assign_category_fails_when_selected_transactions_have_mixed_types(): void
@@ -677,8 +675,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$incomeTx->id, $expenseTx->id])
+            ->set('selectedTransactionIds', [$incomeTx->id, $expenseTx->id])
             ->call('bulkAssignCategory', $incomeCategory->id)
             ->assertHasErrors(['bulk_assign']);
 
@@ -703,8 +700,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx1->id, $tx2->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
             ->call('bulkAssignCategory', $incomeCategory->id) // income category on expense transactions
             ->assertHasErrors(['bulk_assign']);
 
@@ -728,8 +724,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx->id])
+            ->set('selectedTransactionIds', [$tx->id])
             ->call('bulkAssignCategory', $otherCategory->id)
             ->assertHasErrors(['bulk_assign']);
 
@@ -747,8 +742,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx->id])
+            ->set('selectedTransactionIds', [$tx->id])
             ->call('confirmBulkDelete')
             ->assertDispatched('open-bulk-delete-modal');
     }
@@ -765,10 +759,9 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx1->id, $tx2->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
             ->call('bulkDeleteTransactions')
-            ->assertSet('selectionExceptionIds', [])
+            ->assertSet('selectedTransactionIds', [])
             ->assertDispatched('close-bulk-delete-modal');
 
         $this->assertDatabaseMissing('imported_transactions', ['id' => $tx1->id]);
@@ -788,8 +781,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import1->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx1->id, $txOther->id]) // $txOther belongs to a different import
+            ->set('selectedTransactionIds', [$tx1->id, $txOther->id]) // $txOther belongs to a different import
             ->call('bulkDeleteTransactions');
 
         $this->assertDatabaseMissing('imported_transactions', ['id' => $tx1->id]);
@@ -849,14 +841,13 @@ final class StatementImportReviewTest extends TestCase
         // Select both — all expense, so bulkSelectionType = 'expense'
         $testable = Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx1->id, $tx2->id]);
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id]);
 
         $testable->assertSee('My Groceries');
         $testable->assertDontSee('My Salary');
     }
 
-    public function test_edit_clears_category_with_mismatched_type(): void
+    public function test_edit_rejects_category_with_mismatched_type(): void
     {
         $user = User::factory()->create();
         $incomeCategory = Category::factory()->for($user)->income()->create();
@@ -871,9 +862,7 @@ final class StatementImportReviewTest extends TestCase
             ->call('editTransaction', $tx->id)
             ->set('editForm.category_id', $incomeCategory->id)
             ->call('updateTransaction')
-            ->assertHasNoErrors();
-
-        $this->assertNull($tx->fresh()?->category_id);
+            ->assertHasErrors(['editForm.category_id']);
     }
 
     public function test_render_computes_bulk_selection_type_when_transactions_selected(): void
@@ -887,8 +876,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [$tx1->id, $tx2->id])
+            ->set('selectedTransactionIds', [$tx1->id, $tx2->id])
             ->assertViewHas('bulkSelectionType', Transaction::TYPE_EXPENSE);
     }
 
@@ -926,8 +914,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [])
+            ->set('selectedTransactionIds', [])
             ->call('bulkDeleteTransactions')
             ->assertDispatched('close-bulk-delete-modal');
 
@@ -987,8 +974,7 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectAllTransactions', false)
-            ->set('selectionExceptionIds', [])
+            ->set('selectedTransactionIds', [])
             ->call('bulkAssignCategory', $category->id)
             ->assertDontSee('Category assigned to');
     }

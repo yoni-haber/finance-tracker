@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Str;
 use Throwable;
 
 class ParseBankStatementJob implements ShouldQueue
@@ -25,20 +24,16 @@ class ParseBankStatementJob implements ShouldQueue
 
     public int $timeout = BankStatementConfig::JOB_TIMEOUT_SECONDS;
 
-    public string $processingToken;
-
-    public function __construct(public int $importId, ?string $processingToken = null)
-    {
-        $this->processingToken = $processingToken ?? (string) Str::uuid();
-    }
+    public function __construct(public int $importId) {}
 
     /**
      * Execute the job.
      *
-     * The guard skips only terminal success states (parsed/committed). A retry of
-     * this queued job keeps its processing token and may reclaim the parsing row;
-     * another queued job cannot. Non-retriable validation and storage failures are
-     * handled inside the processor, which marks the import failed and returns false.
+     * The guard skips only terminal success states (parsed/committed). Failed imports
+     * remain retryable — the processor's atomic claim (uploaded → parsing) ensures
+     * only one worker runs at a time. Non-retriable failures (missing file, missing
+     * profile) are handled inside the processor, which sets status to failed and
+     * returns false without throwing.
      */
     public function handle(): void
     {
@@ -57,7 +52,7 @@ class ParseBankStatementJob implements ShouldQueue
             return;
         }
 
-        $bankStatementImportProcessor = new BankStatementImportProcessor($import, $this->processingToken);
+        $bankStatementImportProcessor = new BankStatementImportProcessor($import);
         $success = $bankStatementImportProcessor->process();
 
         if ($success) {
@@ -74,12 +69,7 @@ class ParseBankStatementJob implements ShouldQueue
     {
         $import = BankStatementImport::find($this->importId);
 
-        $import?->update([
-            'status' => BankStatementConfig::STATUS_FAILED,
-            'processing_token' => null,
-            'processing_started_at' => null,
-            'parse_errors' => [['row' => 0, 'message' => 'Processing failed after all retry attempts.']],
-        ]);
+        $import?->update(['status' => BankStatementConfig::STATUS_FAILED]);
 
         logger()->error('Bank statement parsing job failed permanently', [
             'import_id' => $this->importId,

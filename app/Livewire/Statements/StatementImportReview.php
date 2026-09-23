@@ -9,12 +9,10 @@ use App\Models\Category;
 use App\Models\ImportedTransaction;
 use App\Models\Transaction;
 use App\Support\BankStatement\DuplicateDetector;
-use App\Support\BankStatementConfig;
 use App\Support\StatementImportCommitter;
 use Exception;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -22,29 +20,19 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 #[Layout('components.layouts.app')]
 #[Title('Review Import')]
 class StatementImportReview extends Component
 {
-    use WithPagination;
-
     public BankStatementImport $import;
 
     public ?int $editingTransactionId = null;
 
     public ?int $deletingTransactionId = null;
 
-    public bool $selectAllTransactions = true;
-
-    /**
-     * IDs that invert the current selection mode. When selectAllTransactions is
-     * true they are exclusions; when false they are explicit inclusions.
-     *
-     * @var list<int>
-     */
-    public array $selectionExceptionIds = [];
+    /** @var array<int, int> */
+    public array $selectedTransactionIds = [];
 
     /**
      * @var array{
@@ -77,39 +65,32 @@ class StatementImportReview extends Component
 
     public function render(): View
     {
-        $query = $this->import->importedTransactions();
-        $committableQuery = $this->import->importedTransactions()->committable();
-        $selectedQuery = $this->selectedTransactionsQuery();
-        $selectedCount = (clone $selectedQuery)->count();
+        $transactions = $this->import->importedTransactions()
+            ->orderBy('date', 'desc')
+            ->orderBy('created_at')
+            ->get();
 
         $summary = [
-            'total' => (clone $query)->count(),
-            'duplicates' => (clone $query)->where('is_duplicate', true)->where('duplicate_override', false)->count(),
-            'available_transactions' => (clone $committableQuery)->count(),
-            'new_transactions' => $selectedCount,
-            'total_amount' => (float) (clone $selectedQuery)->sum('amount'),
+            'total' => $transactions->count(),
+            'duplicates' => $transactions->where('is_duplicate', true)->count(),
+            'new_transactions' => $transactions->where('is_duplicate', false)->count(),
+            'total_amount' => $transactions->where('is_duplicate', false)->sum('amount'),
         ];
 
+        $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
         $bulkSelectionType = null;
-        if ($selectedCount > 0) {
-            $hasIncome = (clone $selectedQuery)->where('amount', '>=', 0)->exists();
-            $hasExpense = (clone $selectedQuery)->where('amount', '<', 0)->exists();
-            $bulkSelectionType = $hasIncome !== $hasExpense
-                ? ($hasIncome ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE)
-                : null;
+        if ($selectedIds !== []) {
+            $selectedTxs = $transactions->whereIn('id', $selectedIds)->where('is_duplicate', false);
+            $types = $selectedTxs->map(fn (ImportedTransaction $importedTransaction): string => $this->determineTransactionType($importedTransaction))->unique();
+            if ($types->count() === 1) {
+                $bulkSelectionType = $types->first();
+            }
         }
 
         return view('livewire.statements.import-review', [
-            'transactions' => $query
-                ->orderBy('date', 'desc')
-                ->orderBy('id')
-                ->paginate(BankStatementConfig::REVIEW_PAGE_SIZE),
+            'transactions' => $transactions,
             'summary' => $summary,
-            'selectedCount' => $selectedCount,
             'bulkSelectionType' => $bulkSelectionType,
-            'deletingTransaction' => $this->deletingTransactionId
-                ? $this->import->importedTransactions()->find($this->deletingTransactionId)
-                : null,
             'categories' => Category::forUser((int) Auth::id())
                 ->parents()
                 ->with('children')
@@ -161,15 +142,6 @@ class StatementImportReview extends Component
 
     public function updateTransaction(): void
     {
-        $categoryId = $this->editForm['category_id'] ?? null;
-        $type = $this->editForm['type'] ?? null;
-        $category = $categoryId === null
-            ? null
-            : Category::whereKey($categoryId)->where('user_id', Auth::id())->first();
-        if ($category !== null && $category->type !== $type) {
-            $this->editForm['category_id'] = null;
-        }
-
         $this->validate();
 
         /** @var ImportedTransaction $importedTransaction */
@@ -200,8 +172,6 @@ class StatementImportReview extends Component
         $importedTransaction->update([
             'hash' => $hash,
             'is_duplicate' => $isDuplicate,
-            'duplicate_reason' => $isDuplicate ? 'edited_match' : null,
-            'duplicate_override' => false,
         ]);
 
         $this->cancelEdit();
@@ -244,10 +214,6 @@ class StatementImportReview extends Component
 
     public function updateType(int $transactionId, string $type): void
     {
-        if (!in_array($type, [Transaction::TYPE_INCOME, Transaction::TYPE_EXPENSE], true)) {
-            throw ValidationException::withMessages(['type' => 'The selected transaction type is invalid.']);
-        }
-
         /** @var ImportedTransaction $importedTransaction */
         $importedTransaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
@@ -255,12 +221,7 @@ class StatementImportReview extends Component
             ? -abs((float) $importedTransaction->amount)
             : abs((float) $importedTransaction->amount);
 
-        $categoryId = $importedTransaction->category_id;
-        if ($categoryId !== null && !Category::whereKey($categoryId)->where('user_id', Auth::id())->where('type', $type)->exists()) {
-            $categoryId = null;
-        }
-
-        $importedTransaction->update(['amount' => $amount, 'category_id' => $categoryId]);
+        $importedTransaction->update(['amount' => $amount]);
 
         // Regenerate hash using the explicit $amount var, not the post-update model attribute
         $duplicateDetector = new DuplicateDetector($this->import->user_id);
@@ -274,46 +235,7 @@ class StatementImportReview extends Component
         $importedTransaction->update([
             'hash' => $hash,
             'is_duplicate' => $isDuplicate,
-            'duplicate_reason' => $isDuplicate ? 'edited_match' : null,
-            'duplicate_override' => false,
         ]);
-    }
-
-    public function toggleDuplicateOverride(int $transactionId): void
-    {
-        /** @var ImportedTransaction $transaction */
-        $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
-        if (!$transaction->is_duplicate) {
-            return;
-        }
-
-        $transaction->update(['duplicate_override' => !$transaction->duplicate_override]);
-    }
-
-    public function toggleTransactionSelection(int $transactionId): void
-    {
-        $this->import->importedTransactions()->committable()->findOrFail($transactionId);
-
-        $transactionId = (int) $transactionId;
-        $exceptionIndex = array_search($transactionId, $this->selectionExceptionIds, true);
-
-        if ($exceptionIndex === false) {
-            $this->selectionExceptionIds[] = $transactionId;
-        } else {
-            array_splice($this->selectionExceptionIds, (int) $exceptionIndex, 1);
-        }
-    }
-
-    public function selectAllTransactions(): void
-    {
-        $this->selectAllTransactions = true;
-        $this->selectionExceptionIds = [];
-    }
-
-    public function clearTransactionSelection(): void
-    {
-        $this->selectAllTransactions = false;
-        $this->selectionExceptionIds = [];
     }
 
     public function confirmDeleteTransaction(int $transactionId): void
@@ -326,7 +248,6 @@ class StatementImportReview extends Component
     {
         if ($this->deletingTransactionId) {
             $this->import->importedTransactions()->findOrFail($this->deletingTransactionId)->delete();
-            $this->resetPage();
             $this->deletingTransactionId = null;
             session()->flash('status', 'Transaction removed from import.');
         }
@@ -352,11 +273,7 @@ class StatementImportReview extends Component
         }
 
         try {
-            $statementImportCommitter = new StatementImportCommitter(
-                $this->import,
-                $this->selectAllTransactions,
-                $this->selectionExceptionIds,
-            );
+            $statementImportCommitter = new StatementImportCommitter($this->import);
             $success = $statementImportCommitter->commit();
 
             if ($success) {
@@ -405,22 +322,26 @@ class StatementImportReview extends Component
             return;
         }
 
-        $selectedQuery = $this->selectedTransactionsQuery();
-        $selectedCount = (clone $selectedQuery)->count();
+        $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
 
-        if ($selectedCount === 0) {
+        if ($selectedIds === []) {
             return;
         }
 
-        $hasIncome = (clone $selectedQuery)->where('amount', '>=', 0)->exists();
-        $hasExpense = (clone $selectedQuery)->where('amount', '<', 0)->exists();
-        if ($hasIncome && $hasExpense) {
+        $transactions = $this->import->importedTransactions()
+            ->whereIn('id', $selectedIds)
+            ->where('is_duplicate', false)
+            ->get();
+
+        $types = $transactions->map(fn (ImportedTransaction $importedTransaction): string => $this->determineTransactionType($importedTransaction))->unique();
+
+        if ($types->count() > 1) {
             $this->addError('bulk_assign', 'Selected transactions have mixed types (income and expense). Choose transactions of the same type before assigning a category.');
 
             return;
         }
 
-        $transactionType = $hasIncome ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
+        $transactionType = $types->first();
 
         if ($category->type !== $transactionType) {
             $this->addError('bulk_assign', sprintf(
@@ -432,10 +353,13 @@ class StatementImportReview extends Component
             return;
         }
 
-        $this->selectedTransactionsQuery()->update(['category_id' => $categoryId]);
+        $this->import->importedTransactions()
+            ->whereIn('id', $selectedIds)
+            ->where('is_duplicate', false)
+            ->update(['category_id' => $categoryId]);
 
-        $this->clearTransactionSelection();
-        session()->flash('status', sprintf('Category assigned to %d transaction%s.', $selectedCount, $selectedCount !== 1 ? 's' : ''));
+        $this->selectedTransactionIds = [];
+        session()->flash('status', sprintf('Category assigned to %d transaction%s.', $transactions->count(), $transactions->count() !== 1 ? 's' : ''));
     }
 
     public function confirmBulkDelete(): void
@@ -445,27 +369,21 @@ class StatementImportReview extends Component
 
     public function bulkDeleteTransactions(): void
     {
-        $deleted = $this->selectedTransactionsQuery()->delete();
+        $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
 
-        $this->clearTransactionSelection();
-        $this->resetPage();
+        $deleted = 0;
+        if ($selectedIds !== []) {
+            $deleted = $this->import->importedTransactions()
+                ->whereIn('id', $selectedIds)
+                ->where('is_duplicate', false)
+                ->delete();
+        }
+
+        $this->selectedTransactionIds = [];
         $this->dispatch('close-bulk-delete-modal');
 
         if ($deleted > 0) {
             session()->flash('status', sprintf('%d transaction%s removed from import.', $deleted, $deleted !== 1 ? 's' : ''));
         }
-    }
-
-    /** @return HasMany<ImportedTransaction, BankStatementImport> */
-    private function selectedTransactionsQuery(): HasMany
-    {
-        $query = $this->import->importedTransactions()->committable();
-        $exceptionIds = array_values(array_unique(array_map(intval(...), $this->selectionExceptionIds)));
-
-        if ($this->selectAllTransactions) {
-            return $exceptionIds === [] ? $query : $query->whereNotIn('id', $exceptionIds);
-        }
-
-        return $exceptionIds === [] ? $query->whereRaw('1 = 0') : $query->whereIn('id', $exceptionIds);
     }
 }

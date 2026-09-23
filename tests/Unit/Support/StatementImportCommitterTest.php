@@ -25,7 +25,7 @@ final class StatementImportCommitterTest extends TestCase
     public function test_commits_non_duplicate_transactions(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->income()->create();
+        $category = Category::factory()->for($user)->create();
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
@@ -70,7 +70,7 @@ final class StatementImportCommitterTest extends TestCase
     public function test_handles_category_assignment_from_category_id(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->income()->create();
+        $category = Category::factory()->for($user)->create();
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 

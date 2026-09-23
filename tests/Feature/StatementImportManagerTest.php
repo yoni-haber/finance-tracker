@@ -329,7 +329,6 @@ final class StatementImportManagerTest extends TestCase
         $this->assertEquals('bank_statement.csv', $import->original_filename);
         $this->assertEquals($bankProfile->id, $import->bank_profile_id);
         $this->assertEquals('bank', $import->statement_type);
-        $this->assertEquals($bankProfile->config, $import->profile_config);
 
         // Check file was stored
         Storage::disk('local')->assertExists(sprintf('statements/%s.csv', $import->id));
@@ -792,12 +791,13 @@ final class StatementImportManagerTest extends TestCase
             ->assertSet('polling', false);
     }
 
-    public function test_loads_failed_imports_on_mount_for_error_review(): void
+    public function test_ignores_failed_imports_on_mount(): void
     {
         $user = User::factory()->create();
         $bankProfile = BankProfile::factory()->for($user)->create();
 
-        $failedImport = BankStatementImport::factory()
+        // Create failed import (should be ignored)
+        BankStatementImport::factory()
             ->for($user)
             ->for($bankProfile, 'bankProfile')
             ->failed()
@@ -805,7 +805,7 @@ final class StatementImportManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
-            ->assertSet('currentImport.id', $failedImport->id)
+            ->assertSet('currentImport', null)
             ->assertSet('polling', false);
     }
 

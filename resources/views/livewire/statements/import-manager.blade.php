@@ -111,25 +111,6 @@
                 </div>
             @endif
 
-            @if ($currentImport->isFailed())
-                <div class="mt-4 rounded-md bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
-                    <p class="font-medium">The statement was not imported because one or more rows were invalid.</p>
-                    @if ($currentImport->total_rows > 0)
-                        <p class="mt-1 text-xs">{{ $currentImport->valid_rows }} valid; {{ $currentImport->rejected_rows }} rejected out of {{ $currentImport->total_rows }} data rows.</p>
-                    @endif
-                    @if (is_array($currentImport->parse_errors))
-                        <ul class="mt-2 list-disc space-y-1 pl-5 text-xs">
-                            @foreach (array_slice($currentImport->parse_errors, 0, 10) as $parseError)
-                                <li>{{ ($parseError['row'] ?? 0) > 0 ? 'Row '.($parseError['row'] ?? 0).': ' : '' }}{{ $parseError['message'] ?? 'Invalid row.' }}</li>
-                            @endforeach
-                        </ul>
-                        @if (count($currentImport->parse_errors) > 10)
-                            <p class="mt-2 text-xs">Showing the first 10 errors.</p>
-                        @endif
-                    @endif
-                </div>
-            @endif
-
             <div class="mt-4 flex flex-wrap gap-3">
                 @if ($currentImport->isParsed())
                     <button

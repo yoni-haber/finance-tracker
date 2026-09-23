@@ -40,8 +40,6 @@ final class ImportedTransactionTest extends TestCase
             'hash',
             'original_hash',
             'is_duplicate',
-            'duplicate_reason',
-            'duplicate_override',
             'is_committed',
         ];
 

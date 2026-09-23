@@ -39,8 +39,6 @@ class ImportedTransactionFactory extends Factory
             'external_id' => null,
             'category_id' => null,
             'is_duplicate' => false,
-            'duplicate_reason' => null,
-            'duplicate_override' => false,
             'is_committed' => false,
         ];
     }

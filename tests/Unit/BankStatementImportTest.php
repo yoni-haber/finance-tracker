@@ -390,14 +390,10 @@ final class BankStatementImportTest extends TestCase
         $bankStatementImportProcessor = new BankStatementImportProcessor($import);
         $result = $bankStatementImportProcessor->process();
 
-        $this->assertFalse($result);
+        $this->assertTrue($result);
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
-        $this->assertSame(BankStatementConfig::STATUS_FAILED, $fresh->status);
-        $this->assertSame(3, $fresh->total_rows);
-        $this->assertSame(2, $fresh->valid_rows);
-        $this->assertSame(1, $fresh->rejected_rows);
-        $this->assertCount(0, $fresh->importedTransactions);
+        $this->assertCount(2, $fresh->importedTransactions);
     }
 
     public function test_processor_handles_currency_symbols_in_amounts(): void

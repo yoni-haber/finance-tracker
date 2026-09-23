@@ -77,27 +77,19 @@
     </div>
 
     <!-- Bulk Actions Toolbar -->
-    @if ($selectedCount > 0)
+    @if (count($selectedTransactionIds) > 0)
         <div
             class="rounded-xl border border-blue-200 bg-blue-50 px-6 py-3 shadow-sm dark:border-blue-800 dark:bg-blue-900/20">
             <div class="flex flex-wrap items-center gap-4">
                 <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
-                    {{ $selectedCount }} transaction{{ $selectedCount !== 1 ? 's' : '' }} selected
+                    {{ count($selectedTransactionIds) }} transaction{{ count($selectedTransactionIds) !== 1 ? 's' : '' }} selected
                 </span>
                 <button
-                    wire:click="clearTransactionSelection"
+                    wire:click="$set('selectedTransactionIds', [])"
                     class="text-xs text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
                 >
                     Clear selection
                 </button>
-                @if ($selectedCount < $summary['available_transactions'])
-                    <button
-                        wire:click="selectAllTransactions"
-                        class="text-xs text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
-                    >
-                        Select all {{ $summary['available_transactions'] }}
-                    </button>
-                @endif
 
                 <div class="ml-auto flex flex-wrap items-center gap-3">
                     <!-- Bulk Category Assignment -->
@@ -179,8 +171,8 @@
                             <td class="px-4 py-4 text-center">
                                 <input
                                     type="checkbox"
-                                    wire:click="toggleTransactionSelection({{ $transaction->id }})"
-                                    @checked($selectAllTransactions !== in_array($transaction->id, $selectionExceptionIds, true))
+                                    wire:model.live="selectedTransactionIds"
+                                    value="{{ $transaction->id }}"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 >
                             </td>
@@ -277,11 +269,11 @@
                                     : ($transaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE);
                             @endphp
                             <td class="px-4 py-4 text-center">
-                                @if (!$transaction->is_duplicate || $transaction->duplicate_override)
+                                @if (!$transaction->is_duplicate)
                                     <input
                                         type="checkbox"
-                                        wire:click="toggleTransactionSelection({{ $transaction->id }})"
-                                        @checked($selectAllTransactions !== in_array($transaction->id, $selectionExceptionIds, true))
+                                        wire:model.live="selectedTransactionIds"
+                                        value="{{ $transaction->id }}"
                                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     >
                                 @endif
@@ -293,7 +285,7 @@
                                 {{ $transaction->description }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                @if (!$transaction->is_duplicate || $transaction->duplicate_override)
+                                @if (!$transaction->is_duplicate)
                                     <select
                                         wire:change="updateType({{ $transaction->id }}, $event.target.value)"
                                         class="text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
@@ -317,7 +309,7 @@
                                 £{{ number_format(abs($transaction->amount), 2) }}
                             </td>
                             <td class="px-6 py-4">
-                                @if (!$transaction->is_duplicate || $transaction->duplicate_override)
+                                @if (!$transaction->is_duplicate)
                                     <select
                                         wire:change="updateCategory({{ $transaction->id }}, $event.target.value)"
                                         class="text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
@@ -345,7 +337,7 @@
                                 @if ($transaction->is_duplicate)
                                     <span
                                         class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                                            {{ $transaction->duplicate_override ? 'Duplicate · included' : 'Duplicate · skipped' }}
+                                            Duplicate
                                         </span>
                                 @else
                                     <span
@@ -355,16 +347,8 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
-                                @if (!$transaction->is_duplicate || $transaction->duplicate_override)
+                                @if (!$transaction->is_duplicate)
                                     <div class="flex gap-2 justify-center">
-                                        @if ($transaction->is_duplicate)
-                                            <button
-                                                wire:click="toggleDuplicateOverride({{ $transaction->id }})"
-                                                class="text-amber-700 hover:text-amber-900 text-xs font-medium"
-                                            >
-                                                Skip duplicate
-                                            </button>
-                                        @endif
                                         <button
                                             wire:click="editTransaction({{ $transaction->id }})"
                                             class="text-blue-600 hover:text-blue-800 text-xs font-medium"
@@ -379,12 +363,7 @@
                                         </button>
                                     </div>
                                 @else
-                                    <button
-                                        wire:click="toggleDuplicateOverride({{ $transaction->id }})"
-                                        class="text-amber-700 hover:text-amber-900 text-xs font-medium"
-                                    >
-                                        Include anyway
-                                    </button>
+                                    <span class="text-gray-400 text-xs">N/A</span>
                                 @endif
                             </td>
                         @endif
@@ -399,11 +378,6 @@
                 </tbody>
             </table>
         </div>
-        @if ($transactions->hasPages())
-            <div class="border-t border-zinc-200 px-6 py-4 dark:border-zinc-700">
-                {{ $transactions->links() }}
-            </div>
-        @endif
     </div>
 
     <!-- Confirmation Modal -->
@@ -454,8 +428,8 @@
                 <flux:heading size="lg">Remove Transactions</flux:heading>
                 <flux:subheading>
                     Are you sure you want to remove
-                    <strong>{{ $selectedCount }}
-                        transaction{{ $selectedCount !== 1 ? 's' : '' }}</strong>
+                    <strong>{{ count($selectedTransactionIds) }}
+                        transaction{{ count($selectedTransactionIds) !== 1 ? 's' : '' }}</strong>
                     from this import? This cannot be undone.
                 </flux:subheading>
             </div>
@@ -466,14 +440,15 @@
                 </flux:modal.close>
 
                 <flux:button variant="danger" wire:click="bulkDeleteTransactions">
-                    Delete {{ $selectedCount }}
-                    transaction{{ $selectedCount !== 1 ? 's' : '' }}
+                    Delete {{ count($selectedTransactionIds) }}
+                    transaction{{ count($selectedTransactionIds) !== 1 ? 's' : '' }}
                 </flux:button>
             </div>
         </div>
     </flux:modal>
 
     {{-- Single shared Remove Transaction Modal --}}
+    @php $deletingTransaction = $deletingTransactionId ? $transactions->find($deletingTransactionId) : null; @endphp
     <flux:modal
         name="confirm-remove-transaction"
         x-on:open-delete-modal.window="$flux.modal('confirm-remove-transaction').show()"

@@ -30,8 +30,6 @@ class BankStatementImportFactory extends Factory
             'original_filename' => $this->faker->word . '.csv',
             'status' => BankStatementConfig::STATUS_UPLOADED,
             'statement_type' => BankStatementConfig::STATEMENT_TYPE_BANK,
-            'profile_config' => null,
-            'file_cleanup_status' => BankStatementConfig::CLEANUP_PENDING,
         ];
     }
 

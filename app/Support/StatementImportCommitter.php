@@ -4,22 +4,16 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Jobs\DeleteStatementFileJob;
 use App\Models\BankStatementImport;
-use App\Models\Category;
 use App\Models\Transaction;
-use App\Support\BankStatement\StatementFileCleaner;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Illuminate\Support\Facades\Storage;
 
 readonly class StatementImportCommitter
 {
     public function __construct(
         private BankStatementImport $bankStatementImport,
-        private bool $selectAllTransactions = true,
-        /** @var list<int> */
-        private array $selectionExceptionIds = [],
     ) {}
 
     /**
@@ -40,17 +34,10 @@ readonly class StatementImportCommitter
 
         try {
             DB::transaction(function (): void {
-                $importedTransactionsQuery = $this->bankStatementImport->importedTransactions()->committable();
-                $exceptionIds = array_values(array_unique(array_map(intval(...), $this->selectionExceptionIds)));
-                if ($exceptionIds !== []) {
-                    $this->selectAllTransactions
-                        ? $importedTransactionsQuery->whereNotIn('id', $exceptionIds)
-                        : $importedTransactionsQuery->whereIn('id', $exceptionIds);
-                } elseif (!$this->selectAllTransactions) {
-                    $importedTransactionsQuery->whereRaw('1 = 0');
-                }
-
-                $importedTransactions = $importedTransactionsQuery->lockForUpdate()->get();
+                $importedTransactions = $this->bankStatementImport->importedTransactions()
+                    ->committable()
+                    ->lockForUpdate()  // Add row locking to prevent race conditions
+                    ->get();
 
                 foreach ($importedTransactions as $importedTransaction) {
                     // For credit cards, parser has already flipped signs for business logic,
@@ -66,17 +53,6 @@ readonly class StatementImportCommitter
                         // Bank statement: amounts are as-is
                         $type = $amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
                         $amount = abs($amount); // Ensure positive amounts for consistency
-                    }
-
-                    if ($importedTransaction->category_id !== null) {
-                        $categoryIsValid = Category::whereKey($importedTransaction->category_id)
-                            ->where('user_id', $this->bankStatementImport->user_id)
-                            ->where('type', $type)
-                            ->exists();
-
-                        if (!$categoryIsValid) {
-                            throw new RuntimeException(sprintf('Transaction %d has an invalid category.', $importedTransaction->id));
-                        }
                     }
 
                     // Create real transaction
@@ -102,24 +78,9 @@ readonly class StatementImportCommitter
                 // Update import status
                 $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_COMMITTED]);
 
+                // Clean up CSV file for GDPR compliance
+                $this->cleanupCsvFile();
             });
-
-            try {
-                app(StatementFileCleaner::class)->delete($this->bankStatementImport);
-            } catch (Exception $exception) {
-                logger()->warning('Statement file cleanup queued for retry', [
-                    'import_id' => $this->bankStatementImport->id,
-                    'error' => $exception->getMessage(),
-                ]);
-                try {
-                    DeleteStatementFileJob::dispatch($this->bankStatementImport->id);
-                } catch (Exception $dispatchException) {
-                    logger()->error('Unable to dispatch statement file cleanup retry', [
-                        'import_id' => $this->bankStatementImport->id,
-                        'error' => $dispatchException->getMessage(),
-                    ]);
-                }
-            }
 
             return true;
         } catch (Exception $exception) {
@@ -129,6 +90,31 @@ readonly class StatementImportCommitter
             ]);
 
             return false;
+        }
+    }
+
+    /**
+     * Clean up CSV file after successful commit
+     */
+    private function cleanupCsvFile(): void
+    {
+        $disk = Storage::disk(BankStatementConfig::statementsDisk());
+        $filePath = BankStatementConfig::statementPath((int) $this->bankStatementImport->id);
+
+        if ($disk->exists($filePath)) {
+            try {
+                $disk->delete($filePath);
+                logger()->info('CSV file deleted for GDPR compliance', [
+                    'import_id' => $this->bankStatementImport->id,
+                    'user_id' => $this->bankStatementImport->user_id,
+                ]);
+            } catch (Exception $e) {
+                // Log but don't fail the transaction - file clean-up is not critical
+                logger()->warning('Failed to delete CSV file after import', [
+                    'import_id' => $this->bankStatementImport->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 

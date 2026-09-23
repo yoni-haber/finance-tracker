@@ -9,23 +9,12 @@ use App\Support\BankStatementConfig;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 readonly class TransactionRowParser
 {
-    /** @var array<string, mixed> */
-    private array $config;
-
-    private string $statementType;
-
-    /** @param array<string, mixed>|BankProfile $bankProfile */
     public function __construct(
-        BankProfile|array $bankProfile,
-        ?string $statementType = null,
-    ) {
-        $this->config = $bankProfile instanceof BankProfile ? $bankProfile->config : $bankProfile;
-        $this->statementType = $bankProfile instanceof BankProfile ? $bankProfile->statement_type : ($statementType ?? BankStatementConfig::STATEMENT_TYPE_BANK);
-    }
+        private BankProfile $bankProfile,
+    ) {}
 
     /**
      * Parse a single CSV row into transaction data
@@ -35,45 +24,18 @@ readonly class TransactionRowParser
      */
     public function parseRow(array $row): ?array
     {
-        try {
-            return $this->parseRowStrict($row);
-        } catch (InvalidArgumentException) {
-            return null;
-        }
-    }
-
-    /**
-     * Parse a row or throw a user-facing validation error.
-     *
-     * @param array<int, string|null> $row
-     * @return array{date: Carbon, description: string, amount: float, external_id: null}
-     */
-    public function parseRowStrict(array $row): array
-    {
-        $columns = $this->config['columns'] ?? [];
-
-        if (!is_array($columns)) {
-            throw new InvalidArgumentException('The profile column mapping is invalid.');
-        }
+        $columns = $this->bankProfile->config['columns'] ?? [];
 
         $date = $this->extractDate($row, $columns['date'] ?? null);
         $description = $this->extractDescription($row, $columns['description'] ?? null);
         $amount = $this->extractAmount($row, $columns);
 
-        if (!$date instanceof Carbon) {
-            throw new InvalidArgumentException('Date is missing or does not match a supported format.');
-        }
-
-        if (!$description) {
-            throw new InvalidArgumentException('Description is missing.');
-        }
-
-        if ($amount === null || abs($amount) < 0.005) {
-            throw new InvalidArgumentException('Amount is missing, zero, or invalid.');
+        if (!$date instanceof Carbon || !$description || $amount === null) {
+            return null;
         }
 
         // Apply statement type logic
-        if ($this->statementType === BankStatementConfig::STATEMENT_TYPE_CREDIT_CARD) {
+        if ($this->bankProfile->isCreditCardStatement()) {
             $amount = -$amount; // Flip sign for credit cards
         }
 
@@ -143,28 +105,13 @@ readonly class TransactionRowParser
         $formats = BankStatementConfig::SUPPORTED_DATE_FORMATS;
 
         // Try profile-specific format first
-        if (isset($this->config['date_format']) && is_string($this->config['date_format'])) {
-            array_unshift($formats, $this->config['date_format']);
+        if (isset($this->bankProfile->config['date_format'])) {
+            array_unshift($formats, $this->bankProfile->config['date_format']);
         }
 
         foreach ($formats as $format) {
             try {
-                $date = Carbon::createFromFormat($format, $dateString);
-                if (!$date instanceof Carbon) {
-                    continue;
-                }
-
-                $errors = Carbon::getLastErrors();
-
-                if ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) {
-                    continue;
-                }
-
-                if ($date->format($format) !== $dateString) {
-                    continue;
-                }
-
-                return $date->startOfDay();
+                return Carbon::createFromFormat($format, $dateString);
             } catch (Exception) {
                 continue;
             }
@@ -195,14 +142,11 @@ readonly class TransactionRowParser
 
         // Separate debit/credit columns
         if ($debitIndex !== null || $creditIndex !== null) {
-            $debitRaw = $debitIndex !== null ? trim((string) ($row[$debitIndex] ?? '')) : '';
-            $creditRaw = $creditIndex !== null ? trim((string) ($row[$creditIndex] ?? '')) : '';
-            $debit = $debitRaw === '' ? 0.0 : $this->parseAmountString($debitRaw);
-            $credit = $creditRaw === '' ? 0.0 : $this->parseAmountString($creditRaw);
+            $debit = $debitIndex !== null ?
+                ($this->parseAmountString($row[$debitIndex] ?? '')) ?? 0 : 0;
 
-            if (($debitRaw !== '' && $debit === null) || ($creditRaw !== '' && $credit === null)) {
-                return null;
-            }
+            $credit = $creditIndex !== null ?
+                ($this->parseAmountString($row[$creditIndex] ?? '')) ?? 0 : 0;
 
             return $credit - $debit;
         }
