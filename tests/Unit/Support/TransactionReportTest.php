@@ -72,9 +72,11 @@ final class TransactionReportTest extends TestCase
         $category = Category::factory()->for($user)->create();
 
         Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'type' => $category->type,
             'date' => '2024-01-31',
         ]);
         Transaction::factory()->for($user)->for($category)->create([
+            'type' => $category->type,
             'date' => '2024-02-10',
         ]);
 
@@ -105,13 +107,16 @@ final class TransactionReportTest extends TestCase
         $category = Category::factory()->for($user)->create();
 
         Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'type' => $category->type,
             'date' => '2024-01-01',
             'recurring_until' => '2024-02-01',
         ]);
         Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'type' => $category->type,
             'date' => '2024-05-01',
         ]);
         Transaction::factory()->for($user)->for($category)->create([
+            'type' => $category->type,
             'date' => '2024-01-15',
         ]);
 
@@ -128,19 +133,24 @@ final class TransactionReportTest extends TestCase
         $category = Category::factory()->for($user)->create();
 
         Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'type' => $category->type,
             'date' => '2024-01-01',
         ]);
         Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'type' => $category->type,
             'date' => '2024-01-01',
             'recurring_until' => '2024-02-01',
         ]);
         Transaction::factory()->for($user)->for($category)->recurring('monthly')->create([
+            'type' => $category->type,
             'date' => '2024-04-01',
         ]);
         Transaction::factory()->for($user)->for($category)->create([
+            'type' => $category->type,
             'date' => '2024-03-15',
         ]);
         Transaction::factory()->for($user)->for($category)->create([
+            'type' => $category->type,
             'date' => '2024-01-15',
         ]);
 

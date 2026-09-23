@@ -196,11 +196,9 @@ Key constraints:
 - Transaction `category_id` must match the transaction's type.
 - Deleting a parent is blocked when any category in its subtree has transactions or budgets.
 
-Run `php artisan categories:audit` before an upgrade to verify existing data.
-The command is read-only and exits unsuccessfully with affected record IDs when
-it finds duplicate scopes, invalid parents, or mismatched transaction/budget
-links. The category-integrity migration performs the same preflight and aborts
-without rewriting data when problems remain.
+The category-integrity migration assumes existing category names, hierarchy,
+transaction links, and budget links already satisfy these rules. It does not
+rewrite existing records; incompatible data must be corrected before migration.
 
 ### Dashboard Rollup
 

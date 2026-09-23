@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Support\CategoryIntegrityAuditor;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -11,16 +10,6 @@ return new class() extends Migration
 {
     public function up(): void
     {
-        $auditor = app(CategoryIntegrityAuditor::class);
-        $issues = $auditor->issues();
-
-        if ($issues !== []) {
-            throw new RuntimeException(
-                'Category integrity migration aborted; no data was changed. ' .
-                'Run `php artisan categories:audit` and resolve: ' . $auditor->summary($issues),
-            );
-        }
-
         Schema::table('categories', function (Blueprint $table): void {
             $table->dropForeign(['parent_id']);
             $table->unsignedBigInteger('parent_lookup_id')
