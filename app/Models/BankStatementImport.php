@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property int|null $bank_profile_id
  * @property string $statement_type
+ * @property string|null $error_message
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read BankProfile|null $bankProfile
@@ -52,6 +53,7 @@ use Illuminate\Support\Carbon;
     'status',
     'bank_profile_id',
     'statement_type',
+    'error_message',
 ])]
 class BankStatementImport extends Model
 {

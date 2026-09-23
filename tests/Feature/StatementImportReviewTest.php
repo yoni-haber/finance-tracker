@@ -209,7 +209,7 @@ final class StatementImportReviewTest extends TestCase
     public function test_commits_import_successfully(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->income()->create();
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
@@ -847,7 +847,7 @@ final class StatementImportReviewTest extends TestCase
         $testable->assertDontSee('My Salary');
     }
 
-    public function test_edit_rejects_category_with_mismatched_type(): void
+    public function test_edit_clears_category_with_mismatched_type(): void
     {
         $user = User::factory()->create();
         $incomeCategory = Category::factory()->for($user)->income()->create();
@@ -862,7 +862,9 @@ final class StatementImportReviewTest extends TestCase
             ->call('editTransaction', $tx->id)
             ->set('editForm.category_id', $incomeCategory->id)
             ->call('updateTransaction')
-            ->assertHasErrors(['editForm.category_id']);
+            ->assertHasNoErrors();
+
+        $this->assertNull($tx->fresh()?->category_id);
     }
 
     public function test_render_computes_bulk_selection_type_when_transactions_selected(): void

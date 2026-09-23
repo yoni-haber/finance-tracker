@@ -17,6 +17,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use RuntimeException;
 
 #[Layout('components.layouts.app')]
 #[Title('Import Statement')]
@@ -40,6 +41,7 @@ class StatementImportManager extends Component
                 BankStatementConfig::STATUS_UPLOADED,
                 BankStatementConfig::STATUS_PARSING,
                 BankStatementConfig::STATUS_PARSED,
+                BankStatementConfig::STATUS_FAILED,
             ])
             ->latest()
             ->first();
@@ -98,6 +100,8 @@ class StatementImportManager extends Component
             return;
         }
 
+        $import = null;
+
         try {
             // Get the selected bank profile to determine statement type (ensure it belongs to user)
             $bankProfile = BankProfile::where('user_id', Auth::id())->findOrFail($this->bankProfileId);
@@ -112,7 +116,10 @@ class StatementImportManager extends Component
             ]);
 
             // Store the file with a predictable name for the parser
-            $this->csvFile->storeAs('statements', $import->id . '.csv', BankStatementConfig::statementsDisk());
+            $storedPath = $this->csvFile->storeAs('statements', $import->id . '.csv', BankStatementConfig::statementsDisk());
+            if ($storedPath === false) {
+                throw new RuntimeException('The statement file could not be stored.');
+            }
 
             // Dispatch the parsing job
             ParseBankStatementJob::dispatch($import->id);
@@ -123,6 +130,21 @@ class StatementImportManager extends Component
 
             session()->flash('status', 'Bank statement uploaded successfully. Processing will begin shortly.');
         } catch (Exception $exception) {
+            if ($import instanceof BankStatementImport) {
+                try {
+                    $disk = Storage::disk(BankStatementConfig::statementsDisk());
+                    $path = BankStatementConfig::statementPath((int) $import->id);
+                    if ($disk->exists($path) && !$disk->delete($path)) {
+                        throw new RuntimeException('The statement file could not be deleted.');
+                    }
+                    $import->delete();
+                } catch (Exception $cleanupException) {
+                    logger()->warning('Unable to clean up failed statement upload', [
+                        'import_id' => $import->id,
+                        'error' => $cleanupException->getMessage(),
+                    ]);
+                }
+            }
             logger()->error('Failed to upload bank statement', [
                 'user_id' => Auth::id(),
                 'bank_profile_id' => $this->bankProfileId,
@@ -143,8 +165,11 @@ class StatementImportManager extends Component
 
         try {
             // Clean up the stored file if it exists
-            Storage::disk(BankStatementConfig::statementsDisk())
-                ->delete(BankStatementConfig::statementPath((int) $this->currentImport->id));
+            $disk = Storage::disk(BankStatementConfig::statementsDisk());
+            $path = BankStatementConfig::statementPath((int) $this->currentImport->id);
+            if ($disk->exists($path) && !$disk->delete($path)) {
+                throw new RuntimeException('The statement file could not be deleted.');
+            }
 
             // Delete any imported transactions (staged data)
             $this->currentImport->importedTransactions()->delete();

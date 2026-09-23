@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\BankStatementImport;
+use App\Models\Category;
 use App\Models\Transaction;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 readonly class StatementImportCommitter
 {
@@ -53,6 +55,13 @@ readonly class StatementImportCommitter
                         // Bank statement: amounts are as-is
                         $type = $amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
                         $amount = abs($amount); // Ensure positive amounts for consistency
+                    }
+
+                    if ($importedTransaction->category_id !== null && !Category::whereKey($importedTransaction->category_id)
+                        ->where('user_id', $this->bankStatementImport->user_id)
+                        ->where('type', $type)
+                        ->exists()) {
+                        throw new RuntimeException('An imported transaction has an invalid category.');
                     }
 
                     // Create real transaction
@@ -102,18 +111,8 @@ readonly class StatementImportCommitter
         $filePath = BankStatementConfig::statementPath((int) $this->bankStatementImport->id);
 
         if ($disk->exists($filePath)) {
-            try {
-                $disk->delete($filePath);
-                logger()->info('CSV file deleted for GDPR compliance', [
-                    'import_id' => $this->bankStatementImport->id,
-                    'user_id' => $this->bankStatementImport->user_id,
-                ]);
-            } catch (Exception $e) {
-                // Log but don't fail the transaction - file clean-up is not critical
-                logger()->warning('Failed to delete CSV file after import', [
-                    'import_id' => $this->bankStatementImport->id,
-                    'error' => $e->getMessage(),
-                ]);
+            if (!$disk->delete($filePath)) {
+                throw new RuntimeException('The statement file could not be deleted.');
             }
         }
     }

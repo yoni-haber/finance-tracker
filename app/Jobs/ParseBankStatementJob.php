@@ -52,8 +52,15 @@ class ParseBankStatementJob implements ShouldQueue
             return;
         }
 
-        $bankStatementImportProcessor = new BankStatementImportProcessor($import);
-        $success = $bankStatementImportProcessor->process();
+        try {
+            $bankStatementImportProcessor = new BankStatementImportProcessor($import);
+            $success = $bankStatementImportProcessor->process();
+        } catch (Throwable $throwable) {
+            // A retry must be able to reclaim the import after a transient exception.
+            $import->update(['status' => BankStatementConfig::STATUS_FAILED]);
+
+            throw $throwable;
+        }
 
         if ($success) {
             logger()->info('Bank statement parsed successfully', ['import_id' => $this->importId]);
@@ -69,7 +76,10 @@ class ParseBankStatementJob implements ShouldQueue
     {
         $import = BankStatementImport::find($this->importId);
 
-        $import?->update(['status' => BankStatementConfig::STATUS_FAILED]);
+        $import?->update([
+            'status' => BankStatementConfig::STATUS_FAILED,
+            'error_message' => 'Statement processing failed. Please delete this import and try again.',
+        ]);
 
         logger()->error('Bank statement parsing job failed permanently', [
             'import_id' => $this->importId,

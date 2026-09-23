@@ -9,6 +9,7 @@ use App\Support\BankStatementConfig;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 readonly class TransactionRowParser
 {
@@ -24,14 +25,35 @@ readonly class TransactionRowParser
      */
     public function parseRow(array $row): ?array
     {
+        try {
+            return $this->parseRowStrict($row);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
+     * @param array<int, string|null> $row
+     * @return array{date: Carbon, description: string, amount: float, external_id: null}
+     */
+    public function parseRowStrict(array $row): array
+    {
         $columns = $this->bankProfile->config['columns'] ?? [];
 
         $date = $this->extractDate($row, $columns['date'] ?? null);
         $description = $this->extractDescription($row, $columns['description'] ?? null);
         $amount = $this->extractAmount($row, $columns);
 
-        if (!$date instanceof Carbon || !$description || $amount === null) {
-            return null;
+        if (!$date instanceof Carbon) {
+            throw new InvalidArgumentException('Date is missing or invalid.');
+        }
+
+        if (!$description) {
+            throw new InvalidArgumentException('Description is missing.');
+        }
+
+        if ($amount === null || abs($amount) < 0.005) {
+            throw new InvalidArgumentException('Amount is missing, zero, or invalid.');
         }
 
         // Apply statement type logic
@@ -111,7 +133,13 @@ readonly class TransactionRowParser
 
         foreach ($formats as $format) {
             try {
-                return Carbon::createFromFormat($format, $dateString);
+                $date = Carbon::createFromFormat($format, $dateString);
+                $errors = Carbon::getLastErrors();
+                if ($date instanceof Carbon &&
+                    ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0)) &&
+                    $date->format($format) === $dateString) {
+                    return $date->startOfDay();
+                }
             } catch (Exception) {
                 continue;
             }
@@ -142,11 +170,14 @@ readonly class TransactionRowParser
 
         // Separate debit/credit columns
         if ($debitIndex !== null || $creditIndex !== null) {
-            $debit = $debitIndex !== null ?
-                ($this->parseAmountString($row[$debitIndex] ?? '')) ?? 0 : 0;
+            $debitRaw = $debitIndex !== null ? trim((string) ($row[$debitIndex] ?? '')) : '';
+            $creditRaw = $creditIndex !== null ? trim((string) ($row[$creditIndex] ?? '')) : '';
+            $debit = $debitRaw === '' ? 0.0 : $this->parseAmountString($debitRaw);
+            $credit = $creditRaw === '' ? 0.0 : $this->parseAmountString($creditRaw);
 
-            $credit = $creditIndex !== null ?
-                ($this->parseAmountString($row[$creditIndex] ?? '')) ?? 0 : 0;
+            if ($debit === null || $credit === null) {
+                return null;
+            }
 
             return $credit - $debit;
         }

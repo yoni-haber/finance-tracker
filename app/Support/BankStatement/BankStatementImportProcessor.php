@@ -12,6 +12,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -61,7 +62,10 @@ readonly class BankStatementImportProcessor
                 'import_id' => $this->bankStatementImport->id,
                 'error' => 'Bank profile is required for parsing',
             ]);
-            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
+            $this->bankStatementImport->update([
+                'status' => BankStatementConfig::STATUS_FAILED,
+                'error_message' => 'The bank profile is no longer available.',
+            ]);
 
             return false;
         }
@@ -71,7 +75,10 @@ readonly class BankStatementImportProcessor
                 'import_id' => $this->bankStatementImport->id,
                 'error' => 'CSV file not found - ' . $filePath,
             ]);
-            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
+            $this->bankStatementImport->update([
+                'status' => BankStatementConfig::STATUS_FAILED,
+                'error_message' => 'The uploaded statement file could not be found.',
+            ]);
 
             return false;
         }
@@ -90,7 +97,10 @@ readonly class BankStatementImportProcessor
                 'import_id' => $this->bankStatementImport->id,
                 'error' => 'CSV file not found - ' . $exception->getMessage(),
             ]);
-            $this->bankStatementImport->update(['status' => BankStatementConfig::STATUS_FAILED]);
+            $this->bankStatementImport->update([
+                'status' => BankStatementConfig::STATUS_FAILED,
+                'error_message' => 'The uploaded statement file could not be read.',
+            ]);
 
             return false;
         } finally {
@@ -101,7 +111,16 @@ readonly class BankStatementImportProcessor
 
         // Step 2: Parse rows into transactions
         $transactionRowParser = new TransactionRowParser($this->bankStatementImport->bankProfile);
-        $transactions = $this->parseRows($rows->all(), $transactionRowParser);
+        try {
+            $transactions = $this->parseRows($rows->all(), $transactionRowParser);
+        } catch (InvalidArgumentException $exception) {
+            $this->bankStatementImport->update([
+                'status' => BankStatementConfig::STATUS_FAILED,
+                'error_message' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
 
         // Step 3: Add hashes and detect duplicates
         $duplicateDetector = new DuplicateDetector($this->bankStatementImport->user_id);
@@ -134,11 +153,19 @@ readonly class BankStatementImportProcessor
         $stream = $filesystem->readStream($path);
 
         if (!is_resource($stream)) {
+            @unlink($tempPath);
+
             throw new RuntimeException('Unable to read statement file from disk: ' . $path);
         }
 
         try {
-            file_put_contents($tempPath, $stream);
+            if (file_put_contents($tempPath, $stream) === false) {
+                throw new RuntimeException('Unable to copy the statement file for parsing.');
+            }
+        } catch (Throwable $throwable) {
+            @unlink($tempPath);
+
+            throw $throwable;
         } finally {
             fclose($stream);
         }
@@ -154,19 +181,17 @@ readonly class BankStatementImportProcessor
      */
     private function parseRows(array $rows, TransactionRowParser $transactionRowParser): Collection
     {
-        return collect($rows)->map(function (array $row) use ($transactionRowParser): ?array {
-            try {
-                return $transactionRowParser->parseRow($row);
-            } catch (Exception $exception) {
-                logger()->warning('Failed to parse CSV row', [
-                    'import_id' => $this->bankStatementImport->id,
-                    'row' => $row,
-                    'error' => $exception->getMessage(),
-                ]);
+        if ($rows === []) {
+            throw new InvalidArgumentException('The statement contains no data rows.');
+        }
 
-                return null;
+        return collect($rows)->map(function (array $row, int $index) use ($transactionRowParser): array {
+            try {
+                return $transactionRowParser->parseRowStrict($row);
+            } catch (InvalidArgumentException $exception) {
+                throw new InvalidArgumentException(sprintf('Data row %d: %s', $index + 1, $exception->getMessage()), previous: $exception);
             }
-        })->filter();
+        });
     }
 
     /**

@@ -111,6 +111,10 @@
                 </div>
             @endif
 
+            @if ($currentImport->isFailed() && $currentImport->error_message)
+                <p class="mt-4 text-sm text-rose-700 dark:text-rose-300" role="alert">{{ $currentImport->error_message }}</p>
+            @endif
+
             <div class="mt-4 flex flex-wrap gap-3">
                 @if ($currentImport->isParsed())
                     <button

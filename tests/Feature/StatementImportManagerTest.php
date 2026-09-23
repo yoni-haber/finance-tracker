@@ -791,13 +791,13 @@ final class StatementImportManagerTest extends TestCase
             ->assertSet('polling', false);
     }
 
-    public function test_ignores_failed_imports_on_mount(): void
+    public function test_shows_failed_imports_on_mount_so_they_can_be_deleted(): void
     {
         $user = User::factory()->create();
         $bankProfile = BankProfile::factory()->for($user)->create();
 
-        // Create failed import (should be ignored)
-        BankStatementImport::factory()
+        // Failed imports remain visible with their error and delete action.
+        $failed = BankStatementImport::factory()
             ->for($user)
             ->for($bankProfile, 'bankProfile')
             ->failed()
@@ -805,7 +805,7 @@ final class StatementImportManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
-            ->assertSet('currentImport', null)
+            ->assertSet('currentImport.id', $failed->id)
             ->assertSet('polling', false);
     }
 

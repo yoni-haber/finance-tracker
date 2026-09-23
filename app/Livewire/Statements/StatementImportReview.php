@@ -142,6 +142,14 @@ class StatementImportReview extends Component
 
     public function updateTransaction(): void
     {
+        $categoryId = $this->editForm['category_id'] ?? null;
+        $category = $categoryId === null
+            ? null
+            : Category::whereKey($categoryId)->where('user_id', Auth::id())->first();
+        if ($category !== null && $category->type !== ($this->editForm['type'] ?? null)) {
+            $this->editForm['category_id'] = null;
+        }
+
         $this->validate();
 
         /** @var ImportedTransaction $importedTransaction */
@@ -214,6 +222,10 @@ class StatementImportReview extends Component
 
     public function updateType(int $transactionId, string $type): void
     {
+        if (!in_array($type, [Transaction::TYPE_INCOME, Transaction::TYPE_EXPENSE], true)) {
+            throw ValidationException::withMessages(['type' => 'The selected transaction type is invalid.']);
+        }
+
         /** @var ImportedTransaction $importedTransaction */
         $importedTransaction = $this->import->importedTransactions()->findOrFail($transactionId);
 
@@ -221,7 +233,15 @@ class StatementImportReview extends Component
             ? -abs((float) $importedTransaction->amount)
             : abs((float) $importedTransaction->amount);
 
-        $importedTransaction->update(['amount' => $amount]);
+        $categoryId = $importedTransaction->category_id;
+        if ($categoryId !== null && !Category::whereKey($categoryId)
+            ->where('user_id', Auth::id())
+            ->where('type', $type)
+            ->exists()) {
+            $categoryId = null;
+        }
+
+        $importedTransaction->update(['amount' => $amount, 'category_id' => $categoryId]);
 
         // Regenerate hash using the explicit $amount var, not the post-update model attribute
         $duplicateDetector = new DuplicateDetector($this->import->user_id);
@@ -242,6 +262,14 @@ class StatementImportReview extends Component
     {
         $this->deletingTransactionId = $transactionId;
         $this->dispatch('open-delete-modal');
+    }
+
+    public function includeDuplicate(int $transactionId): void
+    {
+        $transaction = $this->import->importedTransactions()->where('is_duplicate', true)->findOrFail($transactionId);
+        $transaction->update(['is_duplicate' => false]);
+
+        session()->flash('status', 'Duplicate marked for import.');
     }
 
     public function deleteTransaction(): void

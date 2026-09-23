@@ -23,7 +23,9 @@ readonly class DuplicateDetector
      */
     public function detectDuplicates(array $transactions): array
     {
-        return array_values(collect($transactions)->map(function (array $transaction): array {
+        $seenHashes = [];
+
+        return array_values(collect($transactions)->map(function (array $transaction) use (&$seenHashes): array {
             $hash = $this->generateTransactionHash(
                 $this->userId,
                 $transaction['date'],
@@ -32,7 +34,8 @@ readonly class DuplicateDetector
             );
 
             $transaction['hash'] = $hash;
-            $transaction['is_duplicate'] = $this->isDuplicate($hash);
+            $transaction['is_duplicate'] = isset($seenHashes[$hash]) || $this->isDuplicate($hash);
+            $seenHashes[$hash] = true;
 
             return $transaction;
         })->values()->all());

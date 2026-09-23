@@ -363,7 +363,13 @@
                                         </button>
                                     </div>
                                 @else
-                                    <span class="text-gray-400 text-xs">N/A</span>
+                                    <button
+                                        wire:click="includeDuplicate({{ $transaction->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="text-blue-600 hover:text-blue-800 text-xs font-medium disabled:opacity-50"
+                                    >
+                                        Include anyway
+                                    </button>
                                 @endif
                             </td>
                         @endif

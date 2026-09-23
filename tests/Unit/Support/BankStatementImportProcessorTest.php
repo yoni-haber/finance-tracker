@@ -269,11 +269,12 @@ final class BankStatementImportProcessorTest extends TestCase
         $bankStatementImportProcessor = new BankStatementImportProcessor($import);
         $result = $bankStatementImportProcessor->process();
 
-        // Even invalid CSV shouldn't crash - it should return true but create no transactions
-        $this->assertTrue($result);
+        // Invalid data must not silently become an empty, successful import.
+        $this->assertFalse($result);
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
+        $this->assertStringContainsString('Data row 1: Date is missing or invalid.', $fresh->error_message);
 
         // Should not create any transactions
         $this->assertCount(0, $import->importedTransactions);
@@ -542,19 +543,17 @@ final class BankStatementImportProcessorTest extends TestCase
         $bankStatementImportProcessor = new BankStatementImportProcessor($import);
         $result = $bankStatementImportProcessor->process();
 
-        $this->assertTrue($result);
+        $this->assertFalse($result);
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
-        $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
+        $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
 
-        // Should not create any transactions because amount is null
+        // Missing amount mapping must not silently create an empty import.
         $this->assertCount(0, $import->importedTransactions);
     }
 
-    public function test_parse_rows_logs_warning_and_skips_row_when_parser_throws(): void
+    public function test_parse_rows_propagates_unexpected_parser_errors(): void
     {
-        Log::spy();
-
         $user = User::factory()->create();
         $profile = BankProfile::factory()->create([
             'statement_type' => 'bank',
@@ -568,8 +567,7 @@ final class BankStatementImportProcessorTest extends TestCase
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
         $bankStatementImportProcessor = new BankStatementImportProcessor($import);
 
-        // Create a BankProfile subclass that throws when config is accessed,
-        // causing TransactionRowParser::parseRow() to throw an Exception.
+        // Create a profile that fails when its config is read.
         $brokenProfile = new class() extends BankProfile
         {
             public function getAttribute($key): mixed
@@ -584,14 +582,10 @@ final class BankStatementImportProcessorTest extends TestCase
 
         $transactionRowParser = new TransactionRowParser($brokenProfile);
 
-        // Invoke the private parseRows method via reflection.
+        // Unexpected parser failures must propagate so the job can retry.
         $reflectionMethod = new ReflectionMethod($bankStatementImportProcessor, 'parseRows');
-        $result = $reflectionMethod->invoke($bankStatementImportProcessor, [['01/01/2026', 'Test', '100.50']], $transactionRowParser);
-
-        $this->assertCount(0, $result);
-        Log::shouldHaveReceived('warning')
-            ->once()
-            ->with('Failed to parse CSV row', Mockery::on(fn ($ctx): bool => $ctx['import_id'] === $import->id
-                && $ctx['error'] === 'DB error'));
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('DB error');
+        $reflectionMethod->invoke($bankStatementImportProcessor, [['01/01/2026', 'Test', '100.50']], $transactionRowParser)->all();
     }
 }
