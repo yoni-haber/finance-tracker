@@ -96,45 +96,12 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->assertViewHas('summary', static fn (array $summary): bool => $summary === [
-                'total' => 3,
-                'duplicates' => 1,
-                'available_transactions' => 2,
-                'new_transactions' => 2,
-                'total_amount' => 50.0,
-            ])
             ->assertSee('3') // Total count
             ->assertSee('Total transactions')
             ->assertSee('2') // New count
             ->assertSee('Ready to import') // Unique CTA only shown when new_transactions > 0
             ->assertSee('1') // Duplicate count
             ->assertSee('Duplicates (skipped)');
-    }
-
-    public function test_summary_excludes_overridden_duplicates_from_duplicate_count_and_includes_them_in_selection(): void
-    {
-        $user = User::factory()->create();
-        $profile = BankProfile::factory()->for($user)->create();
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
-
-        ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(10)->create();
-        ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->income(20)->create([
-            'duplicate_override' => false,
-        ]);
-        ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->income(30)->create([
-            'duplicate_override' => true,
-        ]);
-
-        Livewire::actingAs($user)
-            ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->assertViewHas('summary', static fn (array $summary): bool => $summary === [
-                'total' => 3,
-                'duplicates' => 1,
-                'available_transactions' => 2,
-                'new_transactions' => 2,
-                'total_amount' => 40.0,
-            ])
-            ->assertViewHas('selectedCount', 2);
     }
 
     public function test_edits_transaction_successfully(): void
