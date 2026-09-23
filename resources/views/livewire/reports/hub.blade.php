@@ -1,16 +1,21 @@
 <div class="space-y-6">
-    <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    @php
+        $hasCashFlowData = collect($chartData['income'])
+            ->merge($chartData['spending'])
+            ->merge($chartData['savedAndInvested'])
+            ->contains(fn ($value) => (float) $value !== 0.0);
+    @endphp
+
+    <section class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" aria-labelledby="cash-flow-heading">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h3 class="text-lg font-semibold">Income, Spending &amp; Saving</h3>
+                <h3 id="cash-flow-heading" class="text-lg font-semibold">Income, Spending &amp; Saving</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Compare monthly totals for your selected range, including projected recurring transactions.</p>
             </div>
             <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-                <select
-                    aria-label="Chart range"
-                    wire:model.live="range"
-                    class="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200 dark:focus:border-indigo-500 dark:focus:ring-indigo-300"
-                >
+                <span class="sr-only">Chart range</span>
+                <select aria-label="Chart range" wire:model.live="range"
+                        class="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200 dark:focus:border-indigo-500 dark:focus:ring-indigo-300">
                     @foreach ($rangeOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
@@ -18,156 +23,61 @@
             </label>
         </div>
 
-        <canvas
-            id="incomeVsExpensesChart"
-            wire:ignore
-            data-chart-data='@json($chartData)'
-            class="mt-6"
-        ></canvas>
-    </div>
+        @if ($hasCashFlowData)
+            <canvas id="incomeVsExpensesChart" wire:ignore data-chart-data='@json($chartData)'
+                    role="img" aria-label="Monthly income, spending, and saving chart"
+                    aria-describedby="cash-flow-data" class="mt-6"></canvas>
+        @else
+            <p class="mt-6 rounded-lg bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                No income or outflow data is available for this range.
+            </p>
+        @endif
 
-    <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h3 class="text-lg font-semibold">Net Worth Over Time</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Track how your overall financial position changes.</p>
+        <details id="cash-flow-data" class="mt-4 text-sm">
+            <summary class="cursor-pointer font-medium text-zinc-600 dark:text-zinc-300">View chart data</summary>
+            <div class="mt-2 overflow-x-auto">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Income</th><th class="py-2 text-right">Spending</th><th class="py-2 text-right">Saved &amp; invested</th></tr></thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        @foreach ($chartData['labels'] as $index => $label)
+                            <tr>
+                                <td class="py-2">{{ $label }}</td>
+                                <td class="py-2 text-right">£{{ number_format($chartData['income'][$index], 2) }}</td>
+                                <td class="py-2 text-right">£{{ number_format($chartData['spending'][$index], 2) }}</td>
+                                <td class="py-2 text-right">£{{ number_format($chartData['savedAndInvested'][$index], 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-        </div>
+        </details>
+    </section>
 
-        <canvas
-            id="netWorthChart"
-            wire:ignore
-            data-chart-data='@json($netWorthChartData)'
-            class="mt-6"
-        ></canvas>
-    </div>
+    <section class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" aria-labelledby="net-worth-heading">
+        <h3 id="net-worth-heading" class="text-lg font-semibold">Net Worth Over Time</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Track how your overall financial position changes.</p>
 
-    <script>
-        (() => {
-            const renderIncomeVsExpensesChart = (chartData) => {
-                const chartElement = document.getElementById('incomeVsExpensesChart');
-                if (!chartElement) return;
-
-                if (window._incomeExpenseChart) window._incomeExpenseChart.destroy();
-
-                window._incomeExpenseChart = new Chart(chartElement, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [
-                            {
-                                label: 'Income',
-                                data: chartData.income,
-                                borderColor: '#10b981',
-                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                tension: 0.3,
-                                fill: true,
-                            },
-                            {
-                                label: 'Spending',
-                                data: chartData.spending,
-                                borderColor: '#ef4444',
-                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                tension: 0.3,
-                                fill: true,
-                            },
-                            {
-                                label: 'Saved & Invested',
-                                data: chartData.savedAndInvested,
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                                tension: 0.3,
-                                fill: true,
-                            },
-                        ],
-                    },
-                    options: {
-                        responsive: true,
-                        interaction: { intersect: false, mode: 'index' },
-                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => `£${value}` } } },
-                        plugins: { legend: { labels: { usePointStyle: true } } },
-                    },
-                });
-            };
-
-            const renderNetWorthChart = (chartData) => {
-                const chartElement = document.getElementById('netWorthChart');
-                if (!chartElement) return;
-
-                if (window._netWorthChart) window._netWorthChart.destroy();
-
-                window._netWorthChart = new Chart(chartElement, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [
-                            {
-                                label: 'Net Worth',
-                                data: chartData.netWorth,
-                                borderColor: '#6366f1',
-                                backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                                tension: 0.3,
-                                fill: true,
-                            },
-                        ],
-                    },
-                    options: {
-                        responsive: true,
-                        interaction: { intersect: false, mode: 'index' },
-                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => `£${value}` } } },
-                        plugins: { legend: { labels: { usePointStyle: true } } },
-                    },
-                });
-            };
-
-            const hydrateFromElement = () => {
-                const chartElement = document.getElementById('incomeVsExpensesChart');
-                const netWorthElement = document.getElementById('netWorthChart');
-
-                if (chartElement?.dataset.chartData) {
-                    try {
-                        renderIncomeVsExpensesChart(JSON.parse(chartElement.dataset.chartData));
-                    } catch (error) {
-                        console.error('Unable to parse chart data', error);
-                    }
-                }
-
-                if (netWorthElement?.dataset.chartData) {
-                    try {
-                        renderNetWorthChart(JSON.parse(netWorthElement.dataset.chartData));
-                    } catch (error) {
-                        console.error('Unable to parse net worth chart data', error);
-                    }
-                }
-            };
-
-            // Register document-level listeners only once across SPA navigations.
-            if (!window._reportsChartsListenersRegistered) {
-                window._reportsChartsListenersRegistered = true;
-
-                document.addEventListener('DOMContentLoaded', hydrateFromElement);
-                document.addEventListener('livewire:navigated', hydrateFromElement);
-
-                // livewire:init fires once on the initial full-page load. When navigating
-                // to this page via wire:navigate, Livewire is already initialised so we
-                // register the listener immediately instead of waiting for the event.
-                const registerLivewireListener = () => {
-                    Livewire.on('reports-chart-data', (payload) => {
-                        const chartData = payload.chartData ?? payload;
-                        renderIncomeVsExpensesChart(chartData);
-                    });
-                };
-
-                if (typeof Livewire !== 'undefined') {
-                    registerLivewireListener();
-                } else {
-                    document.addEventListener('livewire:init', registerLivewireListener);
-                }
-            }
-
-            // Always attempt an immediate render — covers SPA navigation where the DOM
-            // data is already present when this script is (re-)evaluated.
-            hydrateFromElement();
-        })();
-    </script>
+        @if ($netWorthChartData['labels'])
+            <canvas id="netWorthChart" wire:ignore data-chart-data='@json($netWorthChartData)'
+                    role="img" aria-label="Net worth over time chart" aria-describedby="net-worth-data"
+                    class="mt-6"></canvas>
+            <details id="net-worth-data" class="mt-4 text-sm">
+                <summary class="cursor-pointer font-medium text-zinc-600 dark:text-zinc-300">View chart data</summary>
+                <div class="mt-2 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <thead><tr><th class="py-2 text-left">Date</th><th class="py-2 text-right">Net worth</th></tr></thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            @foreach ($netWorthChartData['labels'] as $index => $label)
+                                <tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right">£{{ number_format($netWorthChartData['netWorth'][$index], 2) }}</td></tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        @else
+            <p class="mt-6 rounded-lg bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                No net worth snapshots are available for the last 12 months.
+            </p>
+        @endif
+    </section>
 </div>

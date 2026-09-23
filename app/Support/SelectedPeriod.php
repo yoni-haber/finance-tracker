@@ -57,17 +57,37 @@ final readonly class SelectedPeriod
     /** The period one month earlier. */
     public function previous(): self
     {
+        if ($this->isMinimum()) {
+            return $this;
+        }
+
         $date = $this->startOfMonth()->subMonth();
 
-        return new self($date->month, $date->year);
+        return self::clamp($date->month, $date->year);
     }
 
     /** The period one-month later. */
     public function next(): self
     {
+        if ($this->isMaximum()) {
+            return $this;
+        }
+
         $date = $this->startOfMonth()->addMonth();
 
-        return new self($date->month, $date->year);
+        return self::clamp($date->month, $date->year);
+    }
+
+    /** Whether this is the earliest supported period. */
+    public function isMinimum(): bool
+    {
+        return $this->year === self::MIN_YEAR && $this->month === 1;
+    }
+
+    /** Whether this is the latest supported period. */
+    public function isMaximum(): bool
+    {
+        return $this->year === self::MAX_YEAR && $this->month === 12;
     }
 
     /** Whether this period is the current calendar month. */

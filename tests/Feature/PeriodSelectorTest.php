@@ -164,4 +164,40 @@ final class PeriodSelectorTest extends TestCase
             ->assertSet('year', 2024)
             ->assertDispatched('period-changed', month: 4, year: 2024);
     }
+
+    public function test_previous_month_is_disabled_and_does_not_dispatch_at_the_lower_boundary(): void
+    {
+        $user = User::factory()->create([
+            'selected_month' => 1,
+            'selected_year' => 2000,
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(PeriodSelector::class);
+
+        $testable->assertViewHas('canGoPrevious', false);
+        $testable->assertSeeHtml('disabled');
+        $testable
+            ->call('previousMonth')
+            ->assertSet('month', 1)
+            ->assertSet('year', 2000)
+            ->assertNotDispatched('period-changed');
+    }
+
+    public function test_next_month_is_disabled_and_does_not_dispatch_at_the_upper_boundary(): void
+    {
+        $user = User::factory()->create([
+            'selected_month' => 12,
+            'selected_year' => 2100,
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(PeriodSelector::class);
+
+        $testable->assertViewHas('canGoNext', false);
+        $testable->assertSeeHtml('disabled');
+        $testable
+            ->call('nextMonth')
+            ->assertSet('month', 12)
+            ->assertSet('year', 2100)
+            ->assertNotDispatched('period-changed');
+    }
 }
