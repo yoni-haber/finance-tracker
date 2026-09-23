@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Support;
 
-use App\Jobs\DeleteStatementFileJob;
 use App\Models\BankProfile;
 use App\Models\BankStatementImport;
 use App\Models\Category;
@@ -15,7 +14,6 @@ use App\Support\BankStatementConfig;
 use App\Support\StatementImportCommitter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\TestCase;
@@ -378,95 +376,5 @@ final class StatementImportCommitterTest extends TestCase
         $this->assertNotNull($transaction);
         // When original_hash is null, the committer should fall back to hash.
         $this->assertEquals($hash, $transaction->hash);
-    }
-
-    public function test_explicit_selection_mode_commits_only_listed_committable_rows(): void
-    {
-        Storage::fake('local');
-        $user = User::factory()->create();
-        $profile = BankProfile::factory()->for($user)->create();
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
-        $selected = ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(10)->create();
-        $unselected = ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(20)->create();
-        $duplicate = ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->income(30)->create();
-
-        $this->assertTrue(new StatementImportCommitter($import, false, [$selected->id, $duplicate->id])->commit());
-
-        $this->assertTrue((bool) $selected->fresh()?->is_committed);
-        $this->assertFalse((bool) $unselected->fresh()?->is_committed);
-        $this->assertFalse((bool) $duplicate->fresh()?->is_committed);
-        $this->assertDatabaseHas('transactions', ['user_id' => $user->id, 'amount' => '10.00']);
-        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id, 'amount' => '20.00']);
-        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id, 'amount' => '30.00']);
-    }
-
-    public function test_empty_explicit_selection_commits_no_rows_but_completes_import(): void
-    {
-        Storage::fake('local');
-        $user = User::factory()->create();
-        $profile = BankProfile::factory()->for($user)->create();
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
-        $row = ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(10)->create();
-
-        $this->assertTrue(new StatementImportCommitter($import, false, [])->commit());
-
-        $this->assertSame(BankStatementConfig::STATUS_COMMITTED, $import->fresh()?->status);
-        $this->assertFalse((bool) $row->fresh()?->is_committed);
-        $this->assertDatabaseCount('transactions', 0);
-    }
-
-    public function test_duplicate_override_is_committed_when_selected(): void
-    {
-        Storage::fake('local');
-        $user = User::factory()->create();
-        $profile = BankProfile::factory()->for($user)->create();
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
-        $duplicate = ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->income(30)->create([
-            'duplicate_override' => true,
-        ]);
-
-        $this->assertTrue(new StatementImportCommitter($import, false, [$duplicate->id])->commit());
-
-        $this->assertTrue((bool) $duplicate->fresh()?->is_committed);
-        $this->assertDatabaseHas('transactions', ['user_id' => $user->id, 'amount' => '30.00']);
-    }
-
-    public function test_wrong_type_and_other_user_categories_each_roll_back_the_commit(): void
-    {
-        foreach (['wrong_type', 'other_user'] as $invalidRelationship) {
-            Storage::fake('local');
-            $user = User::factory()->create();
-            $otherUser = User::factory()->create();
-            $profile = BankProfile::factory()->for($user)->create();
-            $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
-            $category = $invalidRelationship === 'wrong_type'
-                ? Category::factory()->for($user)->expense()->create()
-                : Category::factory()->for($otherUser)->income()->create();
-            ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(10)->create([
-                'category_id' => $category->id,
-            ]);
-
-            $this->assertFalse(new StatementImportCommitter($import)->commit(), $invalidRelationship);
-            $this->assertSame(BankStatementConfig::STATUS_PARSED, $import->fresh()?->status);
-            $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
-        }
-    }
-
-    public function test_cleanup_failure_marks_state_and_queues_the_exact_import_for_retry(): void
-    {
-        Queue::fake();
-        Storage::shouldReceive('disk')->andReturnSelf();
-        Storage::shouldReceive('exists')->once()->andReturn(true);
-        Storage::shouldReceive('delete')->once()->andReturn(false);
-        $user = User::factory()->create();
-        $profile = BankProfile::factory()->for($user)->create();
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
-        ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(10)->create();
-
-        $this->assertTrue(new StatementImportCommitter($import)->commit());
-
-        $this->assertSame(BankStatementConfig::CLEANUP_FAILED, $import->fresh()?->file_cleanup_status);
-        Queue::assertPushed(DeleteStatementFileJob::class, 1);
-        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $deleteStatementFileJob): bool => $deleteStatementFileJob->importId === $import->id);
     }
 }

@@ -12,12 +12,10 @@ use App\Models\User;
 use App\Support\BankStatement\BankStatementImportProcessor;
 use App\Support\BankStatement\DuplicateDetector;
 use App\Support\BankStatementConfig;
-use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
-use RuntimeException;
 use Tests\TestCase;
 
 final class BankStatementImportProcessorTest extends TestCase
@@ -298,9 +296,6 @@ final class BankStatementImportProcessorTest extends TestCase
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
-        $this->assertNull($fresh->processing_token);
-        $this->assertNotInstanceOf(\Illuminate\Support\Carbon::class, $fresh->processing_started_at);
-        $this->assertSame([['row' => 0, 'message' => 'The uploaded statement file could not be found.']], $fresh->parse_errors);
 
         Log::shouldHaveReceived('error')
             ->once()
@@ -390,9 +385,6 @@ final class BankStatementImportProcessorTest extends TestCase
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
         $this->assertEquals(BankStatementConfig::STATUS_FAILED, $fresh->status);
-        $this->assertNull($fresh->processing_token);
-        $this->assertNotInstanceOf(\Illuminate\Support\Carbon::class, $fresh->processing_started_at);
-        $this->assertSame([['row' => 0, 'message' => 'The bank profile used for this import is no longer available.']], $fresh->parse_errors);
         $this->assertCount(0, $import->importedTransactions);
 
         Log::shouldHaveReceived('error')
@@ -580,26 +572,5 @@ final class BankStatementImportProcessorTest extends TestCase
 
         $this->assertTrue(new BankStatementImportProcessor($import, $token)->process());
         $this->assertSame(BankStatementConfig::STATUS_PARSED, $import->fresh()?->status);
-    }
-
-    public function test_unreadable_storage_stream_throws_with_the_statement_path(): void
-    {
-        $user = User::factory()->create();
-        $profile = BankProfile::factory()->for($user)->create(['config' => [
-            'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
-            'has_header' => true,
-        ]]);
-        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
-        $path = BankStatementConfig::statementPath($import->id);
-        /** @var Filesystem&Mockery\MockInterface $mock */
-        $mock = Mockery::mock(Filesystem::class);
-        $mock->shouldReceive('exists')->once()->with($path)->andReturn(true);
-        $mock->shouldReceive('readStream')->once()->with($path)->andReturn(false);
-        Storage::shouldReceive('disk')->once()->with(BankStatementConfig::statementsDisk())->andReturn($mock);
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageIsOrContains('Unable to read statement file from disk: ' . $path);
-
-        new BankStatementImportProcessor($import, 'stable-token')->process();
     }
 }

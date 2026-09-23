@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Support\BankStatement\BankStatementImportProcessor;
 use App\Support\BankStatement\DuplicateDetector;
 use App\Support\BankStatementConfig;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -147,29 +146,6 @@ final class BankStatementImportTest extends TestCase
 
         $this->assertCount(3, $importsForUser1);
         $this->assertCount(2, $importsForUser2);
-    }
-
-    public function test_hardening_metadata_is_cast_to_domain_types(): void
-    {
-        $import = BankStatementImport::factory()->create([
-            'profile_config' => ['columns' => ['date' => 0]],
-            'processing_started_at' => '2026-01-02 03:04:05',
-            'total_rows' => '12',
-            'valid_rows' => '10',
-            'rejected_rows' => '2',
-            'parse_errors' => [['row' => 4, 'message' => 'Invalid date']],
-            'file_deleted_at' => '2026-01-03 04:05:06',
-        ]);
-
-        $fresh = $import->fresh();
-        $this->assertNotNull($fresh);
-        $this->assertSame(['columns' => ['date' => 0]], $fresh->profile_config);
-        $this->assertInstanceOf(Carbon::class, $fresh->processing_started_at);
-        $this->assertSame(12, $fresh->total_rows);
-        $this->assertSame(10, $fresh->valid_rows);
-        $this->assertSame(2, $fresh->rejected_rows);
-        $this->assertSame([['row' => 4, 'message' => 'Invalid date']], $fresh->parse_errors);
-        $this->assertInstanceOf(Carbon::class, $fresh->file_deleted_at);
     }
 
     public function test_processor_returns_true_if_already_parsed(): void

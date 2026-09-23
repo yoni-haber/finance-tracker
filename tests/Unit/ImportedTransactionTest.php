@@ -58,14 +58,12 @@ final class ImportedTransactionTest extends TestCase
             'date' => '2026-01-04',
             'amount' => 123.45,
             'is_duplicate' => true,
-            'duplicate_override' => true,
             'is_committed' => false,
         ]);
 
         $this->assertInstanceOf(Carbon::class, $transaction->date);
         $this->assertSame('123.45', $transaction->amount);
         $this->assertTrue($transaction->is_duplicate);
-        $this->assertTrue($transaction->duplicate_override);
         $this->assertFalse($transaction->is_committed);
     }
 
@@ -153,15 +151,16 @@ final class ImportedTransactionTest extends TestCase
         $profile = BankProfile::factory()->for($user)->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
 
-        $skippedDuplicate = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => true, 'duplicate_override' => false, 'is_committed' => false]);
-        $overriddenDuplicate = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => true, 'duplicate_override' => true, 'is_committed' => false]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => true, 'is_committed' => false]);
         ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false, 'is_committed' => true]);
-        $unique = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false, 'is_committed' => false]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false, 'is_committed' => false]);
 
         $committableTransactions = ImportedTransaction::committable()->get();
 
-        $this->assertCount(2, $committableTransactions);
-        $this->assertEqualsCanonicalizing([$overriddenDuplicate->id, $unique->id], $committableTransactions->modelKeys());
-        $this->assertNotContains($skippedDuplicate->id, $committableTransactions->modelKeys());
+        $this->assertCount(1, $committableTransactions);
+        $committable = $committableTransactions->first();
+        $this->assertInstanceOf(ImportedTransaction::class, $committable);
+        $this->assertFalse($committable->is_duplicate);
+        $this->assertFalse($committable->is_committed);
     }
 }

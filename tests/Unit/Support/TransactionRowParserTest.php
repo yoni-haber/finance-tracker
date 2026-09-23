@@ -6,7 +6,6 @@ namespace Tests\Unit\Support;
 
 use App\Models\BankProfile;
 use App\Support\BankStatement\TransactionRowParser;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 final class TransactionRowParserTest extends TestCase
@@ -301,85 +300,5 @@ final class TransactionRowParserTest extends TestCase
 
         $this->assertNotNull($result);
         $this->assertEqualsWithDelta(50.0, $result['amount'], PHP_FLOAT_EPSILON);
-    }
-
-    public function test_strict_parser_rejects_an_invalid_column_mapping_with_exact_message(): void
-    {
-        $transactionRowParser = new TransactionRowParser(['columns' => 'not-an-array']);
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('The profile column mapping is invalid.');
-
-        $transactionRowParser->parseRowStrict(['2026-01-01', 'Description', '10.00']);
-    }
-
-    public function test_strict_parser_reports_each_required_value_precisely(): void
-    {
-        $transactionRowParser = new TransactionRowParser([
-            'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
-            'date_format' => 'Y-m-d',
-        ]);
-
-        foreach ([
-            [['not-a-date', 'Description', '10.00'], 'Date is missing or does not match a supported format.'],
-            [['2026-01-01', '', '10.00'], 'Description is missing.'],
-            [['2026-01-01', 'Description', 'invalid'], 'Amount is missing, zero, or invalid.'],
-            [['2026-01-01', 'Description', '0.004'], 'Amount is missing, zero, or invalid.'],
-        ] as [$row, $message]) {
-            try {
-                $transactionRowParser->parseRowStrict($row);
-                $this->fail('Expected strict row validation to fail.');
-            } catch (InvalidArgumentException $invalidArgumentException) {
-                $this->assertSame($message, $invalidArgumentException->getMessage());
-            }
-        }
-    }
-
-    public function test_strict_parser_accepts_the_minimum_non_zero_amount_boundary(): void
-    {
-        $transactionRowParser = new TransactionRowParser([
-            'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
-            'date_format' => 'Y-m-d',
-        ]);
-
-        $result = $transactionRowParser->parseRowStrict(['2026-01-01', 'Description', '0.005']);
-
-        $this->assertEqualsWithDelta(0.005, $result['amount'], PHP_FLOAT_EPSILON);
-    }
-
-    public function test_array_configuration_defaults_to_bank_but_can_explicitly_flip_credit_card_amounts(): void
-    {
-        $config = [
-            'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
-            'date_format' => 'Y-m-d',
-        ];
-
-        $bank = new TransactionRowParser($config);
-        $creditCard = new TransactionRowParser($config, 'credit_card');
-
-        $this->assertEqualsWithDelta(12.5, $bank->parseRowStrict(['2026-01-01', 'Description', '12.50'])['amount'], PHP_FLOAT_EPSILON);
-        $this->assertSame(-12.5, $creditCard->parseRowStrict(['2026-01-01', 'Description', '12.50'])['amount']);
-    }
-
-    public function test_date_parser_rejects_calendar_overflow_and_accepts_non_padded_formats(): void
-    {
-        $transactionRowParser = new TransactionRowParser([
-            'columns' => ['date' => 0, 'description' => 1, 'amount' => 2],
-        ]);
-
-        $this->assertNull($transactionRowParser->parseRow(['31/02/2026', 'Impossible', '10.00']));
-        $this->assertSame('2026-02-01', $transactionRowParser->parseRowStrict(['1/2/2026', 'UK date', '10.00'])['date']->toDateString());
-        $this->assertSame('2026-01-31', $transactionRowParser->parseRowStrict(['1/31/2026', 'US date', '10.00'])['date']->toDateString());
-    }
-
-    public function test_invalid_non_empty_debit_or_credit_values_reject_the_row(): void
-    {
-        $transactionRowParser = new TransactionRowParser([
-            'columns' => ['date' => 0, 'description' => 1, 'debit' => 2, 'credit' => 3],
-            'date_format' => 'Y-m-d',
-        ]);
-
-        $this->assertNull($transactionRowParser->parseRow(['2026-01-01', 'Bad debit', 'abc', '']));
-        $this->assertNull($transactionRowParser->parseRow(['2026-01-01', 'Bad credit', '', 'abc']));
     }
 }

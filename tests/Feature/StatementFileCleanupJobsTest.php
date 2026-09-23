@@ -15,7 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
-use Mockery\MockInterface;
 use Tests\TestCase;
 
 final class StatementFileCleanupJobsTest extends TestCase
@@ -24,50 +23,47 @@ final class StatementFileCleanupJobsTest extends TestCase
 
     public function test_delete_job_exposes_the_expected_retry_policy(): void
     {
-        $deleteStatementFileJob = new DeleteStatementFileJob(42);
+        $job = new DeleteStatementFileJob(42);
 
-        $this->assertSame(42, $deleteStatementFileJob->importId);
-        $this->assertSame(5, $deleteStatementFileJob->tries);
-        $this->assertSame([60, 300, 900, 3600], $deleteStatementFileJob->backoff);
+        $this->assertSame(42, $job->importId);
+        $this->assertSame(5, $job->tries);
+        $this->assertSame([60, 300, 900, 3600], $job->backoff);
     }
 
     public function test_delete_job_is_a_no_op_when_the_import_no_longer_exists(): void
     {
-        /** @var StatementFileCleaner&MockInterface $mock */
-        $mock = Mockery::mock(StatementFileCleaner::class);
-        $mock->shouldNotReceive('delete');
+        $cleaner = Mockery::mock(StatementFileCleaner::class);
+        $cleaner->shouldNotReceive('delete');
 
-        new DeleteStatementFileJob(999999)->handle($mock);
+        new DeleteStatementFileJob(999999)->handle($cleaner);
 
         $this->addToAssertionCount(1);
     }
 
     public function test_delete_job_is_a_no_op_when_cleanup_already_completed(): void
     {
-        $bankStatementImport = $this->makeImport([
+        $import = $this->makeImport([
             'file_cleanup_status' => BankStatementConfig::CLEANUP_DELETED,
         ]);
-        /** @var StatementFileCleaner&MockInterface $mock */
-        $mock = Mockery::mock(StatementFileCleaner::class);
-        $mock->shouldNotReceive('delete');
+        $cleaner = Mockery::mock(StatementFileCleaner::class);
+        $cleaner->shouldNotReceive('delete');
 
-        new DeleteStatementFileJob($bankStatementImport->id)->handle($mock);
+        new DeleteStatementFileJob($import->id)->handle($cleaner);
 
         $this->addToAssertionCount(1);
     }
 
     public function test_delete_job_passes_an_unfinished_import_to_the_cleaner(): void
     {
-        $bankStatementImport = $this->makeImport([
+        $import = $this->makeImport([
             'file_cleanup_status' => BankStatementConfig::CLEANUP_FAILED,
         ]);
-        /** @var StatementFileCleaner&MockInterface $mock */
-        $mock = Mockery::mock(StatementFileCleaner::class);
-        $mock->shouldReceive('delete')
+        $cleaner = Mockery::mock(StatementFileCleaner::class);
+        $cleaner->shouldReceive('delete')
             ->once()
-            ->with(Mockery::on(fn (BankStatementImport $candidate): bool => $candidate->is($bankStatementImport)));
+            ->with(Mockery::on(fn (BankStatementImport $candidate): bool => $candidate->is($import)));
 
-        new DeleteStatementFileJob($bankStatementImport->id)->handle($mock);
+        new DeleteStatementFileJob($import->id)->handle($cleaner);
 
         $this->addToAssertionCount(1);
     }
@@ -75,7 +71,7 @@ final class StatementFileCleanupJobsTest extends TestCase
     public function test_sweep_filters_by_both_commit_and_cleanup_status(): void
     {
         Queue::fake();
-        $bankStatementImport = $this->makeImport([
+        $pending = $this->makeImport([
             'status' => BankStatementConfig::STATUS_COMMITTED,
             'file_cleanup_status' => BankStatementConfig::CLEANUP_PENDING,
         ]);
@@ -95,8 +91,8 @@ final class StatementFileCleanupJobsTest extends TestCase
         new SweepStatementFileCleanupJob()->handle();
 
         Queue::assertPushed(DeleteStatementFileJob::class, 2);
-        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $deleteStatementFileJob): bool => $deleteStatementFileJob->importId === $bankStatementImport->id);
-        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $deleteStatementFileJob): bool => $deleteStatementFileJob->importId === $failed->id);
+        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $job): bool => $job->importId === $pending->id);
+        Queue::assertPushed(DeleteStatementFileJob::class, fn (DeleteStatementFileJob $job): bool => $job->importId === $failed->id);
     }
 
     public function test_sweep_uses_batches_of_exactly_one_hundred_rows(): void

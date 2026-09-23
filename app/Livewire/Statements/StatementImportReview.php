@@ -77,27 +77,30 @@ class StatementImportReview extends Component
 
     public function render(): View
     {
-        $selectedCount = $this->selectedTransactionsQuery()->count();
+        $hasMany = $this->import->importedTransactions();
+        $committableQuery = $this->import->importedTransactions()->committable();
+        $selectedQuery = $this->selectedTransactionsQuery();
+        $selectedCount = (clone $selectedQuery)->count();
 
         $summary = [
-            'total' => $this->import->importedTransactions()->count(),
-            'duplicates' => $this->import->importedTransactions()->where('is_duplicate', true)->where('duplicate_override', false)->count(),
-            'available_transactions' => $this->import->importedTransactions()->committable()->count(),
+            'total' => (clone $hasMany)->count(),
+            'duplicates' => (clone $hasMany)->where('is_duplicate', true)->where('duplicate_override', false)->count(),
+            'available_transactions' => (clone $committableQuery)->count(),
             'new_transactions' => $selectedCount,
-            'total_amount' => (float) $this->selectedTransactionsQuery()->sum('amount'),
+            'total_amount' => (float) (clone $selectedQuery)->sum('amount'),
         ];
 
         $bulkSelectionType = null;
         if ($selectedCount > 0) {
-            $hasIncome = $this->selectedTransactionsQuery()->where('amount', '>=', 0)->exists();
-            $hasExpense = $this->selectedTransactionsQuery()->where('amount', '<', 0)->exists();
+            $hasIncome = (clone $selectedQuery)->where('amount', '>=', 0)->exists();
+            $hasExpense = (clone $selectedQuery)->where('amount', '<', 0)->exists();
             $bulkSelectionType = $hasIncome !== $hasExpense
                 ? ($hasIncome ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE)
                 : null;
         }
 
         return view('livewire.statements.import-review', [
-            'transactions' => $this->import->importedTransactions()
+            'transactions' => $hasMany
                 ->orderBy('date', 'desc')
                 ->orderBy('id')
                 ->paginate(BankStatementConfig::REVIEW_PAGE_SIZE),
@@ -400,14 +403,15 @@ class StatementImportReview extends Component
             return;
         }
 
-        $selectedCount = $this->selectedTransactionsQuery()->count();
+        $hasMany = $this->selectedTransactionsQuery();
+        $selectedCount = (clone $hasMany)->count();
 
         if ($selectedCount === 0) {
             return;
         }
 
-        $hasIncome = $this->selectedTransactionsQuery()->where('amount', '>=', 0)->exists();
-        $hasExpense = $this->selectedTransactionsQuery()->where('amount', '<', 0)->exists();
+        $hasIncome = (clone $hasMany)->where('amount', '>=', 0)->exists();
+        $hasExpense = (clone $hasMany)->where('amount', '<', 0)->exists();
         if ($hasIncome && $hasExpense) {
             $this->addError('bulk_assign', 'Selected transactions have mixed types (income and expense). Choose transactions of the same type before assigning a category.');
 
