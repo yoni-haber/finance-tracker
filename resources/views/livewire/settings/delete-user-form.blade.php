@@ -14,7 +14,7 @@ class extends \Livewire\Component {
     /**
      * Delete the currently authenticated user.
      */
-    public function deleteUser(Logout $logout, StatementFileCleaner $statementFileCleaner): void
+    public function deleteUser(Logout $logout, StatementFileCleaner $fileCleaner): void
     {
         $this->validate([
             'password' => ['required', 'string', 'current_password'],
@@ -24,7 +24,7 @@ class extends \Livewire\Component {
 
         try {
             foreach ($user->bankStatementImports()->get() as $import) {
-                $statementFileCleaner->delete($import);
+                $fileCleaner->delete($import);
             }
         } catch (\Throwable $throwable) {
             report($throwable);

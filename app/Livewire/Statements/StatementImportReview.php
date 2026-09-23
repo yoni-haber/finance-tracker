@@ -77,14 +77,14 @@ class StatementImportReview extends Component
 
     public function render(): View
     {
-        $hasMany = $this->import->importedTransactions();
+        $query = $this->import->importedTransactions();
         $committableQuery = $this->import->importedTransactions()->committable();
         $selectedQuery = $this->selectedTransactionsQuery();
         $selectedCount = (clone $selectedQuery)->count();
 
         $summary = [
-            'total' => (clone $hasMany)->count(),
-            'duplicates' => (clone $hasMany)->where('is_duplicate', true)->where('duplicate_override', false)->count(),
+            'total' => (clone $query)->count(),
+            'duplicates' => (clone $query)->where('is_duplicate', true)->where('duplicate_override', false)->count(),
             'available_transactions' => (clone $committableQuery)->count(),
             'new_transactions' => $selectedCount,
             'total_amount' => (float) (clone $selectedQuery)->sum('amount'),
@@ -100,7 +100,7 @@ class StatementImportReview extends Component
         }
 
         return view('livewire.statements.import-review', [
-            'transactions' => $hasMany
+            'transactions' => $query
                 ->orderBy('date', 'desc')
                 ->orderBy('id')
                 ->paginate(BankStatementConfig::REVIEW_PAGE_SIZE),
@@ -281,18 +281,20 @@ class StatementImportReview extends Component
 
     public function toggleDuplicateOverride(int $transactionId): void
     {
-        /** @var ImportedTransaction $importedTransaction */
-        $importedTransaction = $this->import->importedTransactions()->findOrFail($transactionId);
-        if (!$importedTransaction->is_duplicate) {
+        /** @var ImportedTransaction $transaction */
+        $transaction = $this->import->importedTransactions()->findOrFail($transactionId);
+        if (!$transaction->is_duplicate) {
             return;
         }
 
-        $importedTransaction->update(['duplicate_override' => !$importedTransaction->duplicate_override]);
+        $transaction->update(['duplicate_override' => !$transaction->duplicate_override]);
     }
 
     public function toggleTransactionSelection(int $transactionId): void
     {
         $this->import->importedTransactions()->committable()->findOrFail($transactionId);
+
+        $transactionId = (int) $transactionId;
         $exceptionIndex = array_search($transactionId, $this->selectionExceptionIds, true);
 
         if ($exceptionIndex === false) {
@@ -403,15 +405,15 @@ class StatementImportReview extends Component
             return;
         }
 
-        $hasMany = $this->selectedTransactionsQuery();
-        $selectedCount = (clone $hasMany)->count();
+        $selectedQuery = $this->selectedTransactionsQuery();
+        $selectedCount = (clone $selectedQuery)->count();
 
         if ($selectedCount === 0) {
             return;
         }
 
-        $hasIncome = (clone $hasMany)->where('amount', '>=', 0)->exists();
-        $hasExpense = (clone $hasMany)->where('amount', '<', 0)->exists();
+        $hasIncome = (clone $selectedQuery)->where('amount', '>=', 0)->exists();
+        $hasExpense = (clone $selectedQuery)->where('amount', '<', 0)->exists();
         if ($hasIncome && $hasExpense) {
             $this->addError('bulk_assign', 'Selected transactions have mixed types (income and expense). Choose transactions of the same type before assigning a category.');
 

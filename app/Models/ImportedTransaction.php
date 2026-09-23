@@ -120,8 +120,8 @@ class ImportedTransaction extends Model
     public function scopeCommittable(Builder $builder): Builder
     {
         return $builder
-            ->where(function (Builder $builder): void {
-                $builder->where('is_duplicate', false)->orWhere('duplicate_override', true);
+            ->where(function (Builder $query): void {
+                $query->where('is_duplicate', false)->orWhere('duplicate_override', true);
             })
             ->notCommitted();
     }

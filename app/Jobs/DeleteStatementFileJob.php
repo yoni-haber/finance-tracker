@@ -20,13 +20,13 @@ class DeleteStatementFileJob implements ShouldQueue
 
     public function __construct(public int $importId) {}
 
-    public function handle(StatementFileCleaner $statementFileCleaner): void
+    public function handle(StatementFileCleaner $cleaner): void
     {
         $import = BankStatementImport::find($this->importId);
         if (!$import || $import->file_cleanup_status === \App\Support\BankStatementConfig::CLEANUP_DELETED) {
             return;
         }
 
-        $statementFileCleaner->delete($import);
+        $cleaner->delete($import);
     }
 }
