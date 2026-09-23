@@ -209,7 +209,7 @@ final class StatementImportReviewTest extends TestCase
     public function test_commits_import_successfully(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $category = Category::factory()->for($user)->income()->create();
         $profile = BankProfile::factory()->create();
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
 
