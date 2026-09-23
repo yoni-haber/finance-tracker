@@ -184,11 +184,21 @@ Categories support one level of nesting with type enforcement:
 - **Subcategories** point to a parent of the same user and same type.
 - A subcategory cannot have children.
 
-Key constraints (enforced in PHP, not at the database level):
-- Uniqueness validated in `CategoryManager` before persisting (MySQL treats `NULL` as distinct in unique indexes).
+Key constraints:
+- Category names are unique for each user, type, and parent scope. A generated
+  `parent_lookup_id` converts a top-level category's `NULL` parent to `0`, so the
+  database can enforce top-level uniqueness as well as subcategory uniqueness.
+- Parent links are constrained to the same user and type. Model validation also
+  rejects self-parenting, cycles, and a third hierarchy level.
+- A category may always be renamed, but its type or parent cannot change after it
+  has subcategories, transactions, or budgets.
 - Budget categories must be expense parents.
 - Transaction `category_id` must match the transaction's type.
 - Deleting a parent is blocked when any category in its subtree has transactions or budgets.
+
+The category-integrity migration assumes existing category names, hierarchy,
+transaction links, and budget links already satisfy these rules. It does not
+rewrite existing records; incompatible data must be corrected before migration.
 
 ### Dashboard Rollup
 

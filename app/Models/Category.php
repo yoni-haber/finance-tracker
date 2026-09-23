@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Database\Factories\CategoryFactory;
+use DomainException;
 use Eloquent;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -76,6 +77,36 @@ class Category extends Model
     const string TREATMENT_SAVING = 'saving';
 
     const string TREATMENT_INVESTMENT = 'investment';
+
+    protected static function booted(): void
+    {
+        static::saving(function (Category $category): void {
+            if ($category->parent_id !== null) {
+                if ($category->exists && $category->parent_id === $category->id) {
+                    throw new DomainException('A category cannot be its own parent.');
+                }
+
+                $validParent = self::query()
+                    ->whereKey($category->parent_id)
+                    ->where('user_id', $category->user_id)
+                    ->where('type', $category->type)
+                    ->whereNull('parent_id')
+                    ->exists();
+
+                if (!$validParent) {
+                    throw new DomainException('Subcategories require a top-level parent owned by the same user and with the same type.');
+                }
+            }
+
+            if ($category->exists && $category->isDirty(['parent_id', 'type']) && $category->hasStructuralDependencies()) {
+                throw new DomainException('A category with subcategories, transactions, or budgets cannot change type or parent.');
+            }
+
+            if ($category->type !== self::TYPE_EXPENSE || $category->parent_id !== null) {
+                $category->expense_treatment = null;
+            }
+        });
+    }
 
     public function effectiveExpenseTreatment(): ?string
     {
@@ -194,5 +225,12 @@ class Category extends Model
     public function hasBudgets(): bool
     {
         return $this->budgets()->exists();
+    }
+
+    public function hasStructuralDependencies(): bool
+    {
+        return $this->children()->exists()
+            || $this->transactions()->exists()
+            || $this->budgets()->exists();
     }
 }

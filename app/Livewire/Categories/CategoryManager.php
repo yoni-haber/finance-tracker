@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Categories;
 
 use App\Models\Category;
+use DomainException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\In;
@@ -33,6 +35,8 @@ class CategoryManager extends Component
 
     public bool $deletingHasChildren = false;
 
+    public bool $editingStructureLocked = false;
+
     public function render(): View
     {
         $userId = (int) Auth::id();
@@ -57,6 +61,7 @@ class CategoryManager extends Component
         $parentOptions = Category::forUser($userId)
             ->where('type', $this->type)
             ->parents()
+            ->when($this->categoryId, fn ($query) => $query->where('id', '!=', $this->categoryId))
             ->orderBy('name')
             ->get();
 
@@ -137,6 +142,15 @@ class CategoryManager extends Component
             }
 
             if (
+                ($category->type !== $data['type'] || $category->parent_id !== $data['parent_id'])
+                && $category->hasStructuralDependencies()
+            ) {
+                $this->addError('save', 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.');
+
+                return;
+            }
+
+            if (
                 $category->hasBudgets()
                 && ($data['type'] !== Category::TYPE_EXPENSE || $data['expense_treatment'] !== Category::TREATMENT_SPENDING)
             ) {
@@ -145,9 +159,29 @@ class CategoryManager extends Component
                 return;
             }
 
-            $category->update($data);
+            try {
+                $category->update($data);
+            } catch (DomainException $exception) {
+                $this->addError('save', $exception->getMessage());
+
+                return;
+            } catch (UniqueConstraintViolationException) {
+                $this->addError('name', 'A category with this name already exists.');
+
+                return;
+            }
         } else {
-            Category::create($data);
+            try {
+                Category::create($data);
+            } catch (DomainException $exception) {
+                $this->addError('save', $exception->getMessage());
+
+                return;
+            } catch (UniqueConstraintViolationException) {
+                $this->addError('name', 'A category with this name already exists.');
+
+                return;
+            }
         }
 
         $this->resetForm();
@@ -170,6 +204,7 @@ class CategoryManager extends Component
         $this->type = $category->type;
         $this->expenseTreatment = $category->effectiveExpenseTreatment() ?? Category::TREATMENT_SPENDING;
         $this->parentId = $category->parent_id;
+        $this->editingStructureLocked = $category->hasStructuralDependencies();
 
         $this->dispatch('open-category-modal');
     }
@@ -247,6 +282,8 @@ class CategoryManager extends Component
     public function updatedType(): void
     {
         $this->parentId = null;
+        $this->editingStructureLocked = $this->categoryId !== null
+            && Category::forUser((int) Auth::id())->find($this->categoryId)?->hasStructuralDependencies();
         $this->expenseTreatment = Category::TREATMENT_SPENDING;
     }
 
@@ -264,6 +301,7 @@ class CategoryManager extends Component
         $this->type = Category::TYPE_EXPENSE;
         $this->expenseTreatment = Category::TREATMENT_SPENDING;
         $this->parentId = null;
+        $this->editingStructureLocked = false;
 
         $this->resetValidation();
         $this->resetErrorBag();

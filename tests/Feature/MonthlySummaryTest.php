@@ -18,15 +18,16 @@ final class MonthlySummaryTest extends TestCase
     public function test_it_calculates_income_and_expense_for_month(): void
     {
         $user = User::factory()->create();
-        $category = Category::factory()->for($user)->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        $expenseCategory = Category::factory()->for($user)->expense()->create();
 
-        Transaction::factory()->for($user)->for($category)->create([
+        Transaction::factory()->for($user)->for($incomeCategory)->create([
             'type' => Transaction::TYPE_INCOME,
             'amount' => 500,
             'date' => '2024-02-05',
         ]);
 
-        Transaction::factory()->for($user)->for($category)->create([
+        Transaction::factory()->for($user)->for($expenseCategory)->create([
             'type' => Transaction::TYPE_EXPENSE,
             'amount' => 200,
             'date' => '2024-02-10',
