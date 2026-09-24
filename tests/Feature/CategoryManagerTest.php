@@ -10,7 +10,6 @@ use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
 use DomainException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -218,17 +217,16 @@ final class CategoryManagerTest extends TestCase
             ->assertSet('parentId', $parent->id);
     }
 
-    public function test_edit_throws_404_for_another_users_category(): void
+    public function test_edit_returns_404_for_another_users_category(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
         $otherCategory = Category::factory()->for($otherUser)->expense()->create();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
-            ->call('edit', $otherCategory->id);
+            ->call('edit', $otherCategory->id)
+            ->assertStatus(404);
     }
 
     public function test_save_updates_existing_category(): void

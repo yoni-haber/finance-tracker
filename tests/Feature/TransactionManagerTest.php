@@ -9,7 +9,6 @@ use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -288,7 +287,7 @@ final class TransactionManagerTest extends TestCase
             ->assertSet('recurring_until', '2024-12-31');
     }
 
-    public function test_edit_throws_404_for_another_users_transaction(): void
+    public function test_edit_returns_404_for_another_users_transaction(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
@@ -298,11 +297,10 @@ final class TransactionManagerTest extends TestCase
             'frequency' => null,
         ]);
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('edit', $otherTransaction->id);
+            ->call('edit', $otherTransaction->id)
+            ->assertStatus(404);
     }
 
     public function test_delete_removes_non_recurring_transaction(): void
@@ -423,7 +421,7 @@ final class TransactionManagerTest extends TestCase
         $this->assertDatabaseCount('transaction_exceptions', 0);
     }
 
-    public function test_delete_throws_404_for_another_users_transaction(): void
+    public function test_delete_returns_404_for_another_users_transaction(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
@@ -433,11 +431,12 @@ final class TransactionManagerTest extends TestCase
             'frequency' => null,
         ]);
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
-            ->call('confirmDelete', $otherTransaction->id);
+            ->call('confirmDelete', $otherTransaction->id)
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('transactions', ['id' => $otherTransaction->id]);
     }
 
     public function test_updated_is_recurring_false_clears_frequency_and_recurring_until(): void

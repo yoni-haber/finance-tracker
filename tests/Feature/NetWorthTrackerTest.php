@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Livewire\NetWorth\NetWorthTracker;
 use App\Models\NetWorthEntry;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -189,19 +188,18 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('liabilityLines', [['category' => 'Liabilities', 'amount' => '750.00']]);
     }
 
-    public function test_edit_throws_404_for_another_users_entry(): void
+    public function test_edit_returns_404_for_another_users_entry(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-
-        $this->expectException(ModelNotFoundException::class);
 
         /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($otherUser)->create();
 
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
-            ->call('edit', $entry->id);
+            ->call('edit', $entry->id)
+            ->assertStatus(404);
     }
 
     public function test_delete_removes_own_entry_and_flashes_message(): void
@@ -231,11 +229,12 @@ final class NetWorthTrackerTest extends TestCase
         /** @var NetWorthEntry $entry */
         $entry = NetWorthEntry::factory()->for($otherUser)->create();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(NetWorthTracker::class)
-            ->call('confirmDelete', $entry->id);
+            ->call('confirmDelete', $entry->id)
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('net_worth_entries', ['id' => $entry->id]);
     }
 
     public function test_add_asset_line_empty_category_adds_error_and_does_not_append_line(): void

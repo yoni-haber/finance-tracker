@@ -8,7 +8,6 @@ use App\Livewire\Statements\BankProfileManager;
 use App\Models\BankProfile;
 use App\Models\BankStatementImport;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -296,11 +295,10 @@ final class BankProfileManagerTest extends TestCase
         $otherUser = User::factory()->create();
         $profile = BankProfile::factory()->for($otherUser)->create(['name' => 'Other User Profile']);
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(BankProfileManager::class)
-            ->call('edit', $profile->id);
+            ->call('edit', $profile->id)
+            ->assertStatus(404);
     }
 
     public function test_cannot_delete_other_users_bank_profile(): void
@@ -309,11 +307,12 @@ final class BankProfileManagerTest extends TestCase
         $otherUser = User::factory()->create();
         $profile = BankProfile::factory()->for($otherUser)->create(['name' => 'Other User Profile']);
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(BankProfileManager::class)
-            ->call('delete', $profile->id);
+            ->call('delete', $profile->id)
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('bank_profiles', ['id' => $profile->id]);
     }
 
     public function test_cancels_form_editing(): void
