@@ -360,12 +360,12 @@ To connect:
 
 Every PR to `main` is gated by GitHub Actions before it can deploy:
 
-- PHPUnit (full suite, 500+ tests)
+- PHPUnit (full suite, 500+ tests, with coverage in the CI log)
 - PHPStan level 8
 - Laravel Pint (code style)
 - Rector (dry-run - must be clean)
-- Infection (mutation testing on changed code)
-- Dependency/security audits
+- Infection when application PHP changes (other PRs skip mutation work)
+- Composer and npm lockfile audits (also scheduled weekly)
 
 This is the safety net behind "just push to `main`": broken changes are caught
 before they reach production.
