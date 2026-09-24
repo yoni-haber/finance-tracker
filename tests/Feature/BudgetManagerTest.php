@@ -8,7 +8,6 @@ use App\Livewire\Budgets\BudgetManager;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -292,7 +291,7 @@ final class BudgetManagerTest extends TestCase
             ->assertSet('amount', '750.50');
     }
 
-    public function test_edit_throws_404_for_another_users_budget(): void
+    public function test_edit_returns_404_for_another_users_budget(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
@@ -301,11 +300,10 @@ final class BudgetManagerTest extends TestCase
             ->for(Category::factory()->for($otherUser)->expense(), 'category')
             ->create();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->call('edit', $otherBudget->id);
+            ->call('edit', $otherBudget->id)
+            ->assertStatus(404);
     }
 
     public function test_delete_removes_own_budget_and_flashes_message(): void
@@ -337,11 +335,12 @@ final class BudgetManagerTest extends TestCase
             ->for(Category::factory()->for($otherUser)->expense(), 'category')
             ->create();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
-            ->call('confirmDelete', $otherBudget->id);
+            ->call('confirmDelete', $otherBudget->id)
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('budgets', ['id' => $otherBudget->id]);
     }
 
     public function test_render_filters_by_category(): void

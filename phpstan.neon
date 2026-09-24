@@ -10,8 +10,6 @@ parameters:
         - routes
     treatPhpDocTypesAsCertain: false
     ignoreErrors:
-        - message: '#Unable to resolve the template type TComponent in call to method Livewire\\LivewireManager::test\(\)#'
-          path: tests/Feature/*
         - message: '#Unable to resolve the template type TKey in call to function collect#'
           path: tests/Feature/DashboardTest.php
         - message: '#Unable to resolve the template type TValue in call to function collect#'
