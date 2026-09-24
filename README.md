@@ -45,4 +45,4 @@ make npm-dev
 
 ## CI
 
-GitHub Actions workflows run tests, linting (Pint), static analysis (PHPStan), Rector dry-runs, mutation testing (Infection), coverage, dependency audits, secret scanning, migration checks, and PHP security checks on every push. See `.github/workflows/` for details.
+GitHub Actions runs build verification, Pint, PHPStan, Rector, migrations, and PHPUnit with coverage on pushes to `main` and pull requests. Security checks audit Composer and npm dependencies and scan for secrets on those events and weekly. Infection checks changed application PHP on pull requests and runs the full mutation suite weekly. Dependabot checks for GitHub Actions, Composer, and npm updates weekly. See `.github/workflows/` and `.github/dependabot.yml` for details.

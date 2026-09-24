@@ -1,49 +1,78 @@
-name: infection
+name: Mutation
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  schedule:
+    - cron: '37 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   infection:
     runs-on: ubuntu-latest
-    environment: Testing
+    timeout-minutes: 120
 
     steps:
-      - name: Checkout
+      - name: Checkout full history
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check for changed application PHP
+        id: changes
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only --diff-filter=AMR origin/main...HEAD -- app/ | grep -Eq '^app/.*\.php$'; then
+            echo "run_infection=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Prepare Environment
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
         run: cp .env.example .env
 
       - name: Configure container user
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
         run: |
-          echo "WWWUSER=$(id -u)" >> $GITHUB_ENV
-          echo "WWWGROUP=$(id -g)" >> $GITHUB_ENV
+          echo "WWWUSER=$(id -u)" >> "$GITHUB_ENV"
+          echo "WWWGROUP=$(id -g)" >> "$GITHUB_ENV"
 
       - name: Build App Container
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
         run: docker compose build app
 
-      - name: Start Services
-        run: docker compose up -d mysql mailpit
-
       - name: Install Composer Dependencies
-        run: docker compose run --rm app composer install --no-interaction --prefer-dist --optimize-autoloader
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
+        run: docker compose run --rm --no-deps app composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
 
       - name: Generate Application Key
-        run: docker compose run --rm app php artisan key:generate
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
+        run: docker compose run --rm --no-deps app php artisan key:generate
 
       - name: Install Node Dependencies
-        run: docker compose run --rm app npm ci
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
+        run: docker compose run --rm --no-deps app npm ci
 
       - name: Build Assets
-        run: docker compose run --rm app npm run build
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
+        run: docker compose run --rm --no-deps app npm run build
+
+      - name: Start MySQL
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
+        run: docker compose up -d --wait --wait-timeout 120 mysql
 
       - name: Run Infection
-        run: docker compose run --rm app vendor/bin/infection --threads=1 --no-progress --git-diff-filter=AM --git-diff-base=origin/${{ github.base_ref || 'main' }}
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_infection == 'true'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            docker compose run --rm --no-deps app vendor/bin/infection --threads=1 --no-progress --git-diff-filter=AMR --git-diff-base=origin/main
+          else
+            docker compose run --rm --no-deps app vendor/bin/infection --threads=1 --no-progress
+          fi

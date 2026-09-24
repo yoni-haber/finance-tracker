@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare environment
+        run: cp .env.example .env
+
+      - name: Configure container user
+        run: |
+          echo "WWWUSER=$(id -u)" >> "$GITHUB_ENV"
+          echo "WWWGROUP=$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Build app container
+        run: docker compose build app
+
+      - name: Install PHP dependencies
+        run: docker compose run --rm --no-deps app composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Check PHP style
+        run: docker compose run --rm --no-deps app vendor/bin/pint --test
+
+      - name: Run static analysis
+        run: docker compose run --rm --no-deps app vendor/bin/phpstan --no-progress --memory-limit=1G
+
+      - name: Check Rector changes
+        run: docker compose run --rm --no-deps app vendor/bin/rector --dry-run
+
+      - name: Install Node dependencies
+        run: docker compose run --rm --no-deps app npm ci
+
+      - name: Build assets
+        run: docker compose run --rm --no-deps app npm run build
+
+      - name: Start MySQL
+        run: docker compose up -d --wait --wait-timeout 120 mysql
+
+      - name: Generate application key
+        run: docker compose run --rm --no-deps app php artisan key:generate
+
+      - name: Check migrations
+        run: docker compose run --rm --no-deps app php artisan migrate --force --no-interaction
+
+      - name: Run tests with coverage
+        run: docker compose run --rm --no-deps app ./vendor/bin/phpunit --coverage-text
