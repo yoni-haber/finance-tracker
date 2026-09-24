@@ -54,6 +54,8 @@ class NetWorthTracker extends Component
 
     public ?int $entryId = null;
 
+    public ?string $copiedFromDate = null;
+
     public ?int $deletingEntryId = null;
 
     public string $deletingEntryDate = '';
@@ -88,6 +90,20 @@ class NetWorthTracker extends Component
                 'liabilityLines.*.category.required' => 'Liability category is required.',
             ],
         );
+
+        if ($this->copiedFromDate !== null && !$this->entryId) {
+            if ($validated['date'] <= $this->copiedFromDate) {
+                $this->addError('save', 'Choose a date after the snapshot you copied.');
+
+                return;
+            }
+
+            if (NetWorthEntry::where('user_id', Auth::id())->where('date', $validated['date'])->exists()) {
+                $this->addError('save', 'A snapshot already exists on this date. Edit that snapshot or choose another date.');
+
+                return;
+            }
+        }
 
         $assetTotalPennies = $this->sumLines($validated['assetLines']);
         $liabilityTotalPennies = $this->sumLines($validated['liabilityLines']);
@@ -146,20 +162,55 @@ class NetWorthTracker extends Component
         $this->dispatch('open-networth-modal');
     }
 
+    public function copyPreviousSnapshot(): void
+    {
+        if ($this->entryId !== null) {
+            return;
+        }
+
+        $validated = $this->validate(['date' => $this->rules()['date']]);
+
+        $source = NetWorthEntry::where('user_id', Auth::id())
+            ->with('lineItems')
+            ->where('date', '<', $validated['date'])
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$source) {
+            $this->addError('copy', 'No earlier snapshot is available for this date.');
+
+            return;
+        }
+
+        $this->fillLinesFromEntry($source);
+        $this->copiedFromDate = $source->date->toDateString();
+        $this->editingAssetIndex = null;
+        $this->editingLiabilityIndex = null;
+    }
+
     public function edit(int $entryId): void
     {
-        $entry = NetWorthEntry::where('user_id', Auth::id())->findOrFail($entryId);
+        $entry = NetWorthEntry::where('user_id', Auth::id())->with('lineItems')->findOrFail($entryId);
 
+        $this->copiedFromDate = null;
         $this->entryId = $entry->id;
         $this->date = $entry->date->toDateString();
-        $assetLines = $entry->lineItems
+        $this->fillLinesFromEntry($entry);
+
+        $this->dispatch('open-networth-modal');
+    }
+
+    private function fillLinesFromEntry(NetWorthEntry $netWorthEntry): void
+    {
+        $assetLines = $netWorthEntry->lineItems
             ->where('type', 'asset')
             ->map(fn ($item): array => [
                 'category' => $item->category,
                 'amount' => $item->amount,
             ])->values()->all();
 
-        $liabilityLines = $entry->lineItems
+        $liabilityLines = $netWorthEntry->lineItems
             ->where('type', 'liability')
             ->map(fn ($item): array => [
                 'category' => $item->category,
@@ -168,15 +219,13 @@ class NetWorthTracker extends Component
 
         $this->assetLines = $assetLines ?: [[
             'category' => 'Assets',
-            'amount' => $entry->assets,
+            'amount' => $netWorthEntry->assets,
         ]];
 
         $this->liabilityLines = $liabilityLines ?: [[
             'category' => 'Liabilities',
-            'amount' => $entry->liabilities,
+            'amount' => $netWorthEntry->liabilities,
         ]];
-
-        $this->dispatch('open-networth-modal');
     }
 
     public function confirmDelete(int $entryId): void
@@ -240,6 +289,7 @@ class NetWorthTracker extends Component
     public function resetForm(): void
     {
         $this->entryId = null;
+        $this->copiedFromDate = null;
         $this->assetLines = [];
         $this->liabilityLines = [];
         $this->newAssetCategory = '';

@@ -202,6 +202,214 @@ final class NetWorthTrackerTest extends TestCase
             ->assertStatus(404);
     }
 
+    public function test_copy_uses_the_closest_earlier_snapshot_and_saves_an_independent_entry(): void
+    {
+        $user = User::factory()->create();
+
+        $older = NetWorthEntry::factory()->for($user)->create(['date' => '2024-05-01']);
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        NetWorthEntry::factory()->for($user)->create(['date' => '2024-08-01']);
+
+        $older->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Old Cash', 'amount' => '10.00',
+        ]);
+        $source->lineItems()->createMany([
+            ['user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '150.25'],
+            ['user_id' => $user->id, 'type' => 'liability', 'category' => 'Loan', 'amount' => '40.10'],
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasNoErrors()
+            ->assertSet('entryId', null)
+            ->assertSet('copiedFromDate', '2024-06-01')
+            ->assertSet('assetLines', [['category' => 'Cash', 'amount' => '150.25']])
+            ->assertSet('liabilityLines', [['category' => 'Loan', 'amount' => '40.10']])
+            ->assertSet('calculatedNetWorth', '110.15');
+
+        $this->assertDatabaseCount('net_worth_entries', 3);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->set('assetLines.0.amount', '175.25')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseCount('net_worth_entries', 4);
+        $copied = NetWorthEntry::where('user_id', $user->id)->whereDate('date', '2024-07-01')->firstOrFail();
+        $this->assertNotSame($source->id, $copied->id);
+        $this->assertSame('135.15', $copied->net_worth);
+        $this->assertDatabaseHas('net_worth_line_items', [
+            'net_worth_entry_id' => $copied->id, 'category' => 'Cash', 'amount' => '175.25',
+        ]);
+        $this->assertDatabaseHas('net_worth_line_items', [
+            'net_worth_entry_id' => $source->id, 'category' => 'Cash', 'amount' => '150.25',
+        ]);
+    }
+
+    public function test_copy_ignores_other_users_snapshots_and_keeps_the_draft_when_none_is_available(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        NetWorthEntry::factory()->for($otherUser)->create(['date' => '2024-06-01']);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->set('assetLines', [['category' => 'Cash', 'amount' => '20.00']])
+            ->call('copyPreviousSnapshot')
+            ->assertHasErrors(['copy'])
+            ->assertSet('assetLines', [['category' => 'Cash', 'amount' => '20.00']])
+            ->assertSet('copiedFromDate', null);
+    }
+
+    public function test_copy_uses_snapshot_totals_when_the_source_has_no_line_items(): void
+    {
+        $user = User::factory()->create();
+        NetWorthEntry::factory()->for($user)->create([
+            'date' => '2024-06-01', 'assets' => '2500.00', 'liabilities' => '750.00', 'net_worth' => '1750.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->assertSet('assetLines', [['category' => 'Assets', 'amount' => '2500.00']])
+            ->assertSet('liabilityLines', [['category' => 'Liabilities', 'amount' => '750.00']]);
+    }
+
+    public function test_copy_does_nothing_while_editing_an_existing_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $editing = NetWorthEntry::factory()->for($user)->create(['date' => '2024-07-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Old Cash', 'amount' => '100.00',
+        ]);
+        $editing->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Current Cash', 'amount' => '200.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('edit', $editing->id)
+            ->call('copyPreviousSnapshot')
+            ->assertSet('entryId', $editing->id)
+            ->assertSet('assetLines', [['category' => 'Current Cash', 'amount' => '200.00']])
+            ->assertSet('copiedFromDate', null);
+    }
+
+    public function test_successful_copy_clears_a_previous_copy_error(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-05-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasErrors(['copy'])
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasNoErrors()
+            ->assertSet('copiedFromDate', '2024-06-01');
+    }
+
+    public function test_successful_copy_clears_a_previous_save_error(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        NetWorthEntry::factory()->for($user)->create(['date' => '2024-07-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->call('save')
+            ->assertHasErrors(['save'])
+            ->set('date', '2024-08-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasNoErrors()
+            ->assertSet('copiedFromDate', '2024-07-01');
+    }
+
+    public function test_copied_draft_cannot_replace_an_existing_snapshot_on_the_target_date(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $target = NetWorthEntry::factory()->for($user)->create([
+            'date' => '2024-07-01', 'assets' => '999.00', 'liabilities' => '0.00', 'net_worth' => '999.00',
+        ]);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->call('save')
+            ->assertHasErrors(['save'])
+            ->assertNotDispatched('close-networth-modal');
+
+        $this->assertDatabaseCount('net_worth_entries', 2);
+        $this->assertSame('999.00', $target->fresh()?->assets);
+    }
+
+    public function test_copied_draft_requires_a_later_date_and_resets_when_starting_a_new_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->set('date', '2024-05-01')
+            ->call('save')
+            ->assertHasErrors(['save'])
+            ->call('openModal')
+            ->assertSet('copiedFromDate', null)
+            ->assertSet('assetLines', []);
+
+        $this->assertDatabaseCount('net_worth_entries', 1);
+    }
+
+    public function test_copied_draft_rejects_the_source_date_with_the_date_order_error(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->set('date', '2024-06-01')
+            ->call('save')
+            ->assertHasErrors(['save'])
+            ->assertSee('Choose a date after the snapshot you copied.')
+            ->assertNotDispatched('close-networth-modal');
+
+        $this->assertDatabaseCount('net_worth_entries', 1);
+        $this->assertSame('100.00', $source->lineItems()->firstOrFail()->amount);
+    }
+
     public function test_delete_removes_own_entry_and_flashes_message(): void
     {
         $user = User::factory()->create();
@@ -219,6 +427,21 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSee('Net worth entry removed.');
 
         $this->assertDatabaseMissing('net_worth_entries', ['id' => $entry->id]);
+    }
+
+    public function test_delete_without_a_selected_entry_does_nothing(): void
+    {
+        $user = User::factory()->create();
+        $entry = NetWorthEntry::factory()->for($user)->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('delete')
+            ->assertSet('deletingEntryId', null)
+            ->assertNotDispatched('close-delete-networth-modal')
+            ->assertDontSee('Net worth entry removed.');
+
+        $this->assertDatabaseHas('net_worth_entries', ['id' => $entry->id]);
     }
 
     public function test_delete_confirmation_rejects_another_users_entry(): void

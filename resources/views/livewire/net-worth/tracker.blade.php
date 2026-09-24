@@ -110,11 +110,28 @@
 
             <form wire:submit.prevent="save" class="space-y-5">
                 {{-- Date --}}
-                <div class="max-w-xs">
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Date</label>
-                    <input type="date" wire:model="date"
-                           class="mt-1.5 w-full rounded-md border border-gray-300 dark:bg-zinc-800 dark:border-zinc-700"/>
-                    @error('date') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                <div class="space-y-3">
+                    <div class="max-w-xs">
+                        <label for="networth-snapshot-date" class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Date</label>
+                        <input id="networth-snapshot-date" type="date" wire:model="date"
+                               class="mt-1.5 w-full rounded-md border border-gray-300 dark:bg-zinc-800 dark:border-zinc-700"/>
+                        @error('date') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    </div>
+                    @if (!$entryId)
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" wire:click="copyPreviousSnapshot"
+                                    wire:loading.attr="disabled" wire:target="copyPreviousSnapshot"
+                                    class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                                Copy most recent snapshot before this date
+                            </button>
+                            @if ($copiedFromDate)
+                                <p class="text-sm text-zinc-600 dark:text-zinc-400" role="status">
+                                    Copied from {{ \Carbon\Carbon::parse($copiedFromDate)->format('j M Y') }}. Review and update the amounts before saving.
+                                </p>
+                            @endif
+                        </div>
+                        @error('copy') <p class="text-sm text-rose-600" role="alert">{{ $message }}</p> @enderror
+                    @endif
                 </div>
 
                 {{-- Assets & Liabilities side by side --}}
