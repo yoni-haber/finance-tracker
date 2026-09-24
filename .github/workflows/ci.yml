@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -36,7 +36,7 @@ jobs:
         run: docker compose build app
 
       - name: Install PHP dependencies
-        run: docker compose run --rm --no-deps app composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+        run: docker compose run --rm --no-deps app composer install --no-interaction --no-progress
 
       - name: Check PHP style
         run: docker compose run --rm --no-deps app vendor/bin/pint --test

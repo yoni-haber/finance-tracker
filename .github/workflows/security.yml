@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -31,4 +31,4 @@ jobs:
         run: docker run --rm --mount "type=bind,src=$PWD,dst=/app,readonly" -w /app -e COMPOSER_HOME=/tmp/composer composer:2 audit --locked --no-interaction
 
       - name: Audit npm lockfile
-        run: docker run --rm --mount "type=bind,src=$PWD,dst=/app,readonly" -w /app node:22 npm audit --audit-level=high
+        run: docker run --rm --mount "type=bind,src=$PWD,dst=/app,readonly" -w /app node:24 npm audit --package-lock-only --audit-level=high
