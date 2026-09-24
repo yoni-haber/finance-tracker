@@ -282,6 +282,46 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('liabilityLines', [['category' => 'Liabilities', 'amount' => '750.00']]);
     }
 
+    public function test_copy_does_nothing_while_editing_an_existing_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $editing = NetWorthEntry::factory()->for($user)->create(['date' => '2024-07-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Old Cash', 'amount' => '100.00',
+        ]);
+        $editing->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Current Cash', 'amount' => '200.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('edit', $editing->id)
+            ->call('copyPreviousSnapshot')
+            ->assertSet('entryId', $editing->id)
+            ->assertSet('assetLines', [['category' => 'Current Cash', 'amount' => '200.00']])
+            ->assertSet('copiedFromDate', null);
+    }
+
+    public function test_successful_copy_clears_a_previous_copy_error(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-05-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasErrors(['copy'])
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasNoErrors()
+            ->assertSet('copiedFromDate', '2024-06-01');
+    }
+
     public function test_copied_draft_cannot_replace_an_existing_snapshot_on_the_target_date(): void
     {
         $user = User::factory()->create();
@@ -327,6 +367,28 @@ final class NetWorthTrackerTest extends TestCase
         $this->assertDatabaseCount('net_worth_entries', 1);
     }
 
+    public function test_copied_draft_rejects_the_source_date_with_the_date_order_error(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->set('date', '2024-06-01')
+            ->call('save')
+            ->assertHasErrors(['save'])
+            ->assertSee('Choose a date after the snapshot you copied.')
+            ->assertNotDispatched('close-networth-modal');
+
+        $this->assertDatabaseCount('net_worth_entries', 1);
+        $this->assertSame('100.00', $source->lineItems()->firstOrFail()->amount);
+    }
+
     public function test_delete_removes_own_entry_and_flashes_message(): void
     {
         $user = User::factory()->create();
@@ -344,6 +406,21 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSee('Net worth entry removed.');
 
         $this->assertDatabaseMissing('net_worth_entries', ['id' => $entry->id]);
+    }
+
+    public function test_delete_without_a_selected_entry_does_nothing(): void
+    {
+        $user = User::factory()->create();
+        $entry = NetWorthEntry::factory()->for($user)->create();
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->call('delete')
+            ->assertSet('deletingEntryId', null)
+            ->assertNotDispatched('close-delete-networth-modal')
+            ->assertDontSee('Net worth entry removed.');
+
+        $this->assertDatabaseHas('net_worth_entries', ['id' => $entry->id]);
     }
 
     public function test_delete_confirmation_rejects_another_users_entry(): void
