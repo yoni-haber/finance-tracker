@@ -169,7 +169,6 @@ class NetWorthTracker extends Component
         }
 
         $validated = $this->validate(['date' => $this->rules()['date']]);
-        $this->resetErrorBag(['copy', 'save']);
 
         $source = NetWorthEntry::where('user_id', Auth::id())
             ->with('lineItems')

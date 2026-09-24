@@ -322,6 +322,27 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('copiedFromDate', '2024-06-01');
     }
 
+    public function test_successful_copy_clears_a_previous_save_error(): void
+    {
+        $user = User::factory()->create();
+        $source = NetWorthEntry::factory()->for($user)->create(['date' => '2024-06-01']);
+        NetWorthEntry::factory()->for($user)->create(['date' => '2024-07-01']);
+        $source->lineItems()->create([
+            'user_id' => $user->id, 'type' => 'asset', 'category' => 'Cash', 'amount' => '100.00',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(NetWorthTracker::class)
+            ->set('date', '2024-07-01')
+            ->call('copyPreviousSnapshot')
+            ->call('save')
+            ->assertHasErrors(['save'])
+            ->set('date', '2024-08-01')
+            ->call('copyPreviousSnapshot')
+            ->assertHasNoErrors()
+            ->assertSet('copiedFromDate', '2024-07-01');
+    }
+
     public function test_copied_draft_cannot_replace_an_existing_snapshot_on_the_target_date(): void
     {
         $user = User::factory()->create();
