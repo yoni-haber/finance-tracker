@@ -210,7 +210,7 @@ Sail-specific variables in `.env`:
 
 ## Docker Configuration
 
-The project uses a custom PHP 8.5 image (`docker/8.5/Dockerfile`) rather than the stock Sail image. It includes only the extensions this project needs: `pdo_mysql`, `mbstring`, `xml`, `zip`, `bcmath`, `intl`, `gd`, `pcntl`, and `pcov` for test coverage.
+The project uses a custom PHP 8.5 image (`docker/8.5/Dockerfile`) rather than the stock Sail image. It includes the extensions this project needs: `pdo_mysql`, `mbstring`, `xml`, `zip`, `bcmath`, `intl`, `gd`, `pcntl`, and `pcov` for test coverage. It also installs Node.js 24 LTS with its bundled npm CLI; npm is not pinned separately.
 
 Supervisor (`docker/8.5/supervisord.conf`) runs two processes inside the container:
 1. `php artisan serve` - the Laravel development server
