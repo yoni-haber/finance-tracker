@@ -7,6 +7,7 @@ namespace App\Livewire\Transactions;
 use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Category;
 use App\Models\Transaction;
+use App\Support\Money;
 use App\Support\TransactionReport;
 use Carbon\Carbon;
 use Carbon\Exceptions\InvalidFormatException;
@@ -356,9 +357,9 @@ class TransactionManager extends Component
             return null;
         }
 
-        [$pounds, $pence] = array_pad(explode('.', str_replace([',', '£', ' '], '', $search)), 2, '');
+        $normalized = str_replace([',', '£', ' '], '', $search);
 
-        return $pounds . '.' . str_pad($pence, 2, '0');
+        return Money::fromPennies(Money::normalize($normalized));
     }
 
     /**
