@@ -330,6 +330,23 @@ final class BudgetManagerTest extends TestCase
         $this->assertDatabaseMissing('budgets', ['id' => $budget->id]);
     }
 
+    public function test_delete_without_a_confirmed_budget_does_nothing(): void
+    {
+        $user = User::factory()->create();
+        $budget = Budget::factory()
+            ->for($user)
+            ->for(Category::factory()->for($user)->expense(), 'category')
+            ->create();
+
+        Livewire::actingAs($user)
+            ->test(BudgetManager::class)
+            ->call('delete')
+            ->assertSet('deletingBudgetId', null)
+            ->assertNotDispatched('close-delete-budget-modal');
+
+        $this->assertDatabaseHas('budgets', ['id' => $budget->id]);
+    }
+
     public function test_delete_confirmation_rejects_another_users_budget(): void
     {
         $user = User::factory()->create();
