@@ -61,16 +61,16 @@
             @forelse ($budgetSummaries as $summary)
                 <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
                     <p class="text-sm font-medium">{{ $summary['category'] }}</p>
-                    <p class="text-xs text-gray-500">Budget £{{ number_format($summary['budget'], 2) }}</p>
-                    <p class="text-xs text-gray-500">Actual £{{ number_format($summary['actual'], 2) }}</p>
-                    @php $ratio = $summary['budget'] > 0 ? min(1, $summary['actual'] / $summary['budget']) : 0; @endphp
+                    <p class="text-xs text-gray-500">Budget {{ \App\Support\Money::format($summary['budget']) }}</p>
+                    <p class="text-xs text-gray-500">Actual {{ \App\Support\Money::format($summary['actual']) }}</p>
                     <div class="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-800" role="progressbar"
                          aria-label="{{ $summary['category'] }} budget used" aria-valuemin="0" aria-valuemax="100"
-                         aria-valuenow="{{ round($ratio * 100) }}">
-                        <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: {{ $ratio * 100 }}%"></div>
+                         aria-valuenow="{{ $summary['barPercent'] }}"
+                         aria-valuetext="{{ $summary['percent'] === null ? 'Over budget with no limit' : $summary['percent'] . '% used' }}, {{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['overspent'] ? 'over' : 'remaining' }}">
+                        <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: {{ $summary['barPercent'] }}%"></div>
                     </div>
                     <p class="mt-2 text-sm {{ $summary['overspent'] ? 'text-rose-600' : 'text-emerald-600' }}">
-                        {{ $summary['overspent'] ? 'Overspent' : 'Remaining' }} £{{ number_format($summary['remaining'], 2) }}
+                        {{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['overspent'] ? 'over' : 'remaining' }} · {{ $summary['percent'] === null ? 'Over budget' : $summary['percent'] . '% used' }}
                     </p>
                 </div>
             @empty

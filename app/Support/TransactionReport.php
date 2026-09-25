@@ -60,7 +60,8 @@ class TransactionReport
                 })->orWhere(function ($oneOff) use ($start, $end): void {
                     $oneOff
                         ->where('is_recurring', false)
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                        ->where('date', '>=', $start->toDateString())
+                        ->where('date', '<', $end->copy()->addDay()->toDateString());
                 });
             })
             ->get();

@@ -8,9 +8,9 @@ use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
+use App\Support\BudgetProgress;
 use App\Support\Money;
 use App\Support\TransactionReport;
-use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Enumerable;
@@ -52,40 +52,7 @@ class Dashboard extends Component
             ->where('year', $this->periodYear)
             ->get();
 
-        $now = now();
-        $periodEndDate = Carbon::create($this->periodYear, $this->periodMonth);
-        assert($periodEndDate instanceof Carbon);
-        $periodEnd = $periodEndDate->endOfMonth();
-
-        if ($now->isSameMonth($periodEnd)) {
-            $periodEnd = $now->copy()->endOfDay();
-        }
-
-        $budgetSummaries = $budgets->map(function (Budget $budget) use ($transactions, $periodEnd): array {
-            $budgetPennies = Money::normalize($budget->amount);
-
-            // Include transactions assigned to the parent category AND all its subcategories.
-            $categoryIds = collect([$budget->category_id])
-                ->merge($budget->category->children->pluck('id'))
-                ->all();
-
-            $spentPennies = $this->sumPennies(
-                $transactions
-                    // Avoid counting projected recurring entries that fall later in the current month
-                    // so "actual" reflects spending up to the present day.
-                    ->filter(fn ($transaction) => $transaction->date->lessThanOrEqualTo($periodEnd))
-                    ->filter(fn ($transaction): bool => in_array($transaction->category_id, $categoryIds))
-                    ->where('type', Transaction::TYPE_EXPENSE),
-            );
-
-            return [
-                'category' => $budget->category->name,
-                'budget' => Money::fromPennies($budgetPennies),
-                'actual' => Money::fromPennies($spentPennies),
-                'remaining' => Money::fromPennies($budgetPennies - $spentPennies),
-                'overspent' => $spentPennies > $budgetPennies,
-            ];
-        });
+        $budgetSummaries = BudgetProgress::forPeriod($budgets, $transactions, $this->periodMonth, $this->periodYear);
 
         // Build a category-id -> parent identity map for the pie chart rollup.
         // Subcategory amounts are grouped under their parent's name.

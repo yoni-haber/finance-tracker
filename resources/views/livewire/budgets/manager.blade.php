@@ -16,7 +16,7 @@
 
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-            <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Budgets</h2>
+            <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Budgets for {{ $periodLabel }}</h2>
 
             <div class="flex flex-wrap items-center gap-2 text-sm">
                 <select wire:model.live="filterCategory"
@@ -47,24 +47,39 @@
         </div>
 
         {{-- Budgets table --}}
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
+        <div class="overflow-x-auto" role="region" aria-label="Budget progress for {{ $periodLabel }}" tabindex="0">
+            <table class="w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700" style="min-width: 52rem">
                 <thead class="bg-zinc-50 dark:bg-zinc-800">
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Category</th>
-                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Month</th>
-                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Year</th>
-                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Amount</th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Limit</th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Spent</th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Remaining / over</th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400" style="min-width: 12rem">Progress</th>
                         <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                     @forelse ($budgets as $budget)
+                        @php($summary = $budgetSummaries->get($loop->index))
                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                             <td class="px-3 py-2 font-medium text-zinc-900 dark:text-white">{{ $budget->category->name }}</td>
-                            <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ now()->startOfYear()->month($budget->month)->format('F') }}</td>
-                            <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ $budget->year }}</td>
-                            <td class="px-3 py-2 text-right font-medium tabular-nums text-zinc-900 dark:text-white">£{{ number_format($budget->amount, 2) }}</td>
+                            <td class="px-3 py-2 text-right font-medium tabular-nums text-zinc-900 dark:text-white">{{ \App\Support\Money::format($summary['budget']) }}</td>
+                            <td class="px-3 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{{ \App\Support\Money::format($summary['actual']) }}</td>
+                            <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums font-medium {{ $summary['overspent'] ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400' }}">
+                                {{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['overspent'] ? 'over' : 'remaining' }}
+                            </td>
+                            <td class="px-3 py-2">
+                                <div class="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar"
+                                     aria-label="{{ $summary['category'] }} budget used" aria-valuemin="0" aria-valuemax="100"
+                                     aria-valuenow="{{ $summary['barPercent'] }}"
+                                     aria-valuetext="{{ $summary['percent'] === null ? 'Over budget with no limit' : $summary['percent'] . '% used' }}, {{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['overspent'] ? 'over' : 'remaining' }}">
+                                    <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: {{ $summary['barPercent'] }}%"></div>
+                                </div>
+                                <span class="mt-1 block text-xs {{ $summary['overspent'] ? 'text-rose-700 dark:text-rose-400' : 'text-zinc-600 dark:text-zinc-400' }}">
+                                    {{ $summary['percent'] === null ? 'Over budget' : $summary['percent'] . '% used' }}
+                                </span>
+                            </td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" wire:click="edit({{ $budget->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
                                 <button type="button" wire:click="confirmDelete({{ $budget->id }})"
@@ -74,7 +89,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-400">No budgets defined for this period.</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-400">No budgets defined for this period.</td>
                         </tr>
                     @endforelse
                 </tbody>
