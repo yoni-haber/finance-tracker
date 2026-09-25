@@ -323,6 +323,24 @@ final class TransactionManagerTest extends TestCase
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
     }
 
+    public function test_delete_without_a_confirmed_transaction_does_nothing(): void
+    {
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('delete')
+            ->assertSet('deletingTransactionId', null)
+            ->assertNotDispatched('close-delete-transaction-modal');
+
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+    }
+
     public function test_delete_confirmation_uses_description_and_fallback_label(): void
     {
         $user = User::factory()->create();
@@ -399,6 +417,28 @@ final class TransactionManagerTest extends TestCase
             'transaction_id' => $transaction->id,
             'date' => Carbon::parse('2024-06-01')->toDateTimeString(),
         ]);
+    }
+
+    public function test_delete_requires_a_date_for_a_recurring_occurrence(): void
+    {
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'is_recurring' => true,
+            'frequency' => 'monthly',
+            'date' => '2024-05-01',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('confirmDelete', $transaction->id)
+            ->call('delete')
+            ->assertHasErrors(['delete' => 'An occurrence date is required.'])
+            ->assertSet('deletingTransactionId', $transaction->id)
+            ->assertNotDispatched('close-delete-transaction-modal');
+
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+        $this->assertDatabaseCount('transaction_exceptions', 0);
     }
 
     public function test_delete_returns_error_for_invalid_occurrence_date_format(): void
