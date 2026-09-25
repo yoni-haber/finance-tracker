@@ -11,6 +11,7 @@ use App\Support\TransactionReport;
 use Carbon\Carbon;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
@@ -18,12 +19,17 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('components.layouts.app')]
 #[Title('Transactions')]
 class TransactionManager extends Component
 {
     use InteractsWithSelectedPeriod;
+    use WithPagination;
+
+    #[Url(as: 'search', except: '')]
+    public string $search = '';
 
     public string $type = Transaction::TYPE_EXPENSE;
 
@@ -103,11 +109,38 @@ class TransactionManager extends Component
                 : $this->filterParentCategory;
         }
 
-        $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear, $effectiveCategoryFilter)
-            ->when($this->filterType, fn ($items) => $items->where('type', $this->filterType))
-            ->sortByDesc('date');
+        $search = trim($this->search);
+        $searching = $search !== '';
 
-        return view('livewire.transactions.manager', ['transactions' => $transactions, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
+        if ($searching) {
+            $pattern = '%' . $search . '%';
+            $amount = $this->searchAmount($search);
+
+            $transactions = Transaction::forUser($userId)
+                ->forCategory($effectiveCategoryFilter)
+                ->with('category.parent')
+                ->when($this->filterType, fn (Builder $query) => $query->where('type', $this->filterType))
+                ->where(function (Builder $query) use ($pattern, $amount): void {
+                    $query->where('description', 'like', $pattern)
+                        ->orWhereHas('category', function (Builder $category) use ($pattern): void {
+                            $category->where('name', 'like', $pattern)
+                                ->orWhereHas('parent', fn (Builder $parent) => $parent->where('name', 'like', $pattern));
+                        });
+
+                    if ($amount !== null) {
+                        $query->orWhere('amount', $amount);
+                    }
+                })
+                ->orderByDesc('date')
+                ->orderByDesc('id')
+                ->paginate(20);
+        } else {
+            $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear, $effectiveCategoryFilter)
+                ->when($this->filterType, fn ($items) => $items->where('type', $this->filterType))
+                ->sortByDesc('date');
+        }
+
+        return view('livewire.transactions.manager', ['transactions' => $transactions, 'searching' => $searching, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
     }
 
     public function save(): void
@@ -136,6 +169,7 @@ class TransactionManager extends Component
         }
 
         $this->resetForm();
+        $this->resetPage();
         session()->flash('status', 'Transaction saved successfully.');
         $this->dispatch('close-transaction-modal');
     }
@@ -224,6 +258,7 @@ class TransactionManager extends Component
         $this->deletingOccurrenceDate = null;
         $this->deletingDescription = '';
         $this->deletingIsRecurring = false;
+        $this->resetPage();
         $this->dispatch('close-delete-transaction-modal');
     }
 
@@ -237,11 +272,29 @@ class TransactionManager extends Component
     public function updatedFilterParentCategory(): void
     {
         $this->filterSubCategory = null;
+        $this->resetPage();
+    }
+
+    public function updatedFilterSubCategory(): void
+    {
+        $this->resetPage();
     }
 
     public function updatedFilterType(): void
     {
         $this->normaliseFilterType();
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearSearch(): void
+    {
+        $this->search = '';
+        $this->resetPage();
     }
 
     public function updatedIsRecurring(bool $value): void
@@ -295,6 +348,17 @@ class TransactionManager extends Component
         ) {
             $this->filterType = null;
         }
+    }
+
+    private function searchAmount(string $search): ?string
+    {
+        if (!preg_match('/^£?\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/u', $search)) {
+            return null;
+        }
+
+        [$pounds, $pence] = array_pad(explode('.', str_replace([',', '£', ' '], '', $search)), 2, '');
+
+        return $pounds . '.' . str_pad($pence, 2, '0');
     }
 
     /**
