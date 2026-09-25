@@ -7,6 +7,8 @@ namespace App\Livewire\Budgets;
 use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Support\BudgetProgress;
+use App\Support\TransactionReport;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -49,14 +51,19 @@ class BudgetManager extends Component
     {
         $userId = (int) Auth::id();
 
-        $budgets = Budget::with('category')
+        $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
             ->when($this->filterCategory, fn ($query) => $query->where('category_id', $this->filterCategory))
-            ->when($this->periodMonth, fn ($query) => $query->where('month', $this->periodMonth))
-            ->when($this->periodYear, fn ($query) => $query->where('year', $this->periodYear))
+            ->where('month', $this->periodMonth)
+            ->where('year', $this->periodYear)
             ->orderByDesc('year')
             ->orderByDesc('month')
             ->get();
+
+        $transactions = $budgets->isEmpty()
+            ? collect()
+            : TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
+        $budgetSummaries = BudgetProgress::forPeriod($budgets, $transactions, $this->periodMonth, $this->periodYear);
 
         // Budgets may only be set on expense parent categories.
         $categories = Category::forUser($userId)
@@ -66,7 +73,12 @@ class BudgetManager extends Component
             ->orderBy('name')
             ->get();
 
-        return view('livewire.budgets.manager', ['budgets' => $budgets, 'categories' => $categories]);
+        return view('livewire.budgets.manager', [
+            'budgets' => $budgets,
+            'budgetSummaries' => $budgetSummaries,
+            'categories' => $categories,
+            'periodLabel' => $this->selectedPeriod()->label(),
+        ]);
     }
 
     public function save(): void
