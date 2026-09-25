@@ -387,7 +387,7 @@ final class BudgetManagerTest extends TestCase
             ['category_id' => $child->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '30.20', 'date' => '2024-05-03'],
             ['category_id' => $child->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '99.00', 'date' => '2024-05-20'],
         ]);
-        $recurring = $user->transactions()->create([
+        $transaction = $user->transactions()->create([
             'category_id' => $child->id,
             'type' => Transaction::TYPE_EXPENSE,
             'amount' => '10.00',
@@ -395,7 +395,7 @@ final class BudgetManagerTest extends TestCase
             'is_recurring' => true,
             'frequency' => 'weekly',
         ]);
-        TransactionException::create(['transaction_id' => $recurring->id, 'date' => '2024-05-08']);
+        TransactionException::create(['transaction_id' => $transaction->id, 'date' => '2024-05-08']);
 
         $otherUser->transactions()->create([
             'category_id' => $otherCategory->id, 'type' => Transaction::TYPE_EXPENSE,
