@@ -6,7 +6,6 @@ namespace App\Support;
 
 use App\Models\Budget;
 use App\Models\Transaction;
-use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class BudgetProgress
@@ -18,9 +17,7 @@ class BudgetProgress
      */
     public static function forPeriod(Collection $budgets, Collection $transactions, int $month, int $year): Collection
     {
-        $periodEnd = Carbon::create($year, $month, 1);
-        assert($periodEnd instanceof Carbon);
-        $periodEnd->endOfMonth();
+        $periodEnd = SelectedPeriod::clamp($month, $year)->startOfMonth()->endOfMonth();
 
         $today = now()->endOfDay();
         $cutoff = $periodEnd->lessThan($today) ? $periodEnd : $today;

@@ -465,6 +465,45 @@ final class BudgetManagerTest extends TestCase
             ->assertSee('Over budget');
     }
 
+    public function test_progress_handles_zero_spending_exact_limit_rounding_and_refunds(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $empty = Category::factory()->for($user)->expense()->create(['name' => 'Empty']);
+        $exact = Category::factory()->for($user)->expense()->create(['name' => 'Exact']);
+        $rounded = Category::factory()->for($user)->expense()->create(['name' => 'Rounded']);
+        $refunded = Category::factory()->for($user)->expense()->create(['name' => 'Refunded']);
+
+        Budget::factory()->for($user)->for($empty, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => '0.00']);
+        Budget::factory()->for($user)->for($exact, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => '20.00']);
+        Budget::factory()->for($user)->for($rounded, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => '3.00']);
+        Budget::factory()->for($user)->for($refunded, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => '1.00']);
+
+        $user->transactions()->createMany([
+            ['category_id' => $exact->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '20.00', 'date' => '2024-05-05'],
+            ['category_id' => $rounded->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '2.00', 'date' => '2024-05-05'],
+            ['category_id' => $refunded->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '-0.01', 'date' => '2024-05-05'],
+        ]);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->assertViewHas('budgetSummaries', function ($summaries): bool {
+                $empty = $summaries->firstWhere('category', 'Empty');
+                $exact = $summaries->firstWhere('category', 'Exact');
+                $rounded = $summaries->firstWhere('category', 'Rounded');
+                $refunded = $summaries->firstWhere('category', 'Refunded');
+
+                return $empty['actual'] === '0.00' && $empty['percent'] === 0
+                    && $empty['barPercent'] === 0 && !$empty['overspent']
+                    && $exact['actual'] === '20.00' && $exact['percent'] === 100
+                    && $exact['barPercent'] === 100 && !$exact['overspent']
+                    && $rounded['actual'] === '2.00' && $rounded['percent'] === 67
+                    && $rounded['barPercent'] === 67
+                    && $refunded['actual'] === '-0.01' && $refunded['percent'] === -1
+                    && $refunded['barPercent'] === 0;
+            });
+    }
+
     public function test_progress_uses_full_past_month_and_zero_spent_for_future_month(): void
     {
         Carbon::setTestNow('2024-05-15');
@@ -478,9 +517,9 @@ final class BudgetManagerTest extends TestCase
             ['category_id' => $category->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '90.00', 'date' => '2024-06-01'],
         ]);
 
-        Livewire::actingAs($user)->test(BudgetManager::class)
-            ->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '40.00')
-            ->set('periodMonth', 6)
+        $testable = Livewire::actingAs($user)->test(BudgetManager::class);
+        $testable->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '40.00');
+        $testable->set('periodMonth', 6)
             ->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '0.00')
             ->assertSee('Budgets for June 2024')
             ->assertSee('£100.00 remaining');
