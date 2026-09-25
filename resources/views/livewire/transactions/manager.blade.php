@@ -15,7 +15,7 @@
             <div class="flex flex-wrap items-center gap-2 text-sm">
                 <label for="transaction-search" class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Search transactions</label>
                 <input id="transaction-search" type="search" wire:model.live.debounce.300ms="search"
-                       placeholder="Description, category or amount"
+                       placeholder="  Description, category or amount"
                        class="h-8 w-64 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700" />
                 <span wire:loading wire:target="search" role="status" class="text-xs text-zinc-500 dark:text-zinc-400">Searching…</span>
                 <select wire:model.live="filterParentCategory"
