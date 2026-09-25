@@ -120,16 +120,16 @@ class TransactionManager extends Component
             $transactions = Transaction::forUser($userId)
                 ->forCategory($effectiveCategoryFilter)
                 ->with('category.parent')
-                ->when($this->filterType, fn (Builder $query) => $query->where('type', $this->filterType))
-                ->where(function (Builder $query) use ($pattern, $amount): void {
-                    $query->where('description', 'like', $pattern)
-                        ->orWhereHas('category', function (Builder $category) use ($pattern): void {
-                            $category->where('name', 'like', $pattern)
-                                ->orWhereHas('parent', fn (Builder $parent) => $parent->where('name', 'like', $pattern));
+                ->when($this->filterType, fn (Builder $builder) => $builder->where('type', $this->filterType))
+                ->where(function (Builder $builder) use ($pattern, $amount): void {
+                    $builder->where('description', 'like', $pattern)
+                        ->orWhereHas('category', function (Builder $builder) use ($pattern): void {
+                            $builder->where('name', 'like', $pattern)
+                                ->orWhereHas('parent', fn (Builder $builder) => $builder->where('name', 'like', $pattern));
                         });
 
                     if ($amount !== null) {
-                        $query->orWhere('amount', $amount);
+                        $builder->orWhere('amount', $amount);
                     }
                 })
                 ->orderByDesc('date')

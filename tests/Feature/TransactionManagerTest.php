@@ -1139,9 +1139,7 @@ final class TransactionManagerTest extends TestCase
             ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $series->id)
             ->assertSee('Recurring series · Started 1 Jan 2020')
             ->assertSee('1 Jan 2020')
-            ->assertSee('Edit series')
-            ->assertSee('Delete series')
-            ->assertSee('wire:click="confirmDelete(' . $series->id . ')"', false);
+            ->assertSee('Edit series')->assertSee('Delete series')->assertSeeHtml('wire:click="confirmDelete(' . $series->id . ')"');
         $testable->call('confirmDelete', $series->id)
             ->assertSee('This permanently deletes the entire recurring series')
             ->assertDontSee('Delete this occurrence');
