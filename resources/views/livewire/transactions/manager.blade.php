@@ -13,6 +13,11 @@
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Transactions</h2>
             <div class="flex flex-wrap items-center gap-2 text-sm">
+                <label for="transaction-search" class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Search transactions</label>
+                <input id="transaction-search" type="search" wire:model.live.debounce.300ms="search"
+                       placeholder="  Description, category or amount"
+                       class="h-8 w-64 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700" />
+                <span wire:loading wire:target="search" role="status" class="text-xs text-zinc-500 dark:text-zinc-400">Searching…</span>
                 <select wire:model.live="filterParentCategory"
                         class="h-8 rounded-md border-gray-300 py-1.5 text-sm dark:bg-zinc-800 dark:border-zinc-700">
                     <option value="">All categories</option>
@@ -45,6 +50,14 @@
             </div>
         </div>
 
+        @if ($searching)
+            <div class="flex flex-wrap items-center gap-3 border-b border-zinc-200 px-4 py-2 text-sm dark:border-zinc-700">
+                <span class="font-medium text-zinc-700 dark:text-zinc-200">Searching all dates</span>
+                <span class="text-zinc-500 dark:text-zinc-400">{{ $transactions->total() }} {{ \Illuminate\Support\Str::plural('result', $transactions->total()) }}</span>
+                <button type="button" wire:click="clearSearch" class="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Clear</button>
+            </div>
+        @endif
+
         {{-- Ledger table --}}
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
@@ -61,7 +74,12 @@
                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                     @forelse ($transactions as $transaction)
                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                            <td class="px-3 py-2 whitespace-nowrap text-zinc-700 dark:text-zinc-300">{{ \Carbon\Carbon::parse($transaction->date)->format('j M Y') }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
+                                {{ \Carbon\Carbon::parse($transaction->date)->format('j M Y') }}
+                                @if ($searching && $transaction->is_recurring)
+                                    <span class="block text-xs text-zinc-500 dark:text-zinc-400">Recurring series · Started {{ \Carbon\Carbon::parse($transaction->date)->format('j M Y') }}</span>
+                                @endif
+                            </td>
                             <td class="px-3 py-2 text-zinc-700 dark:text-zinc-300">{{ $transaction->category->name ?? '—' }}</td>
                             <td class="px-3 py-2">
                                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' }}">
@@ -78,26 +96,37 @@
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" wire:click="edit({{ $transaction->id }})"
                                         wire:loading.attr="disabled" wire:target="edit({{ $transaction->id }})"
-                                        class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
+                                        class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">{{ $searching && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
                                 <button
                                     type="button"
-                                    wire:click="confirmDelete({{ $transaction->id }}, '{{ \Carbon\Carbon::parse($transaction->date)->toDateString() }}')"
+                                    @if ($searching && $transaction->is_recurring)
+                                        wire:click="confirmDelete({{ $transaction->id }})"
+                                    @else
+                                        wire:click="confirmDelete({{ $transaction->id }}, '{{ \Carbon\Carbon::parse($transaction->date)->toDateString() }}')"
+                                    @endif
                                     wire:loading.attr="disabled"
                                     wire:target="confirmDelete"
                                     class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400"
-                                >Delete</button>
+                                >{{ $searching && $transaction->is_recurring ? 'Delete series' : 'Delete' }}</button>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-400">
-                                No transactions found for this period.
+                                @if ($searching)
+                                    {{ $filterParentCategory || $filterSubCategory || $filterType ? 'No transactions match this search and the active filters.' : 'No transactions match this search.' }}
+                                @else
+                                    {{ $filterParentCategory || $filterSubCategory || $filterType ? 'No transactions found for this period with the active filters.' : 'No transactions found for this period.' }}
+                                @endif
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+        @if ($searching && $transactions->hasPages())
+            <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">{{ $transactions->links() }}</div>
+        @endif
     </div>
 
     {{-- Transaction form modal --}}
@@ -109,7 +138,7 @@
         class="max-w-2xl"
     >
         <div class="space-y-5">
-            <flux:heading size="lg">{{ $transactionId ? 'Edit Transaction' : 'New Transaction' }}</flux:heading>
+            <flux:heading size="lg">{{ $transactionId && $is_recurring && $searching ? 'Edit recurring series' : ($transactionId ? 'Edit Transaction' : 'New Transaction') }}</flux:heading>
 
             <form wire:submit.prevent="save" class="space-y-4">
                 {{-- Row 1: Amount + Type --}}
@@ -232,7 +261,11 @@
                 <flux:heading size="lg">Delete transaction?</flux:heading>
                 <flux:subheading class="mt-2">
                     @if ($deletingIsRecurring)
-                        Choose whether to remove only the occurrence on {{ $deletingOccurrenceDate }} or the entire recurring series for <strong>{{ $deletingDescription }}</strong>.
+                        @if ($deletingOccurrenceDate)
+                            Choose whether to remove only the occurrence on {{ $deletingOccurrenceDate }} or the entire recurring series for <strong>{{ $deletingDescription }}</strong>.
+                        @else
+                            This permanently deletes the entire recurring series for <strong>{{ $deletingDescription }}</strong>.
+                        @endif
                     @else
                         This permanently deletes <strong>{{ $deletingDescription }}</strong>.
                     @endif
@@ -244,9 +277,11 @@
             <div class="flex flex-wrap justify-end gap-3">
                 <flux:modal.close><flux:button variant="ghost">Cancel</flux:button></flux:modal.close>
                 @if ($deletingIsRecurring)
-                    <flux:button variant="danger" wire:click="delete(false)" wire:loading.attr="disabled" wire:target="delete">
-                        Delete this occurrence
-                    </flux:button>
+                    @if ($deletingOccurrenceDate)
+                        <flux:button variant="danger" wire:click="delete(false)" wire:loading.attr="disabled" wire:target="delete">
+                            Delete this occurrence
+                        </flux:button>
+                    @endif
                     <flux:button variant="danger" wire:click="delete(true)" wire:loading.attr="disabled" wire:target="delete">
                         Delete entire series
                     </flux:button>

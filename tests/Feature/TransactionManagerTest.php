@@ -323,6 +323,24 @@ final class TransactionManagerTest extends TestCase
         $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
     }
 
+    public function test_delete_without_a_confirmed_transaction_does_nothing(): void
+    {
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'is_recurring' => false,
+            'frequency' => null,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('delete')
+            ->assertSet('deletingTransactionId', null)
+            ->assertNotDispatched('close-delete-transaction-modal');
+
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+    }
+
     public function test_delete_confirmation_uses_description_and_fallback_label(): void
     {
         $user = User::factory()->create();
@@ -399,6 +417,28 @@ final class TransactionManagerTest extends TestCase
             'transaction_id' => $transaction->id,
             'date' => Carbon::parse('2024-06-01')->toDateTimeString(),
         ]);
+    }
+
+    public function test_delete_requires_a_date_for_a_recurring_occurrence(): void
+    {
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'is_recurring' => true,
+            'frequency' => 'monthly',
+            'date' => '2024-05-01',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->call('confirmDelete', $transaction->id)
+            ->call('delete')
+            ->assertHasErrors(['delete' => 'An occurrence date is required.'])
+            ->assertSet('deletingTransactionId', $transaction->id)
+            ->assertNotDispatched('close-delete-transaction-modal');
+
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+        $this->assertDatabaseCount('transaction_exceptions', 0);
     }
 
     public function test_delete_returns_error_for_invalid_occurrence_date_format(): void
@@ -893,5 +933,272 @@ final class TransactionManagerTest extends TestCase
             ->test(TransactionManager::class)
             ->set('filterType', Transaction::TYPE_EXPENSE)
             ->assertSet('filterType', Transaction::TYPE_EXPENSE);
+    }
+
+    public function test_search_finds_older_transactions_and_clear_restores_the_selected_month(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $older = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'description' => 'Vintage camera', 'date' => '2022-04-10',
+        ]);
+        $current = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'description' => 'June groceries', 'date' => '2024-06-10',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
+        $testable->set('search', 'Vintage')
+            ->assertSee('Searching all dates')
+            ->assertSee('1 result')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$older->id]);
+        $testable->call('clearSearch')
+            ->assertSet('search', '')
+            ->assertDontSee('Searching all dates')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
+    }
+
+    public function test_search_trims_whitespace_and_matches_within_descriptions(): void
+    {
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $current = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'description' => 'June groceries', 'date' => '2024-06-10',
+        ]);
+        $older = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'description' => 'Morning coffee shop', 'date' => '2022-04-10',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->set('search', '   ')
+            ->assertDontSee('Searching all dates')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
+        $testable->set('search', '  coffee  ')
+            ->assertSee('Searching all dates')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$older->id]);
+    }
+
+    public function test_search_excludes_unmatched_categories(): void
+    {
+        $user = User::factory()->create();
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $travel = Category::factory()->for($user)->expense()->create(['name' => 'Travel']);
+        $match = Transaction::factory()->for($user)->create([
+            'category_id' => $travel->id, 'type' => Transaction::TYPE_EXPENSE,
+            'description' => 'Taxi', 'date' => '2022-01-01',
+        ]);
+        Transaction::factory()->for($user)->create([
+            'category_id' => $food->id, 'type' => Transaction::TYPE_EXPENSE,
+            'description' => 'Lunch', 'date' => '2022-01-02',
+        ]);
+
+        Livewire::actingAs($user)->test(TransactionManager::class)
+            ->set('search', 'Travel')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $match->id);
+    }
+
+    public function test_amount_search_accepts_whole_and_single_decimal_values_but_rejects_embedded_currency(): void
+    {
+        $user = User::factory()->create();
+        $whole = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'amount' => '123.00', 'description' => 'Alpha', 'date' => '2022-01-01',
+        ]);
+        $decimal = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'amount' => '123.10', 'description' => 'Beta', 'date' => '2022-01-02',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->set('search', '123')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $whole->id);
+        $testable->set('search', '123.1')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $decimal->id);
+        $testable->set('search', '££123.00')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 0);
+        $testable->set('search', '123.00£')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 0);
+    }
+
+    public function test_search_resets_page_after_save_delete_and_clear(): void
+    {
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $oldest = null;
+        foreach (range(1, 21) as $day) {
+            $transaction = Transaction::factory()->for($user)->create([
+                'category_id' => null, 'type' => Transaction::TYPE_EXPENSE,
+                'description' => 'Marker item', 'date' => sprintf('2024-01-%02d', $day),
+            ]);
+            $oldest ??= $transaction;
+        }
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->set('search', 'Marker')->call('nextPage');
+        $testable->assertSet('paginators.page', 2);
+
+        $testable->set('type', Transaction::TYPE_EXPENSE)
+            ->set('amount', '1.00')
+            ->set('date', '2024-06-15')
+            ->set('description', 'Marker newest')
+            ->call('save');
+        $testable->assertHasNoErrors()->assertSet('paginators.page', 1);
+
+        $testable->call('nextPage');
+        $testable->assertSet('paginators.page', 2);
+        $testable->call('confirmDelete', $oldest->id)->call('delete');
+        $testable->assertSet('paginators.page', 1);
+
+        $testable->call('nextPage');
+        $testable->assertSet('paginators.page', 2);
+        $testable->call('clearSearch');
+        $testable->assertSet('paginators.page', 1)->assertSet('search', '');
+    }
+
+    public function test_search_is_scoped_to_the_authenticated_user(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $own = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'description' => 'Private ledger entry', 'date' => '2021-01-01',
+        ]);
+        Transaction::factory()->for($other)->create([
+            'category_id' => null, 'description' => 'Private ledger entry', 'date' => '2024-01-01',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('search', 'Private ledger entry')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $own->id);
+    }
+
+    public function test_search_matches_parent_and_child_categories_and_combines_filters(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Travel']);
+        $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Rail']);
+        $otherChild = Category::factory()->subcategoryOf($parent)->create(['name' => 'Flights']);
+        $incomeCategory = Category::factory()->for($user)->income()->create(['name' => 'Travel refund']);
+        $rail = Transaction::factory()->for($user)->create([
+            'category_id' => $child->id, 'type' => Transaction::TYPE_EXPENSE,
+            'description' => 'Ticket', 'date' => '2022-01-01',
+        ]);
+        $flight = Transaction::factory()->for($user)->create([
+            'category_id' => $otherChild->id, 'type' => Transaction::TYPE_EXPENSE,
+            'description' => 'Ticket', 'date' => '2022-02-01',
+        ]);
+        Transaction::factory()->for($user)->create([
+            'category_id' => $incomeCategory->id, 'type' => Transaction::TYPE_INCOME,
+            'description' => 'Ticket', 'date' => '2022-03-01',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable
+            ->set('search', 'Travel')
+            ->set('filterParentCategory', $parent->id)
+            ->set('filterType', Transaction::TYPE_EXPENSE)
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$flight->id, $rail->id]);
+        $testable->set('filterSubCategory', $child->id)
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$rail->id]);
+        $testable->set('search', 'Rail')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$rail->id]);
+    }
+
+    public function test_search_matches_an_exact_currency_amount(): void
+    {
+        $user = User::factory()->create();
+        $match = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'amount' => '1234.50', 'description' => 'First', 'date' => '2022-01-01',
+        ]);
+        Transaction::factory()->for($user)->create([
+            'category_id' => null, 'amount' => '1234.51', 'description' => 'Second', 'date' => '2022-01-02',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('search', '£1,234.50')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $match->id);
+    }
+
+    public function test_search_and_category_filters_load_from_the_url_together(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $match = Transaction::factory()->for($user)->create([
+            'category_id' => $category->id, 'type' => Transaction::TYPE_EXPENSE,
+            'description' => 'Pasta', 'date' => '2020-01-01',
+        ]);
+
+        Livewire::withQueryParams(['search' => 'Pasta', 'category' => $category->id, 'type' => 'expense'])
+            ->actingAs($user)
+            ->test(TransactionManager::class)
+            ->assertSet('search', 'Pasta')
+            ->assertSet('filterParentCategory', $category->id)
+            ->assertSee('Searching all dates')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $match->id);
+    }
+
+    public function test_search_paginates_newest_first_and_resets_page_when_query_or_filters_change(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $otherCategory = Category::factory()->for($user)->expense()->create(['name' => 'Travel']);
+
+        foreach (range(1, 21) as $day) {
+            Transaction::factory()->for($user)->create([
+                'category_id' => $category->id, 'type' => Transaction::TYPE_EXPENSE,
+                'description' => 'Searchable item', 'date' => sprintf('2024-01-%02d', $day),
+            ]);
+        }
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->set('search', 'Searchable')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 21 && $items->count() === 20
+                && $items->first()->date->toDateString() === '2024-01-21');
+        $testable->call('nextPage')
+            ->assertSet('paginators.page', 2)
+            ->assertViewHas('transactions', fn ($items): bool => $items->count() === 1);
+
+        $testable->set('search', 'item')
+            ->assertSet('paginators.page', 1);
+        $testable->call('nextPage')->set('filterParentCategory', $category->id)
+            ->assertSet('paginators.page', 1);
+        $testable->call('nextPage')->set('filterSubCategory', $otherCategory->id)
+            ->assertSet('paginators.page', 1);
+        $testable->call('nextPage')->set('filterType', Transaction::TYPE_INCOME)
+            ->assertSet('paginators.page', 1);
+        $testable->call('clearSearch')->assertSet('paginators.page', 1);
+    }
+
+    public function test_search_displays_recurring_series_once_and_delete_targets_the_series(): void
+    {
+        $user = User::factory()->create();
+        $series = Transaction::factory()->for($user)->recurring()->create([
+            'category_id' => null, 'description' => 'Recurring rent', 'date' => '2020-01-01',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable
+            ->set('search', 'Recurring rent')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $series->id)
+            ->assertSee('Recurring series · Started 1 Jan 2020')
+            ->assertSee('1 Jan 2020')
+            ->assertSee('Edit series')->assertSee('Delete series')->assertSeeHtml('wire:click="confirmDelete(' . $series->id . ')"');
+        $testable->call('confirmDelete', $series->id)
+            ->assertSee('This permanently deletes the entire recurring series')
+            ->assertDontSee('Delete this occurrence');
+        $testable->call('delete', true);
+
+        $this->assertDatabaseMissing('transactions', ['id' => $series->id]);
+    }
+
+    public function test_search_empty_state_mentions_active_filters(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('search', 'No matching entry')
+            ->assertSee('No transactions match this search.')
+            ->set('filterType', Transaction::TYPE_EXPENSE)
+            ->assertSee('No transactions match this search and the active filters.')
+            ->call('clearSearch')
+            ->assertSee('No transactions found for this period with the active filters.');
     }
 }
