@@ -1,83 +1,82 @@
-<div class="space-y-6">
-    @php
-        $hasCashFlowData = collect($chartData['income'])
-            ->merge($chartData['spending'])
-            ->merge($chartData['savedAndInvested'])
-            ->contains(fn ($value) => (float) $value !== 0.0);
-    @endphp
+<div class="space-y-5">
+    <x-page-header eyebrow="Insights" title="Reports" description="See where your money changed, how plans held up, and how your net worth moved." />
 
-    <section class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" aria-labelledby="cash-flow-heading">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h3 id="cash-flow-heading" class="text-lg font-semibold">Income, Spending &amp; Saving</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Compare monthly totals for your selected range, including projected recurring transactions.</p>
-            </div>
-            <label class="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-                <span class="sr-only">Chart range</span>
-                <select aria-label="Chart range" wire:model.live="range"
-                        class="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200 dark:focus:border-indigo-500 dark:focus:ring-indigo-300">
-                    @foreach ($rangeOptions as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
-                    @endforeach
-                </select>
-            </label>
+    <div class="app-card flex flex-wrap items-end gap-4 p-4 sm:p-5" aria-label="Report controls">
+        <div>
+            <label for="report-range" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide app-muted">Time range</label>
+            <select id="report-range" wire:model.live="range" class="app-field text-sm">
+                @foreach ($rangeOptions as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
         </div>
+        <div>
+            <label for="report-mode" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide app-muted">Transaction data</label>
+            <select id="report-mode" wire:model.live="transactionMode" class="app-field text-sm">
+                <option value="projected">Include recurring schedule</option>
+                <option value="recorded">Recorded entries only</option>
+            </select>
+        </div>
+    </div>
 
-        @if ($hasCashFlowData)
-            <canvas id="incomeVsExpensesChart" wire:ignore data-chart-data='@json($chartData)'
-                    role="img" aria-label="Monthly income, spending, and saving chart"
-                    aria-describedby="cash-flow-data" class="mt-6"></canvas>
-        @else
-            <p class="mt-6 rounded-lg bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                No income or outflow data is available for this range.
-            </p>
-        @endif
-
-        <details id="cash-flow-data" class="mt-4 text-sm">
-            <summary class="cursor-pointer font-medium text-zinc-600 dark:text-zinc-300">View chart data</summary>
-            <div class="mt-2 overflow-x-auto">
-                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                    <thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Income</th><th class="py-2 text-right">Spending</th><th class="py-2 text-right">Saved &amp; invested</th></tr></thead>
-                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                        @foreach ($chartData['labels'] as $index => $label)
-                            <tr>
-                                <td class="py-2">{{ $label }}</td>
-                                <td class="py-2 text-right">£{{ number_format($chartData['income'][$index], 2) }}</td>
-                                <td class="py-2 text-right">£{{ number_format($chartData['spending'][$index], 2) }}</td>
-                                <td class="py-2 text-right">£{{ number_format($chartData['savedAndInvested'][$index], 2) }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </details>
+    <section aria-labelledby="report-summary-heading">
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2"><h2 id="report-summary-heading" class="text-lg font-semibold">At a glance</h2><p class="text-xs app-muted">{{ $rangeOptions[$range] }} · {{ $transactionMode === 'projected' ? 'Includes recurring schedule' : 'Recorded entries only' }}</p></div>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="app-card p-4"><p class="app-eyebrow">Income</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#126e51] dark:text-[#75ddb2]">£{{ \App\Support\Money::formatPennies($insights['income']) }}</p></div>
+            <div class="app-card p-4"><p class="app-eyebrow">Spending</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#bd5b52] dark:text-[#f19b91]">£{{ \App\Support\Money::formatPennies($insights['spending']) }}</p></div>
+            <div class="app-card p-4"><p class="app-eyebrow">Saved &amp; invested</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#4d6f96] dark:text-[#a7c9ec]">£{{ \App\Support\Money::formatPennies($insights['savedAndInvested']) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['savingsRate'] === null ? 'No income for a rate' : $insights['savingsRate'] . '% of income' }}</p></div>
+            <div class="app-card p-4"><p class="app-eyebrow">Net cash flow</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $insights['netCashFlow'] < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ $insights['netCashFlow'] < 0 ? '−' : '' }}£{{ \App\Support\Money::formatPennies(abs($insights['netCashFlow'])) }}</p><p class="mt-1 text-xs app-muted">Income less spending and saved &amp; invested</p></div>
+        </div>
     </section>
 
-    <section class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" aria-labelledby="net-worth-heading">
-        <h3 id="net-worth-heading" class="text-lg font-semibold">Net Worth Over Time</h3>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Track how your overall financial position changes.</p>
-
-        @if ($netWorthChartData['labels'])
-            <canvas id="netWorthChart" wire:ignore data-chart-data='@json($netWorthChartData)'
-                    role="img" aria-label="Net worth over time chart" aria-describedby="net-worth-data"
-                    class="mt-6"></canvas>
-            <details id="net-worth-data" class="mt-4 text-sm">
-                <summary class="cursor-pointer font-medium text-zinc-600 dark:text-zinc-300">View chart data</summary>
-                <div class="mt-2 overflow-x-auto">
-                    <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                        <thead><tr><th class="py-2 text-left">Date</th><th class="py-2 text-right">Net worth</th></tr></thead>
-                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                            @foreach ($netWorthChartData['labels'] as $index => $label)
-                                <tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right">£{{ number_format($netWorthChartData['netWorth'][$index], 2) }}</td></tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </details>
+    <section class="app-card p-4 sm:p-6" aria-labelledby="cash-flow-heading">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div><h2 id="cash-flow-heading" class="text-lg font-semibold">Cash flow over time</h2><p class="mt-1 text-sm app-muted">Income, spending, and saving for each month in your range.</p></div>
+            @if (count($chartData['labels']) > 1)<div class="rounded-xl bg-zinc-50 px-4 py-2 text-sm dark:bg-zinc-800"><span class="block text-xs app-muted">Net change from previous month</span><strong class="tabular-nums {{ $insights['monthChange'] < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400' }}">{{ $insights['monthChange'] > 0 ? '+' : ($insights['monthChange'] < 0 ? '−' : '') }}£{{ \App\Support\Money::formatPennies(abs($insights['monthChange'])) }}</strong></div>@endif
+        </div>
+        @if ($insights['income'] !== 0 || $insights['spending'] !== 0 || $insights['savedAndInvested'] !== 0)
+            <div class="mt-6 h-72 sm:h-80"><canvas id="incomeVsExpensesChart" wire:ignore data-chart-data='@json($chartData)' role="img" aria-label="Monthly income, spending, and saving chart" aria-describedby="cash-flow-data"></canvas></div>
         @else
-            <p class="mt-6 rounded-lg bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                No net worth snapshots are available for the last 12 months.
-            </p>
+            <div class="app-empty mt-6">No transactions in this range. <a href="{{ route('transactions') }}" class="app-link">Add a transaction</a> to start your reports.</div>
+        @endif
+        <details id="cash-flow-data" class="mt-4 text-sm"><summary class="cursor-pointer font-medium">View monthly cash flow data</summary><div class="mt-2 overflow-x-auto"><table class="min-w-full divide-y divide-app-border"><thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Income</th><th class="py-2 text-right">Spending</th><th class="py-2 text-right">Saved &amp; invested</th></tr></thead><tbody class="divide-y divide-app-border">@foreach ($chartData['labels'] as $index => $label)<tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['income'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['spending'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['savedAndInvested'][$index]) }}</td></tr>@endforeach</tbody></table></div></details>
+    </section>
+
+    <div class="grid gap-5 xl:grid-cols-2">
+        <section class="app-card min-w-0 p-4 sm:p-6" aria-labelledby="category-changes-heading">
+            <h2 id="category-changes-heading" class="text-lg font-semibold">Where spending changed</h2>
+            <p class="mt-1 text-sm app-muted">{{ $chartData['labels'][count($chartData['labels']) - 1] }} compared with {{ $comparisonMonthLabel }}. Top six spending categories by activity. {{ $transactionMode === 'projected' ? 'The current month includes scheduled recurring occurrences.' : 'Only saved entries are counted.' }}</p>
+            @if ($categoryChanges)
+                <div class="mt-4 divide-y divide-app-border">
+                    @foreach ($categoryChanges as $row)
+                        <div class="flex flex-wrap items-center justify-between gap-2 py-3"><div class="min-w-0"><p class="font-medium">@if ($row['category_id'])<a class="app-link" href="{{ route('transactions', ['scope' => 'all', 'type' => 'expense', 'category' => $row['category_id']]) }}" wire:navigate>{{ $row['category'] }}</a>@else{{ $row['category'] }}@endif</p><p class="text-xs app-muted">Was £{{ \App\Support\Money::formatPennies($row['previous']) }}</p></div><div class="text-right"><p class="font-semibold tabular-nums">£{{ \App\Support\Money::formatPennies($row['current']) }}</p><p class="text-xs tabular-nums {{ $row['change'] > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400' }}">{{ $row['change'] > 0 ? '+' : ($row['change'] < 0 ? '−' : '') }}£{{ \App\Support\Money::formatPennies(abs($row['change'])) }}</p></div></div>
+                    @endforeach
+                </div>
+            @else
+                <p class="app-empty mt-4">No spending in the last two months of this range.</p>
+            @endif
+        </section>
+
+        <section class="app-card min-w-0 p-4 sm:p-6" aria-labelledby="budgets-heading">
+            <h2 id="budgets-heading" class="text-lg font-semibold">Budget performance</h2>
+            <p class="mt-1 text-sm app-muted">Planned limits and spending in budgeted categories. Current month spending is through today.</p>
+            @if ($budgetData['hasBudgets'])
+                <div class="mt-5 h-64"><canvas id="budgetPerformanceChart" wire:ignore data-chart-data='@json($budgetData)' role="img" aria-label="Monthly planned budget and spending chart" aria-describedby="budget-data"></canvas></div>
+                <details id="budget-data" class="mt-4 text-sm"><summary class="cursor-pointer font-medium">View monthly budget data</summary><div class="mt-2 overflow-x-auto"><table class="min-w-full divide-y divide-app-border"><thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Planned</th><th class="py-2 text-right">Spent</th></tr></thead><tbody class="divide-y divide-app-border">@foreach ($budgetData['labels'] as $index => $label)<tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($budgetData['planned'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($budgetData['spent'][$index]) }}</td></tr>@endforeach</tbody></table></div></details>
+            @else
+                <div class="app-empty mt-4">No budgets in this range. <a href="{{ route('budgets') }}" class="app-link">Set a budget</a> to compare plans with spending.</div>
+            @endif
+        </section>
+    </div>
+
+    <section class="app-card p-4 sm:p-6" aria-labelledby="net-worth-heading">
+        <h2 id="net-worth-heading" class="text-lg font-semibold">Net worth over time</h2>
+        <p class="mt-1 text-sm app-muted">Assets, liabilities, and net worth from snapshots in the selected time range.</p>
+        @if ($netWorthChartData['labels'])
+            <div class="mt-6 h-72 sm:h-80"><canvas id="netWorthChart" wire:ignore data-chart-data='@json($netWorthChartData)' role="img" aria-label="Assets, liabilities, and net worth over time" aria-describedby="net-worth-data"></canvas></div>
+            <details id="net-worth-data" class="mt-4 text-sm"><summary class="cursor-pointer font-medium">View net worth data</summary><div class="mt-2 overflow-x-auto"><table class="min-w-full divide-y divide-app-border"><thead><tr><th class="py-2 text-left">Date</th><th class="py-2 text-right">Assets</th><th class="py-2 text-right">Liabilities</th><th class="py-2 text-right">Net worth</th></tr></thead><tbody class="divide-y divide-app-border">@foreach ($netWorthChartData['labels'] as $index => $label)<tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($netWorthChartData['assets'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($netWorthChartData['liabilities'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ $netWorthChartData['netWorth'][$index] < 0 ? '−' : '' }}{{ \App\Support\Money::format(abs($netWorthChartData['netWorth'][$index])) }}</td></tr>@endforeach</tbody></table></div></details>
+        @else
+            <div class="app-empty mt-6">No snapshots in this range. <a href="{{ route('net-worth') }}" class="app-link">Add a snapshot</a> to start tracking.</div>
         @endif
     </section>
 </div>

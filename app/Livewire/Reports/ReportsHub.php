@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Livewire\Reports;
 
-use App\Models\Category;
 use App\Models\NetWorthEntry;
-use App\Models\Transaction;
+use App\Support\CashFlowSeries;
+use App\Support\ReportInsights;
 use App\Support\TransactionReport;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -21,17 +21,27 @@ class ReportsHub extends Component
 {
     public string $range = '12_months';
 
+    public string $transactionMode = 'projected';
+
     /** @var array<string, list<(float|int|string)>> */
     public array $chartData = [];
 
     /** @var array<string, mixed> */
     public array $netWorthChartData = [];
 
+    /** @var array<string, int|null> */
+    public array $insights = [];
+
+    /** @var list<array{category: string, current: int, previous: int, change: int}> */
+    public array $categoryChanges = [];
+
+    /** @var array{labels: list<string>, planned: list<float>, spent: list<float>, hasBudgets: bool} */
+    public array $budgetData = ['labels' => [], 'planned' => [], 'spent' => [], 'hasBudgets' => false];
+
     public function mount(): void
     {
         $userId = (int) (Auth::id() ?? abort(401));
-        $this->chartData = $this->chartDataForRange($this->range, $userId);
-        $this->netWorthChartData = $this->buildNetWorthChartData($userId);
+        $this->refreshTransactionReports($userId);
     }
 
     public function render(): View
@@ -39,6 +49,10 @@ class ReportsHub extends Component
         return view('livewire.reports.hub', [
             'chartData' => $this->chartData,
             'netWorthChartData' => $this->netWorthChartData,
+            'insights' => $this->insights,
+            'categoryChanges' => $this->categoryChanges,
+            'budgetData' => $this->budgetData,
+            'comparisonMonthLabel' => CarbonImmutable::now()->startOfMonth()->subMonth()->format('M Y'),
             'rangeOptions' => $this->rangeOptions(),
         ]);
     }
@@ -51,80 +65,59 @@ class ReportsHub extends Component
             $this->range = '12_months';
         }
 
-        $this->chartData = $this->chartDataForRange($this->range, $userId);
-
-        $this->dispatch('reports-chart-data', chartData: $this->chartData);
+        $this->refreshTransactionReports($userId);
     }
 
-    /**
-     * @return array<string, list<(float|int|string)>>
-     */
-    private function chartDataForRange(string $range, int $userId): array
+    public function updatedTransactionMode(): void
     {
-        $labels = [];
-        $income = [];
-        $spending = [];
-        $savedAndInvested = [];
-
-        $start = now()->startOfMonth();
-
-        $monthsCount = match ($range) {
-            '3_months' => 3,
-            '6_months' => 6,
-            'ytd' => $start->month,
-            default => 12,
-        };
-
-        $months = collect(range($monthsCount - 1, 0))
-            ->map(fn (int $offset) => $start->copy()->subMonths($offset));
-        $firstMonth = $months->first();
-        $lastMonth = $months->last();
-        assert($firstMonth instanceof Carbon);
-        assert($lastMonth instanceof Carbon);
-        $rangeStart = $firstMonth->copy()->startOfMonth();
-        $rangeEnd = $lastMonth->copy()->endOfMonth();
-        $transactionsByMonth = TransactionReport::projectedForRange($userId, $rangeStart, $rangeEnd)
-            ->groupBy(fn (Transaction $transaction): string => $transaction->date->format('Y-m'));
-
-        foreach ($months as $month) {
-            $labels[] = $month->format('M Y');
-            $transactions = $transactionsByMonth->get($month->format('Y-m'), collect());
-            $income[] = (float) $transactions->where('type', Transaction::TYPE_INCOME)->sum('amount');
-            $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
-            $spending[] = $expenseTransactions
-                ->filter(fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING)
-                ->sum('amount');
-            $savedAndInvested[] = $expenseTransactions
-                ->reject(fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING)
-                ->sum('amount');
+        if (!in_array($this->transactionMode, ['projected', 'recorded'], true)) {
+            $this->transactionMode = 'projected';
         }
 
-        return [
-            'labels' => $labels,
-            'income' => $income,
-            'spending' => $spending,
-            'savedAndInvested' => $savedAndInvested,
-        ];
+        $this->refreshTransactionReports((int) (Auth::id() ?? abort(401)));
     }
 
-    private function expenseTreatment(Transaction $transaction): string
+    private function refreshTransactionReports(int $userId): void
     {
-        return $transaction->category?->effectiveExpenseTreatment() ?? Category::TREATMENT_SPENDING;
+        $endMonth = CarbonImmutable::now()->startOfMonth();
+        $monthsCount = match ($this->range) {
+            '3_months' => 3,
+            '6_months' => 6,
+            'ytd' => $endMonth->month,
+            default => 12,
+        };
+        $firstMonth = $endMonth->subMonths($monthsCount - 1);
+        $projected = $this->transactionMode === 'projected';
+
+        $this->chartData = CashFlowSeries::endingAt($userId, $endMonth->month, $endMonth->year, $monthsCount, $projected);
+        $transactionStart = $monthsCount === 1 ? $firstMonth->subMonth() : $firstMonth;
+        $transactions = $projected
+            ? TransactionReport::projectedForRange($userId, $transactionStart->startOfMonth(), $endMonth->endOfMonth())
+            : TransactionReport::recordedForRange($userId, $transactionStart->startOfMonth(), $endMonth->endOfMonth());
+
+        $this->insights = ReportInsights::summary($this->chartData);
+        $this->categoryChanges = ReportInsights::categoryChanges($transactions, $endMonth);
+        $this->budgetData = ReportInsights::budgets($userId, $transactions, $endMonth, $monthsCount);
+        $this->netWorthChartData = $this->buildNetWorthChartData($userId, $firstMonth, $endMonth);
+
+        $this->dispatch('reports-chart-data', chartData: $this->chartData, budgetData: $this->budgetData, netWorthData: $this->netWorthChartData);
     }
 
     /**
      * @return array<string, mixed>
      */
-    protected function buildNetWorthChartData(int $userId): array
+    protected function buildNetWorthChartData(int $userId, CarbonImmutable $firstMonth, CarbonImmutable $endMonth): array
     {
         $entries = NetWorthEntry::where('user_id', $userId)
-            ->where('date', '>=', now()->subMonths(12)->startOfDay())
+            ->whereBetween('date', [$firstMonth->toDateString(), min($endMonth->endOfMonth()->toDateString(), today()->toDateString())])
             ->orderBy('date')
             ->get();
 
         return [
             'labels' => $entries->pluck('date')->map(fn ($date) => $date->format('M d, Y'))->all(),
             'netWorth' => $entries->pluck('net_worth')->map(fn ($value): float => (float) $value)->all(),
+            'assets' => $entries->pluck('assets')->map(fn ($value): float => (float) $value)->all(),
+            'liabilities' => $entries->pluck('liabilities')->map(fn ($value): float => (float) $value)->all(),
         ];
     }
 

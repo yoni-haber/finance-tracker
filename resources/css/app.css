@@ -11,28 +11,142 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-    --color-zinc-50: #fafafa;
-    --color-zinc-100: #f5f5f5;
-    --color-zinc-200: #e5e5e5;
-    --color-zinc-300: #d4d4d4;
-    --color-zinc-400: #a3a3a3;
-    --color-zinc-500: #737373;
-    --color-zinc-600: #525252;
-    --color-zinc-700: #404040;
-    --color-zinc-800: #262626;
-    --color-zinc-900: #171717;
-    --color-zinc-950: #0a0a0a;
+    --color-zinc-50: #f7f8f4;
+    --color-zinc-100: #edf2ea;
+    --color-zinc-200: #dfe8dd;
+    --color-zinc-300: #c6d4c7;
+    --color-zinc-400: #91a499;
+    --color-zinc-500: #65736a;
+    --color-zinc-600: #4b5d51;
+    --color-zinc-700: #34483b;
+    --color-zinc-800: #26362b;
+    --color-zinc-900: #1c2922;
+    --color-zinc-950: #121b16;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
+    --color-emerald-600: #147d5a;
+    --color-emerald-700: #126e51;
+    --color-rose-600: #bd5b52;
+    --color-rose-700: #a84d46;
+
+    --color-app-canvas: #f7f8f4;
+    --color-app-surface: #ffffff;
+    --color-app-ink: #203027;
+    --color-app-border: #e4e9e1;
+    --color-app-muted: #65736a;
+
+    --color-accent: #147d5a;
+    --color-accent-content: #147d5a;
     --color-accent-foreground: var(--color-white);
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: #5bd1a2;
+        --color-accent-content: #5bd1a2;
+        --color-accent-foreground: #102019;
+        --color-app-canvas: #121b16;
+        --color-app-surface: #1c2922;
+        --color-app-ink: #ecf4ee;
+        --color-app-border: #304038;
+        --color-app-muted: #a8b8ad;
+    }
+}
+
+@layer components {
+    .app-card {
+        @apply rounded-2xl border border-app-border bg-app-surface shadow-[0_1px_3px_rgba(20,40,29,0.04)];
+    }
+
+    .app-muted {
+        @apply text-app-muted;
+    }
+
+    .app-link {
+        @apply font-medium text-[#126e51] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#147d5a] dark:text-[#75ddb2];
+    }
+
+    .app-page-header {
+        @apply mb-6 flex flex-wrap items-end justify-between gap-4;
+    }
+
+    .app-page-title {
+        @apply mt-2 text-3xl font-semibold tracking-tight text-app-ink sm:text-4xl;
+    }
+
+    .app-eyebrow {
+        @apply text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-[#75ddb2];
+    }
+
+    .app-button-primary {
+        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .app-button-secondary {
+        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800;
+    }
+
+    .app-empty {
+        @apply rounded-xl bg-zinc-50 px-5 py-8 text-center text-sm text-app-muted dark:bg-zinc-800;
+    }
+
+    .app-field {
+        @apply box-border min-h-11 rounded-xl border border-app-border bg-app-surface px-3.5 py-2.5 text-sm leading-5 text-app-ink shadow-[0_1px_2px_rgba(20,40,29,0.04)] transition-colors placeholder:text-zinc-500 hover:border-zinc-300 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-zinc-500;
+    }
+
+    input.app-field,
+    select.app-field {
+        height: 2.75rem;
+    }
+
+    input.app-field[type='number'] {
+        appearance: textfield;
+    }
+
+    input.app-field[type='number']::-webkit-inner-spin-button,
+    input.app-field[type='number']::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+    }
+
+    select.app-field {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2365736a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right 0.85rem center;
+        background-repeat: no-repeat;
+        background-size: 1rem;
+        padding-right: 2.75rem;
+    }
+
+    .dark select.app-field {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a8b8ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+
+    textarea.app-field {
+        @apply min-h-20 resize-y;
+    }
+
+    .app-filter-select {
+        @apply min-w-0 bg-zinc-50 font-medium shadow-none hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700;
+    }
+
+    .app-filter-select-active {
+        @apply border-emerald-600/50 bg-emerald-600/10 text-emerald-700 dark:border-[#5bd1a2]/50 dark:bg-[#5bd1a2]/10 dark:text-[#75ddb2];
+    }
+
+    .app-badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+    }
+
+    .app-form-label {
+        @apply block text-xs font-semibold uppercase tracking-wide text-app-ink;
+    }
+
+    .app-form-error {
+        @apply mt-1 text-sm text-rose-700 dark:text-rose-400;
+    }
+
+    .app-form-actions {
+        @apply flex flex-wrap justify-end gap-3 border-t border-app-border bg-white pt-4 pb-1 dark:bg-zinc-800;
     }
 }
 
@@ -44,6 +158,59 @@
     ::backdrop,
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+@media (max-width: 639px) {
+    select.app-period-select {
+        padding-left: 0.5rem;
+        padding-right: 1.75rem;
+        background-position: right 0.45rem center;
+        background-size: 0.75rem;
+    }
+
+    .appearance-radio-group [data-flux-radio-segmented] {
+        min-width: 0;
+        gap: 0.25rem;
+        padding-inline: 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    .networth-line-table thead {
+        display: none;
+    }
+
+    .networth-line-table tbody,
+    .networth-line-table tr,
+    .networth-line-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .networth-line-table tr {
+        padding: 0.75rem;
+    }
+
+    .networth-line-table td {
+        padding: 0.25rem 0;
+        text-align: left;
+    }
+
+    .networth-line-table td:first-child:not([colspan])::before,
+    .networth-line-table td:nth-child(2):not([colspan])::before {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--color-app-muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .networth-line-table td:first-child:not([colspan])::before {
+        content: 'Name';
+    }
+
+    .networth-line-table td:nth-child(2):not([colspan])::before {
+        content: 'Amount (£)';
     }
 }
 

@@ -176,8 +176,8 @@ final class StatementImportCommitterTest extends TestCase
         ]);
 
         ImportedTransaction::factory()->for($ccImport)->create([
-            'amount' => 50.00, // Income (payment) - positive in imported_transactions
-            'description' => 'PAYMENT',
+            'amount' => 50.00, // Card repayment - positive in imported_transactions
+            'description' => 'PAYMENT RECEIVED - THANK YOU',
             'is_duplicate' => false,
         ]);
 
@@ -189,19 +189,18 @@ final class StatementImportCommitterTest extends TestCase
         $transactions = Transaction::where('user_id', $user->id)->get();
         $this->assertCount(2, $transactions);
 
-        $expense = $transactions->where('type', Transaction::TYPE_EXPENSE)->first();
-        $income = $transactions->where('type', Transaction::TYPE_INCOME)->first();
+        $expense = $transactions->firstWhere('description', 'PURCHASE');
+        $payment = $transactions->firstWhere('description', 'PAYMENT RECEIVED - THANK YOU');
 
         $this->assertNotNull($expense);
-        $this->assertNotNull($income);
+        $this->assertNotNull($payment);
         // CRITICAL: Both amounts should be positive in the transactions table
         $this->assertEqualsWithDelta(100.00, $expense->amount, PHP_FLOAT_EPSILON); // Was -100, should be 100
         $this->assertEquals(Transaction::TYPE_EXPENSE, $expense->type);
         $this->assertEquals('PURCHASE', $expense->description);
 
-        $this->assertEqualsWithDelta(50.00, $income->amount, PHP_FLOAT_EPSILON); // Should remain 50
-        $this->assertEquals(Transaction::TYPE_INCOME, $income->type);
-        $this->assertEquals('PAYMENT', $income->description);
+        $this->assertEqualsWithDelta(50.00, $payment->amount, PHP_FLOAT_EPSILON);
+        $this->assertEquals(Transaction::TYPE_INCOME, $payment->type);
     }
 
     public function test_fails_if_import_not_in_parsed_status(): void

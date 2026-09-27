@@ -70,4 +70,18 @@ class TransactionReport
             fn (Transaction $transaction): Collection => $transaction->projectOccurrencesForRange($start, $end),
         );
     }
+
+    /**
+     * Persisted transactions in an inclusive date range, without generated recurring occurrences.
+     *
+     * @return Collection<int, Transaction>
+     */
+    public static function recordedForRange(int $userId, DateTimeInterface $rangeStart, DateTimeInterface $rangeEnd): Collection
+    {
+        return Transaction::forUser($userId)
+            ->with('category.parent')
+            ->whereDate('date', '>=', $rangeStart->format('Y-m-d'))
+            ->whereDate('date', '<=', $rangeEnd->format('Y-m-d'))
+            ->get();
+    }
 }

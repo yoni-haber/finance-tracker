@@ -23,7 +23,7 @@ class BudgetProgress
         $cutoff = $periodEnd->lessThan($today) ? $periodEnd : $today;
 
         $expenses = $transactions->filter(
-            fn (Transaction $transaction): bool => $transaction->type === Transaction::TYPE_EXPENSE
+            fn (Transaction $transaction): bool => TransactionImpact::expensePennies($transaction) !== 0
                 && $transaction->date->lessThanOrEqualTo($cutoff),
         );
 
@@ -35,7 +35,7 @@ class BudgetProgress
 
             $spentPennies = $expenses
                 ->filter(fn (Transaction $transaction): bool => in_array($transaction->category_id, $categoryIds, true))
-                ->sum(fn (Transaction $transaction): int => Money::normalize($transaction->amount));
+                ->sum(TransactionImpact::expensePennies(...));
 
             $percent = $limitPennies > 0
                 ? (int) round($spentPennies * 100 / $limitPennies)
@@ -43,6 +43,7 @@ class BudgetProgress
 
             return [
                 'category' => $budget->category->name,
+                'category_id' => $budget->category_id,
                 'budget' => Money::fromPennies($limitPennies),
                 'actual' => Money::fromPennies($spentPennies),
                 'remaining' => Money::fromPennies(max(0, $limitPennies - $spentPennies)),

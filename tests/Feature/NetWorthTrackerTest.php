@@ -15,6 +15,40 @@ final class NetWorthTrackerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_future_snapshot_is_visible_in_history_but_not_headline(): void
+    {
+        \Carbon\Carbon::setTestNow('2026-09-27');
+        $user = User::factory()->create();
+        NetWorthEntry::factory()->for($user)->create(['date' => '2026-09-20', 'net_worth' => '100.00']);
+        NetWorthEntry::factory()->for($user)->create(['date' => '2026-10-20', 'net_worth' => '900.00']);
+
+        Livewire::actingAs($user)->test(NetWorthTracker::class)
+            ->assertViewHas('latestEntry', fn ($entry): bool => $entry->date->toDateString() === '2026-09-20')
+            ->assertSee('As of 20 Sep 2026')
+            ->assertSee('20 Oct 2026')
+            ->assertDontSee('future-dated snapshot');
+    }
+
+    public function test_future_snapshot_date_is_rejected_when_creating_or_editing(): void
+    {
+        \Carbon\Carbon::setTestNow('2026-09-27');
+        $user = User::factory()->create();
+        $entry = NetWorthEntry::factory()->for($user)->create(['date' => '2026-09-20']);
+
+        Livewire::actingAs($user)->test(NetWorthTracker::class)
+            ->set('date', '2026-09-28')
+            ->call('save')
+            ->assertHasErrors(['date']);
+
+        Livewire::actingAs($user)->test(NetWorthTracker::class)
+            ->call('edit', $entry->id)
+            ->set('date', '2026-09-28')
+            ->call('save')
+            ->assertHasErrors(['date']);
+
+        $this->assertSame('2026-09-20', $entry->fresh()->date->toDateString());
+    }
+
     public function test_saves_entry_and_line_items_transactionally(): void
     {
         $user = User::factory()->create();
@@ -485,7 +519,7 @@ final class NetWorthTrackerTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('assetLines', [['category' => 'Savings Account', 'amount' => '1234.56']])
             ->assertSet('newAssetCategory', '')
-            ->assertSet('newAssetAmount', '0.00');
+            ->assertSet('newAssetAmount', '');
     }
 
     public function test_add_asset_line_trims_category_name(): void
@@ -525,7 +559,7 @@ final class NetWorthTrackerTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('liabilityLines', [['category' => 'Student Loan', 'amount' => '25000.00']])
             ->assertSet('newLiabilityCategory', '')
-            ->assertSet('newLiabilityAmount', '0.00');
+            ->assertSet('newLiabilityAmount', '');
     }
 
     public function test_add_liability_line_trims_category_name(): void
@@ -708,9 +742,9 @@ final class NetWorthTrackerTest extends TestCase
             ->assertSet('assetLines', [])
             ->assertSet('liabilityLines', [])
             ->assertSet('newAssetCategory', '')
-            ->assertSet('newAssetAmount', '0.00')
+            ->assertSet('newAssetAmount', '')
             ->assertSet('newLiabilityCategory', '')
-            ->assertSet('newLiabilityAmount', '0.00')
+            ->assertSet('newLiabilityAmount', '')
             ->assertSet('editingAssetIndex', null)
             ->assertSet('editingLiabilityIndex', null);
     }

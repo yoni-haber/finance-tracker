@@ -69,6 +69,7 @@ use Override;
     'user_id',
     'category_id',
     'type',
+    'source_import_id',
     'amount',
     'date',
     'is_recurring',

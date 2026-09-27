@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+    <body class="min-h-screen bg-[#f7f8f4] text-[#203027] dark:bg-[#121b16] dark:text-[#ecf4ee]">
+        <flux:sidebar sticky stashable class="border-e border-[#e4e9e1] bg-[#f1f5ef] dark:border-[#304038] dark:bg-[#17231c]">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
             <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
@@ -12,22 +12,20 @@
             </a>
 
             <flux:navlist variant="outline">
-                <flux:navlist.group :heading="__('Platform')" class="grid">
+                <flux:navlist.group :heading="__('Overview')" class="grid">
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                </flux:navlist.group>
+                <flux:navlist.group :heading="__('Manage')" class="grid">
                     <flux:navlist.item icon="banknotes" :href="route('transactions')" :current="request()->routeIs('transactions')" wire:navigate>{{ __('Transactions') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrow-up-tray" :href="route('statements.import')" :current="request()->routeIs('statements.*')" wire:navigate>{{ __('Import Statements') }}</flux:navlist.item>
-                    <flux:navlist.item icon="tag" :href="route('categories')" :current="request()->routeIs('categories')" wire:navigate>{{ __('Categories') }}</flux:navlist.item>
                     <flux:navlist.item icon="wallet" :href="route('budgets')" :current="request()->routeIs('budgets')" wire:navigate>{{ __('Budgets') }}</flux:navlist.item>
+                    <flux:navlist.item icon="tag" :href="route('categories')" :current="request()->routeIs('categories')" wire:navigate>{{ __('Categories') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-up-tray" :href="route('statements.import')" :current="request()->routeIs('statements.*')" wire:navigate>{{ __('Import Statements') }}</flux:navlist.item>
+                </flux:navlist.group>
+                <flux:navlist.group :heading="__('Insights')" class="grid">
                     <flux:navlist.item icon="presentation-chart-line" :href="route('net-worth')" :current="request()->routeIs('net-worth')" wire:navigate>{{ __('Net Worth') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" wire:navigate>{{ __('Reports') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
-
-            @if (request()->routeIs('dashboard', 'transactions', 'budgets'))
-                <div class="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                    <livewire:period-selector />
-                </div>
-            @endif
 
             <flux:spacer />
 

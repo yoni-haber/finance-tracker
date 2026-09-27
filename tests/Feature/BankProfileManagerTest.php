@@ -85,7 +85,7 @@ final class BankProfileManagerTest extends TestCase
             ->assertSet('hasSeparateColumns', false)
             ->assertSet('editingProfile', null)
             ->assertSet('openCreateModalOnFirstRender', true)
-            ->assertSee('Create Bank Profile')
+            ->assertSee('New bank profile')
             ->assertSee('Profile Name');
     }
 

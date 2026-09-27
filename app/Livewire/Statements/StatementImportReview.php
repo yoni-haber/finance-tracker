@@ -34,6 +34,8 @@ class StatementImportReview extends Component
     /** @var array<int, int> */
     public array $selectedTransactionIds = [];
 
+    public string $viewFilter = 'all';
+
     /**
      * @var array{
      *     description?: string,
@@ -44,6 +46,11 @@ class StatementImportReview extends Component
      * }
      */
     public array $editForm = [];
+
+    public function updatedEditFormType(): void
+    {
+        $this->editForm['category_id'] = null;
+    }
 
     public function mount(int $importId): void
     {
@@ -76,6 +83,23 @@ class StatementImportReview extends Component
             'new_transactions' => $transactions->where('is_duplicate', false)->count(),
             'total_amount' => $transactions->where('is_duplicate', false)->sum('amount'),
         ];
+        $needsCategory = fn (ImportedTransaction $importedTransaction): bool => !$importedTransaction->is_duplicate && $importedTransaction->category_id === null;
+        $summary['needs_attention'] = $transactions->filter($needsCategory)->count();
+
+        $possibleDuplicateIds = $transactions->where('is_duplicate', false)
+            ->groupBy('hash')
+            ->filter(fn ($rows): bool => $rows->count() > 1)
+            ->flatMap(fn ($rows) => $rows->pluck('id'))
+            ->all();
+        $summary['possible_duplicates'] = count($possibleDuplicateIds);
+
+        $visibleTransactions = $transactions->filter(fn (ImportedTransaction $importedTransaction): bool => match ($this->viewFilter) {
+            'needs_attention' => $needsCategory($importedTransaction),
+            'ready' => !$importedTransaction->is_duplicate && !$needsCategory($importedTransaction),
+            'possible' => in_array($importedTransaction->id, $possibleDuplicateIds, true),
+            'duplicates' => $importedTransaction->is_duplicate,
+            default => true,
+        })->values();
 
         $selectedIds = array_map(intval(...), $this->selectedTransactionIds);
         $bulkSelectionType = null;
@@ -88,8 +112,10 @@ class StatementImportReview extends Component
         }
 
         return view('livewire.statements.import-review', [
-            'transactions' => $transactions,
+            'transactions' => $visibleTransactions,
             'summary' => $summary,
+            'possibleDuplicateIds' => $possibleDuplicateIds,
+            'categorySuggestions' => $this->categorySuggestions($visibleTransactions),
             'bulkSelectionType' => $bulkSelectionType,
             'categories' => Category::forUser((int) Auth::id())
                 ->parents()
@@ -157,7 +183,7 @@ class StatementImportReview extends Component
             'description' => $normalizedDescription,
             'amount' => $amount,
             'date' => $this->editForm['date'] ?? '',
-            'category_id' => $this->editForm['category_id'] ?? null,
+            'category_id' => ($this->editForm['category_id'] ?? null) ?: null,
         ]);
 
         // Regenerate hash using the saved (normalised) values so it matches future imports
@@ -181,8 +207,10 @@ class StatementImportReview extends Component
     /**
      * @throws ValidationException
      */
-    public function updateCategory(int $transactionId, ?int $categoryId): void
+    public function updateCategory(int $transactionId, int|string|null $categoryId): void
     {
+        $categoryId = $categoryId === '' || $categoryId === null ? null : (int) $categoryId;
+
         if ($categoryId !== null) {
             $category = Category::where('id', $categoryId)->where('user_id', Auth::id())->first();
 
@@ -221,7 +249,7 @@ class StatementImportReview extends Component
             ? -abs((float) $importedTransaction->amount)
             : abs((float) $importedTransaction->amount);
 
-        $importedTransaction->update(['amount' => $amount]);
+        $importedTransaction->update(['amount' => $amount, 'category_id' => null]);
 
         // Regenerate hash using the explicit $amount var, not the post-update model attribute
         $duplicateDetector = new DuplicateDetector($this->import->user_id);
@@ -262,6 +290,44 @@ class StatementImportReview extends Component
         }
 
         return $importedTransaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
+    }
+
+    /** @return array<int, array{id: int, name: string}> */
+    private function categorySuggestions(\Illuminate\Support\Collection $visibleRows): array
+    {
+        $names = $visibleRows->whereNull('category_id')->pluck('description')
+            ->map(fn (string $name): string => Str::squish(Str::upper($name)))
+            ->unique()->all();
+
+        if ($names === []) {
+            return [];
+        }
+
+        $ownedCategories = Category::forUser((int) Auth::id())->get(['id', 'name', 'type'])->keyBy('id');
+        $stagedDecisions = $this->import->importedTransactions()->whereNotNull('category_id')
+            ->orderByDesc('updated_at')->get();
+        $suggestions = [];
+        $previous = Transaction::forUser((int) Auth::id())->with('category')
+            ->whereNotNull('category_id')->orderByDesc('id')->limit(500)->get();
+
+        foreach ($visibleRows as $visibleRow) {
+            if ($visibleRow->category_id !== null) {
+                continue;
+            }
+
+            $expectedType = $this->determineTransactionType($visibleRow);
+            $matchingStaged = $stagedDecisions->first(fn (ImportedTransaction $importedTransaction): bool => $importedTransaction->id !== $visibleRow->id
+                && Str::squish(Str::upper($importedTransaction->description)) === Str::squish(Str::upper($visibleRow->description))
+                && $ownedCategories->get($importedTransaction->category_id)?->type === $expectedType);
+            $matching = $previous->first(fn (Transaction $transaction): bool => Str::squish(Str::upper((string) $transaction->description)) === Str::squish(Str::upper($visibleRow->description))
+                && $ownedCategories->get($transaction->category_id)?->type === $expectedType);
+            $categoryId = $matchingStaged?->category_id ?? $matching?->category_id;
+            if ($categoryId) {
+                $suggestions[$visibleRow->id] = ['id' => $categoryId, 'name' => $ownedCategories->get($categoryId)->name];
+            }
+        }
+
+        return $suggestions;
     }
 
     public function commitImport(): void

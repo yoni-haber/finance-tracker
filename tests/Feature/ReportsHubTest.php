@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Livewire\Reports\ReportsHub;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\NetWorthEntry;
 use App\Models\Transaction;
@@ -49,6 +50,43 @@ final class ReportsHubTest extends TestCase
         $netWorthData = $testable->get('netWorthChartData');
         $this->assertArrayHasKey('labels', $netWorthData);
         $this->assertArrayHasKey('netWorth', $netWorthData);
+    }
+
+    public function test_summary_category_changes_and_budget_performance_share_report_period(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $savings = Category::factory()->for($user)->expense()->create(['expense_treatment' => Category::TREATMENT_SAVING]);
+        Budget::factory()->for($user)->for($food, 'category')->create(['month' => 6, 'year' => 2024, 'amount' => '100.00']);
+        Transaction::factory()->for($user)->for($food)->create(['type' => Transaction::TYPE_EXPENSE, 'amount' => '20.00', 'date' => '2024-05-04']);
+        Transaction::factory()->for($user)->for($food)->create(['type' => Transaction::TYPE_EXPENSE, 'amount' => '60.00', 'date' => '2024-06-04']);
+        Transaction::factory()->for($user)->for($savings)->create(['type' => Transaction::TYPE_EXPENSE, 'amount' => '10.00', 'date' => '2024-06-05']);
+        Transaction::factory()->for($user)->create(['type' => Transaction::TYPE_INCOME, 'amount' => '100.00', 'date' => '2024-06-06']);
+        Transaction::factory()->for($otherUser)->create(['type' => Transaction::TYPE_INCOME, 'amount' => '900.00', 'date' => '2024-06-06']);
+
+        Livewire::actingAs($user)->test(ReportsHub::class)
+            ->set('range', '3_months')
+            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 10000 && $insights['spending'] === 8000 && $insights['savedAndInvested'] === 1000 && $insights['netCashFlow'] === 1000 && $insights['savingsRate'] === 10)
+            ->assertViewHas('categoryChanges', fn (array $changes): bool => $changes[0]['category'] === 'Food' && $changes[0]['category_id'] === $food->id && $changes[0]['current'] === 6000 && $changes[0]['previous'] === 2000 && $changes[0]['change'] === 4000)
+            ->assertViewHas('budgetData', fn (array $data): bool => $data['hasBudgets'] && $data['planned'][2] === 100.0 && $data['spent'][2] === 60.0)
+            ->assertSee('Budget performance');
+    }
+
+    public function test_recorded_mode_excludes_generated_recurring_occurrences(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        Transaction::factory()->for($user)->create(['type' => Transaction::TYPE_INCOME, 'amount' => '50.00', 'date' => '2024-04-01', 'is_recurring' => true, 'frequency' => 'monthly']);
+
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class)
+            ->set('range', '3_months');
+
+        $testable->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 15000);
+        $testable->set('transactionMode', 'recorded');
+        $testable->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 5000)
+            ->assertSee('Recorded entries only');
     }
 
     public function test_render_passes_range_options_to_view(): void
@@ -252,6 +290,42 @@ final class ReportsHubTest extends TestCase
         $this->assertEqualsWithDelta(8000.0, $netWorthData['netWorth'][0], PHP_FLOAT_EPSILON);
     }
 
+    public function test_net_worth_snapshots_follow_the_selected_report_range(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+
+        foreach (['2023-06-30', '2023-07-01', '2024-03-31', '2024-04-01', '2024-06-10'] as $date) {
+            NetWorthEntry::factory()->for($user)->create(['date' => $date]);
+        }
+
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
+        $this->assertSame(['Jul 01, 2023', 'Mar 31, 2024', 'Apr 01, 2024', 'Jun 10, 2024'], $testable->get('netWorthChartData')['labels']);
+
+        $testable->set('range', '3_months')->assertDispatched('reports-chart-data');
+        $this->assertSame(['Apr 01, 2024', 'Jun 10, 2024'], $testable->get('netWorthChartData')['labels']);
+
+        $testable->set('range', 'ytd');
+        $this->assertSame(['Mar 31, 2024', 'Apr 01, 2024', 'Jun 10, 2024'], $testable->get('netWorthChartData')['labels']);
+
+        $testable->set('range', '12_months');
+        $this->assertCount(4, $testable->get('netWorthChartData')['labels']);
+    }
+
+    public function test_net_worth_empty_state_updates_when_selected_range_has_no_snapshots(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        NetWorthEntry::factory()->for($user)->create(['date' => '2024-01-10']);
+
+        Livewire::actingAs($user)->test(ReportsHub::class)
+            ->set('range', '3_months')
+            ->assertSee('No snapshots in this range.')
+            ->assertDontSeeHtml('<canvas id="netWorthChart"')
+            ->set('range', '12_months')
+            ->assertSeeHtml('<canvas id="netWorthChart"');
+    }
+
     public function test_net_worth_chart_data_excludes_entries_older_than_12_months(): void
     {
         Carbon::setTestNow('2024-06-15');
@@ -353,9 +427,9 @@ final class ReportsHubTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(ReportsHub::class)
-            ->assertSee('No income or outflow data is available for this range.')
-            ->assertSee('No net worth snapshots are available for the last 12 months.')
-            ->assertSee('View chart data')
+            ->assertSee('No transactions in this range.')
+            ->assertSee('No snapshots in this range.')
+            ->assertSee('View monthly cash flow data')
             ->assertDontSeeHtml('<canvas id="netWorthChart"');
     }
 }

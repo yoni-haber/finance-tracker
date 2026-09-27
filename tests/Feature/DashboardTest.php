@@ -145,9 +145,11 @@ final class DashboardTest extends TestCase
             ->assertViewHas('income', '2500.00')
             ->assertViewHas('spending', '250.00')
             ->assertViewHas('savedAndInvested', '300.00')
-            ->assertSeeHtml('grid gap-4 sm:grid-cols-3');
+            ->assertViewHas('netCashFlow', '1950.00')
+            ->assertViewHas('periodLabel', 'May 2024')
+            ->assertSee('Net cash flow');
 
-        $testable->assertDispatched('dashboard-charts-updated');
+        $testable->assertDispatched('dashboard-trend-updated');
 
         $testable->assertViewHas('budgetSummaries', function ($summaries): bool {
             $groceries = $summaries->firstWhere('category', 'Groceries');
@@ -158,14 +160,6 @@ final class DashboardTest extends TestCase
                 && $groceries['overspent'] === false;
         });
 
-        $testable->assertViewHas('incomeCategoryBreakdown', function ($breakdown): bool {
-            $salary = collect($breakdown)->firstWhere('category', 'Salary');
-            $uncategorised = collect($breakdown)->firstWhere('category', 'Uncategorised');
-
-            return $salary['total'] === '2000.00'
-                && $uncategorised['total'] === '500.00';
-        });
-
         $testable->assertViewHas('spendingCategoryBreakdown', function ($breakdown): bool {
             $groceries = collect($breakdown)->firstWhere('category', 'Groceries');
             $uncategorised = collect($breakdown)->firstWhere('category', 'Uncategorised');
@@ -174,11 +168,11 @@ final class DashboardTest extends TestCase
                 && $uncategorised['total'] === '50.00';
         });
 
-        $testable->assertViewHas('savingInvestmentCategoryBreakdown', function ($breakdown): bool {
-            $savings = collect($breakdown)->firstWhere('category', 'Savings');
-
-            return $savings['total'] === '300.00';
-        });
+        $testable->assertViewHas('trend', fn (array $trend): bool => count($trend['labels']) === 6
+            && $trend['labels'][5] === 'May 2024'
+            && $trend['income'][5] === 2500.0
+            && $trend['spending'][5] === 250.0
+            && $trend['savedAndInvested'][5] === 300.0);
     }
 
     public function test_budget_actuals_ignore_future_projected_recurring_transactions(): void
@@ -307,20 +301,136 @@ final class DashboardTest extends TestCase
         $this->assertEquals(0, $view->getData()['income']);
         $this->assertEquals(0, $view->getData()['spending']);
         $this->assertEquals(0, $view->getData()['savedAndInvested']);
-        $this->assertArrayNotHasKey('remainingAfterOutflows', $view->getData());
-        $this->assertArrayNotHasKey('retained', $view->getData());
-        $this->assertCount(0, $view->getData()['budgetSummaries']);
+        $this->assertSame('0.00', $view->getData()['netCashFlow']);
+        $this->assertCount(0, $view->getData()['budgetHighlights']);
     }
 
-    public function test_empty_category_charts_show_accessible_empty_states(): void
+    public function test_empty_dashboard_shows_accessible_empty_states(): void
     {
         $user = User::factory()->create();
 
         Livewire::actingAs($user)
             ->test(Dashboard::class)
-            ->assertSee('No income recorded for this period.')
+            ->assertSee('No cash flow data for these months yet.')
             ->assertSee('No spending recorded for this period.')
-            ->assertSee('No saving or investment transactions recorded for this period.')
-            ->assertDontSeeHtml('<canvas id="incomeCategoryChart"');
+            ->assertSee('No budgets for this period.')
+            ->assertSee('No recorded transactions for this period yet.')
+            ->assertDontSeeHtml('<canvas id="dashboardTrendChart"');
+    }
+
+    public function test_net_cash_flow_can_be_negative(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create();
+        $savings = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        $user->transactions()->createMany([
+            ['type' => Transaction::TYPE_INCOME, 'amount' => 10, 'date' => '2024-05-01'],
+            ['type' => Transaction::TYPE_EXPENSE, 'amount' => 20, 'date' => '2024-05-02'],
+            ['type' => Transaction::TYPE_EXPENSE, 'category_id' => $savings->id, 'amount' => 5, 'date' => '2024-05-03'],
+        ]);
+
+        Livewire::actingAs($user)->test(Dashboard::class)->assertViewHas('netCashFlow', '-15.00');
+    }
+
+    public function test_zero_amount_transactions_do_not_create_spending_bars(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Bills']);
+        $user->transactions()->create([
+            'category_id' => $category->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 0,
+            'date' => '2024-05-06',
+        ]);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('spendingCategoryBreakdown', fn ($breakdown): bool => $breakdown->isEmpty())
+            ->assertSee('No spending recorded for this period.');
+    }
+
+    public function test_trend_ends_at_the_selected_historical_month(): void
+    {
+        Carbon::setTestNow('2024-09-15');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $user->transactions()->create([
+            'type' => Transaction::TYPE_INCOME,
+            'amount' => 125,
+            'date' => '2024-02-10',
+        ]);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('trend', fn (array $trend): bool => $trend['labels'] === [
+                'Dec 2023', 'Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024',
+            ] && $trend['income'][2] === 125.0);
+    }
+
+    public function test_budget_highlights_show_only_three_with_overspent_first(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create();
+
+        foreach (['Low' => 10, 'High' => 90, 'Over' => 120, 'Unused' => 0] as $name => $spent) {
+            $category = Category::factory()->for($user)->expense()->create(['name' => $name]);
+            Budget::factory()->for($user)->for($category)->create([
+                'month' => 5, 'year' => 2024, 'amount' => 100,
+            ]);
+            if ($spent > 0) {
+                $user->transactions()->create([
+                    'category_id' => $category->id,
+                    'type' => Transaction::TYPE_EXPENSE,
+                    'amount' => $spent,
+                    'date' => '2024-05-10',
+                ]);
+            }
+        }
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('budgetHighlights', fn ($highlights): bool => $highlights->pluck('category')->all() === ['Over', 'High']);
+    }
+
+    public function test_recent_activity_is_limited_to_recorded_current_user_entries_through_today(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        foreach (range(1, 6) as $day) {
+            $user->transactions()->create([
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => $day,
+                'description' => "Entry {$day}",
+                'date' => "2024-05-0{$day}",
+            ]);
+        }
+
+        $user->transactions()->create([
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 10,
+            'description' => 'Future entry',
+            'date' => '2024-05-20',
+        ]);
+        $user->transactions()->create([
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 10,
+            'description' => 'Earlier recurring series',
+            'date' => '2024-04-01',
+            'is_recurring' => true,
+            'frequency' => 'weekly',
+        ]);
+        $otherUser->transactions()->create([
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 10,
+            'description' => 'Another user',
+            'date' => '2024-05-14',
+        ]);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('recentTransactions', fn ($items): bool => $items->pluck('description')->all() === [
+                'Entry 6', 'Entry 5', 'Entry 4', 'Entry 3', 'Entry 2',
+            ]);
     }
 }

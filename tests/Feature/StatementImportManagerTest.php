@@ -30,6 +30,19 @@ final class StatementImportManagerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_last_used_bank_profile_is_selected_for_next_upload(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $otherProfile = BankProfile::factory()->for(User::factory()->create())->create();
+        BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_COMMITTED]);
+        BankStatementImport::factory()->for($otherProfile->user)->for($otherProfile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_COMMITTED]);
+
+        Livewire::actingAs($user)->test(StatementImportManager::class)
+            ->assertSet('bankProfileId', $profile->id)
+            ->assertSee('Review imported transactions');
+    }
+
     public function test_renders_successfully(): void
     {
         $user = User::factory()->create();

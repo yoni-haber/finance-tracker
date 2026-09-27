@@ -9,7 +9,10 @@ use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Support\BudgetProgress;
+use App\Support\CashFlowSeries;
 use App\Support\Money;
+use App\Support\SelectedPeriod;
+use App\Support\TransactionImpact;
 use App\Support\TransactionReport;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -31,11 +34,9 @@ class Dashboard extends Component
 
         $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
 
-        $income = Money::fromPennies(
-            $this->sumPennies($transactions->where('type', Transaction::TYPE_INCOME)),
-        );
+        $income = Money::fromPennies($transactions->sum(TransactionImpact::incomePennies(...)));
 
-        $expenseTransactions = $transactions->where('type', Transaction::TYPE_EXPENSE);
+        $expenseTransactions = $transactions->filter(fn (Transaction $transaction): bool => TransactionImpact::expensePennies($transaction) !== 0);
         $spendingTransactions = $expenseTransactions->filter(
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
@@ -43,8 +44,11 @@ class Dashboard extends Component
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
 
-        $spending = Money::fromPennies($this->sumPennies($spendingTransactions));
-        $savedAndInvested = Money::fromPennies($this->sumPennies($savingInvestmentTransactions));
+        $spending = Money::fromPennies($spendingTransactions->sum(TransactionImpact::expensePennies(...)));
+        $savedAndInvested = Money::fromPennies($savingInvestmentTransactions->sum(TransactionImpact::expensePennies(...)));
+        $netCashFlow = Money::fromPennies(
+            Money::normalize($income) - Money::normalize($spending) - Money::normalize($savedAndInvested),
+        );
 
         $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
@@ -54,7 +58,7 @@ class Dashboard extends Component
 
         $budgetSummaries = BudgetProgress::forPeriod($budgets, $transactions, $this->periodMonth, $this->periodYear);
 
-        // Build a category-id -> parent identity map for the pie chart rollup.
+        // Build a category-id -> parent identity map for the spending rollup.
         // Subcategory amounts are grouped under their parent's name.
         $categoryParents = Category::forUser($userId)
             ->with('parent:id,name')
@@ -66,24 +70,44 @@ class Dashboard extends Component
                 ],
             ]);
 
-        $enumerable = $this->categoryTotals($transactions, Transaction::TYPE_INCOME, $categoryParents);
-        $categorySpending = $this->categoryTotals($spendingTransactions, Transaction::TYPE_EXPENSE, $categoryParents);
-        $categorySavingInvestment = $this->categoryTotals($savingInvestmentTransactions, Transaction::TYPE_EXPENSE, $categoryParents);
+        $enumerable = $this->categoryTotals($spendingTransactions, Transaction::TYPE_EXPENSE, $categoryParents)
+            ->filter(fn (array $item): bool => Money::normalize($item['total']) > 0)
+            ->sortByDesc(fn (array $item): int => Money::normalize($item['total']))
+            ->values();
 
-        $this->dispatch('dashboard-charts-updated',
-            incomeCategoryBreakdown: $enumerable->all(),
-            spendingCategoryBreakdown: $categorySpending->all(),
-            savingInvestmentCategoryBreakdown: $categorySavingInvestment->all(),
-        );
+        $trend = CashFlowSeries::endingAt($userId, $this->periodMonth, $this->periodYear, 6);
+        $budgetHighlights = $budgetSummaries
+            ->filter(fn (array $row): bool => $row['overspent'] || ($row['percent'] !== null && $row['percent'] >= 80))
+            ->sort(fn (array $a, array $b): int => ((int) $b['overspent'] <=> (int) $a['overspent'])
+                ?: (($b['percent'] ?? PHP_INT_MAX) <=> ($a['percent'] ?? PHP_INT_MAX))
+                ?: strcmp($a['category'], $b['category']))
+            ->take(3)
+            ->values();
+
+        $recentTransactions = Transaction::forUser($userId)
+            ->with('category')
+            ->whereYear('date', $this->periodYear)
+            ->whereMonth('date', $this->periodMonth)
+            ->whereDate('date', '<=', today())
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+
+        $this->dispatch('dashboard-trend-updated', chartData: $trend);
 
         return view('livewire.dashboard', [
+            'periodLabel' => SelectedPeriod::clamp($this->periodMonth, $this->periodYear)->label(),
             'income' => $income,
             'spending' => $spending,
             'savedAndInvested' => $savedAndInvested,
+            'netCashFlow' => $netCashFlow,
+            'trend' => $trend,
+            'budgetHighlights' => $budgetHighlights,
             'budgetSummaries' => $budgetSummaries,
-            'incomeCategoryBreakdown' => $enumerable,
-            'spendingCategoryBreakdown' => $categorySpending,
-            'savingInvestmentCategoryBreakdown' => $categorySavingInvestment,
+            'hasBudgets' => $budgets->isNotEmpty(),
+            'spendingCategoryBreakdown' => $enumerable,
+            'recentTransactions' => $recentTransactions,
         ]);
     }
 
@@ -100,7 +124,7 @@ class Dashboard extends Component
     private function categoryTotals(Collection $transactions, string $type, Collection $categoryParents): Enumerable
     {
         return $transactions
-            ->where('type', $type)
+            ->filter(fn (Transaction $transaction): bool => TransactionImpact::expensePennies($transaction) !== 0)
             ->groupBy(function (Transaction $transaction) use ($categoryParents): int|string {
                 if (!$transaction->category_id) {
                     return 'Uncategorised';
@@ -121,18 +145,8 @@ class Dashboard extends Component
                     'category' => $categoryDetails['name'] ?? 'Uncategorised',
                     'category_id' => is_int($category) ? $category : null,
                     'type' => $type,
-                    'total' => Money::fromPennies($this->sumPennies($items)),
+                    'total' => Money::fromPennies($items->sum(TransactionImpact::expensePennies(...))),
                 ];
             })->values();
-    }
-
-    /**
-     * @param Collection<int, Transaction> $transactions
-     */
-    private function sumPennies(Collection $transactions): int
-    {
-        return $transactions->sum(
-            fn (Transaction $transaction): int => Money::normalize((string) $transaction->amount),
-        );
     }
 }

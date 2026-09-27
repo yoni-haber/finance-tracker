@@ -30,10 +30,17 @@ class StatementImportManager extends Component
 
     public ?BankStatementImport $currentImport = null;
 
+    public ?BankStatementImport $lastCommittedImport = null;
+
     public bool $polling = false;
 
     public function mount(): void
     {
+        $this->bankProfileId = BankStatementImport::forUser((int) Auth::id())
+            ->whereNotNull('bank_profile_id')
+            ->orderByDesc('id')
+            ->value('bank_profile_id');
+
         // Check for any pending imports for this user
         $this->currentImport = BankStatementImport::forUser((int) Auth::id())
             ->whereIn('status', [
@@ -43,6 +50,10 @@ class StatementImportManager extends Component
             ])
             ->latest()
             ->first();
+
+        $this->lastCommittedImport = BankStatementImport::forUser((int) Auth::id())
+            ->where('status', BankStatementConfig::STATUS_COMMITTED)
+            ->orderByDesc('id')->first();
 
         // Enable polling if there's an active import that's not yet parsed
         $this->polling = $this->currentImport instanceof BankStatementImport &&

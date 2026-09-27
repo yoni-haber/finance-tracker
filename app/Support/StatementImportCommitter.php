@@ -62,6 +62,7 @@ readonly class StatementImportCommitter
                         'description' => $importedTransaction->description,
                         'amount' => $amount,
                         'type' => $type,
+                        'source_import_id' => $this->bankStatementImport->id,
                         'category_id' => $importedTransaction->category_id,
                         'is_recurring' => false,
                         'frequency' => null,
