@@ -75,7 +75,8 @@ class BudgetManager extends Component
             $bSummary = $b['summary'];
 
             return ($bSummary['overspent'] <=> $aSummary['overspent'])
-                ?: (($bSummary['percent'] ?? 101) <=> ($aSummary['percent'] ?? 101))
+                ?: (($bSummary['percent'] === null) <=> ($aSummary['percent'] === null))
+                ?: ($bSummary['percent'] <=> $aSummary['percent'])
                 ?: strcmp($aSummary['category'], $bSummary['category']);
         })->values();
         $budgetTotals = [

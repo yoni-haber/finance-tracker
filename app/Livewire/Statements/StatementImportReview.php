@@ -13,6 +13,7 @@ use App\Support\StatementImportCommitter;
 use Exception;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -293,19 +294,11 @@ class StatementImportReview extends Component
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int, ImportedTransaction> $visibleRows
+     * @param Collection<int, ImportedTransaction> $visibleRows
      * @return array<int, array{id: int, name: string}>
      */
-    private function categorySuggestions(\Illuminate\Support\Collection $visibleRows): array
+    private function categorySuggestions(Collection $visibleRows): array
     {
-        $names = $visibleRows->whereNull('category_id')->pluck('description')
-            ->map(fn (string $name): string => Str::squish(Str::upper($name)))
-            ->unique()->all();
-
-        if ($names === []) {
-            return [];
-        }
-
         $ownedCategories = Category::forUser((int) Auth::id())->get(['id', 'name', 'type'])->keyBy('id');
         $stagedDecisions = $this->import->importedTransactions()->whereNotNull('category_id')
             ->orderByDesc('updated_at')->get();
@@ -319,8 +312,7 @@ class StatementImportReview extends Component
             }
 
             $expectedType = $this->determineTransactionType($visibleRow);
-            $matchingStaged = $stagedDecisions->first(fn (ImportedTransaction $importedTransaction): bool => $importedTransaction->id !== $visibleRow->id
-                && Str::squish(Str::upper($importedTransaction->description)) === Str::squish(Str::upper($visibleRow->description))
+            $matchingStaged = $stagedDecisions->first(fn (ImportedTransaction $importedTransaction): bool => Str::squish(Str::upper($importedTransaction->description)) === Str::squish(Str::upper($visibleRow->description))
                 && $ownedCategories->get($importedTransaction->category_id)?->type === $expectedType);
             $matching = $previous->first(fn (Transaction $transaction): bool => Str::squish(Str::upper((string) $transaction->description)) === Str::squish(Str::upper($visibleRow->description))
                 && $ownedCategories->get($transaction->category_id)?->type === $expectedType);

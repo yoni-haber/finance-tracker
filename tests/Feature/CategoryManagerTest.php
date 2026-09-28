@@ -63,6 +63,27 @@ final class CategoryManagerTest extends TestCase
             ->assertSee('1 transaction');
     }
 
+    public function test_changing_parent_reporting_treatment_warns_about_child_activity_and_budgets(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        Transaction::factory()->count(2)->for($user)->for($parent)->create(['type' => Transaction::TYPE_EXPENSE]);
+        Transaction::factory()->count(3)->for($user)->for($child)->create(['type' => Transaction::TYPE_EXPENSE]);
+        Budget::factory()->for($user)->for($parent, 'category')->create();
+
+        $testable = Livewire::actingAs($user)->test(CategoryManager::class);
+        $testable->call('edit', $parent->id);
+        $testable->assertViewHas('editingCategoryImpact', [
+            'treatment' => Category::TREATMENT_SPENDING,
+            'transactions' => 5,
+            'budgets' => 1,
+        ]);
+        $testable->set('expenseTreatment', Category::TREATMENT_SAVING)
+            ->assertSee('This will reclassify 5 existing transactions')
+            ->assertSee('budgets before making this change.');
+    }
+
     public function test_render_parent_options_filtered_by_selected_type(): void
     {
         $user = User::factory()->create();

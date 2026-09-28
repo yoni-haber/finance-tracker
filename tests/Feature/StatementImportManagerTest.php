@@ -15,6 +15,7 @@ use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -414,6 +415,13 @@ final class StatementImportManagerTest extends TestCase
         // Force an exception by making the ParseBankStatementJob::dispatch fail
         Queue::shouldReceive('dispatch')
             ->andThrow(new Exception('Job dispatch failed'));
+        Log::shouldReceive('error')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Failed to upload bank statement'
+            && $context['user_id'] === $user->id
+            && $context['bank_profile_id'] === $bankProfile->id
+            && $context['filename'] === 'statement.csv'
+            && is_string($context['error'])
+            && $context['error'] !== ''
+            && is_string($context['trace']));
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)

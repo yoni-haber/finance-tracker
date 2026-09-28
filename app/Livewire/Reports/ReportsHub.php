@@ -47,11 +47,6 @@ class ReportsHub extends Component
     public function render(): View
     {
         return view('livewire.reports.hub', [
-            'chartData' => $this->chartData,
-            'netWorthChartData' => $this->netWorthChartData,
-            'insights' => $this->insights,
-            'categoryChanges' => $this->categoryChanges,
-            'budgetData' => $this->budgetData,
             'comparisonMonthLabel' => CarbonImmutable::now()->startOfMonth()->subMonth()->format('M Y'),
             'rangeOptions' => $this->rangeOptions(),
         ]);

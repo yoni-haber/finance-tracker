@@ -79,7 +79,8 @@ class Dashboard extends Component
         $budgetHighlights = $budgetSummaries
             ->filter(fn (array $row): bool => $row['overspent'] || ($row['percent'] !== null && $row['percent'] >= 80))
             ->sort(fn (array $a, array $b): int => ((int) $b['overspent'] <=> (int) $a['overspent'])
-                ?: (($b['percent'] ?? PHP_INT_MAX) <=> ($a['percent'] ?? PHP_INT_MAX))
+                ?: (($b['percent'] === null) <=> ($a['percent'] === null))
+                ?: ($b['percent'] <=> $a['percent'])
                 ?: strcmp($a['category'], $b['category']))
             ->take(3)
             ->values();

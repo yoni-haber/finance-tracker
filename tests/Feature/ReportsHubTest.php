@@ -75,6 +75,129 @@ final class ReportsHubTest extends TestCase
             ->assertSee('Budget performance');
     }
 
+    public function test_category_changes_include_only_spending_from_the_two_comparison_months_and_rank_six_categories(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $categories = [];
+        foreach (range(1, 7) as $index) {
+            $category = Category::factory()->for($user)->expense()->create(['name' => sprintf('Group %d', $index)]);
+            $categories[] = $category;
+            Transaction::factory()->for($user)->for($category)->create([
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => $index * 10 . '.00',
+                'date' => '2024-06-04',
+            ]);
+        }
+        Transaction::factory()->for($user)->for($categories[0])->create([
+            'type' => Transaction::TYPE_EXPENSE, 'amount' => '80.00', 'date' => '2024-05-04',
+        ]);
+        Transaction::factory()->for($user)->for($categories[6])->create([
+            'type' => Transaction::TYPE_EXPENSE, 'amount' => '500.00', 'date' => '2024-04-04',
+        ]);
+        $saving = Category::factory()->for($user)->expense()->create(['expense_treatment' => Category::TREATMENT_SAVING]);
+        Transaction::factory()->for($user)->for($saving)->create([
+            'type' => Transaction::TYPE_EXPENSE, 'amount' => '1000.00', 'date' => '2024-06-04',
+        ]);
+
+        Livewire::actingAs($user)->test(ReportsHub::class)->set('range', '3_months')
+            ->assertViewHas('categoryChanges', function (array $changes): bool {
+                return count($changes) === 6
+                    && array_column($changes, 'category') === ['Group 1', 'Group 7', 'Group 6', 'Group 5', 'Group 4', 'Group 3']
+                    && $changes[0]['previous'] === 8000
+                    && $changes[0]['current'] === 1000
+                    && $changes[0]['change'] === -7000;
+            });
+    }
+
+    public function test_budget_performance_starts_at_the_selected_range_boundary(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        foreach ([2 => '900.00', 3 => '100.00', 4 => '200.00', 6 => '300.00'] as $month => $amount) {
+            Budget::factory()->for($user)->for($category, 'category')->create([
+                'month' => $month, 'year' => 2024, 'amount' => $amount,
+            ]);
+        }
+
+        Livewire::actingAs($user)->test(ReportsHub::class)->set('range', '3_months')
+            ->assertViewHas('budgetData', fn (array $data): bool => $data['labels'] === ['Apr 2024', 'May 2024', 'Jun 2024']
+                && $data['planned'] === [200.0, 0.0, 300.0]
+                && $data['hasBudgets']);
+    }
+
+    public function test_ytd_comparison_uses_the_previous_calendar_month_at_year_start(): void
+    {
+        Carbon::setTestNow('2024-01-15');
+        $user = User::factory()->create();
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        Transaction::factory()->for($user)->for($food)->create([
+            'type' => Transaction::TYPE_EXPENSE, 'amount' => '20.00', 'date' => '2023-12-04',
+        ]);
+        Transaction::factory()->for($user)->for($food)->create([
+            'type' => Transaction::TYPE_EXPENSE, 'amount' => '60.00', 'date' => '2024-01-04',
+        ]);
+
+        Livewire::actingAs($user)->test(ReportsHub::class)->set('range', 'ytd')
+            ->assertViewHas('categoryChanges', fn (array $changes): bool => count($changes) === 1
+                && $changes[0]['previous'] === 2000
+                && $changes[0]['current'] === 6000
+                && $changes[0]['change'] === 4000);
+    }
+
+    public function test_ytd_comparison_in_february_uses_january_and_february_only(): void
+    {
+        Carbon::setTestNow('2024-02-15');
+        $user = User::factory()->create();
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        foreach (['2023-12-04' => '90.00', '2024-01-04' => '20.00', '2024-02-04' => '60.00'] as $date => $amount) {
+            Transaction::factory()->for($user)->for($food)->create([
+                'type' => Transaction::TYPE_EXPENSE, 'amount' => $amount, 'date' => $date,
+            ]);
+        }
+
+        Livewire::actingAs($user)->test(ReportsHub::class)->set('range', 'ytd')
+            ->assertViewHas('categoryChanges', fn (array $changes): bool => count($changes) === 1
+                && $changes[0]['previous'] === 2000
+                && $changes[0]['current'] === 6000
+                && $changes[0]['change'] === 4000);
+    }
+
+    public function test_empty_budget_performance_stays_empty_and_a_middle_month_budget_remains_visible(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class)->set('range', '3_months');
+        $testable->assertViewHas('budgetData', fn (array $data): bool => !$data['hasBudgets']
+            && $data['planned'] === [0.0, 0.0, 0.0]);
+
+        $category = Category::factory()->for($user)->expense()->create();
+        Budget::factory()->for($user)->for($category, 'category')->create([
+            'month' => 5, 'year' => 2024, 'amount' => '50.00',
+        ]);
+        $testable->set('range', '6_months')->set('range', '3_months')
+            ->assertViewHas('budgetData', fn (array $data): bool => $data['hasBudgets']
+                && $data['planned'] === [0.0, 50.0, 0.0]);
+    }
+
+    public function test_category_changes_are_empty_when_there_is_no_spending(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $income = Category::factory()->for($user)->income()->create();
+        $saving = Category::factory()->for($user)->expense()->create(['expense_treatment' => Category::TREATMENT_SAVING]);
+        Transaction::factory()->for($user)->for($income)->create([
+            'type' => Transaction::TYPE_INCOME, 'amount' => '100.00', 'date' => '2024-06-04',
+        ]);
+        Transaction::factory()->for($user)->for($saving)->create([
+            'type' => Transaction::TYPE_EXPENSE, 'amount' => '20.00', 'date' => '2024-06-04',
+        ]);
+
+        Livewire::actingAs($user)->test(ReportsHub::class)->set('range', '3_months')
+            ->assertViewHas('categoryChanges', []);
+    }
+
     public function test_recorded_mode_excludes_generated_recurring_occurrences(): void
     {
         Carbon::setTestNow('2024-06-15');

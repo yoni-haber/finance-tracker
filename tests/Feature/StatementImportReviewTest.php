@@ -67,6 +67,21 @@ final class StatementImportReviewTest extends TestCase
             ->assertSee('Possible match in this file');
     }
 
+    public function test_possible_match_filter_excludes_a_single_unmatched_row(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'ONE OFF', 'hash' => 'only-this-row', 'is_duplicate' => false,
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+        $testable->assertViewHas('summary', fn (array $summary): bool => $summary['possible_duplicates'] === 0);
+        $testable->set('viewFilter', 'possible')
+            ->assertViewHas('transactions', fn ($rows): bool => $rows->isEmpty());
+    }
+
     public function test_credit_card_credits_commit_as_ordinary_income(): void
     {
         $user = User::factory()->create(['selected_month' => 7, 'selected_year' => 2026]);
@@ -205,6 +220,48 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
             ->assertViewHas('categorySuggestions', fn (array $suggestions): bool => ($suggestions[$uncategorised->id] ?? null) === ['id' => $category->id, 'name' => 'Salary']);
+    }
+
+    public function test_category_suggestions_match_description_and_transaction_type_with_staged_choice_first(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $income = Category::factory()->for($user)->income()->create(['name' => 'Wages']);
+        $preferred = Category::factory()->for($user)->income()->create(['name' => 'Interest']);
+        $expense = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        Transaction::factory()->for($user)->for($income)->create([
+            'type' => Transaction::TYPE_INCOME, 'description' => 'PAYMENT', 'amount' => '20.00',
+        ]);
+        Transaction::factory()->for($user)->for($expense)->create([
+            'type' => Transaction::TYPE_EXPENSE, 'description' => 'PAYMENT', 'amount' => '20.00',
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'PAYMENT', 'amount' => '10.00', 'category_id' => $preferred->id,
+        ]);
+        $first = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => ' payment ', 'amount' => '15.00', 'category_id' => null,
+        ]);
+        $second = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'PAYMENT', 'amount' => '-15.00', 'category_id' => null,
+        ]);
+        $third = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => ' payment ', 'amount' => '16.00', 'category_id' => null,
+        ]);
+        $unrelated = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'OTHER', 'amount' => '16.00', 'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', function (array $suggestions) use ($first, $second, $third, $unrelated, $preferred, $expense): bool {
+                $this->assertCount(3, $suggestions);
+                $this->assertSame(['id' => $preferred->id, 'name' => 'Interest'], $suggestions[$first->id] ?? null);
+                $this->assertSame(['id' => $expense->id, 'name' => 'Food'], $suggestions[$second->id] ?? null);
+                $this->assertSame(['id' => $preferred->id, 'name' => 'Interest'], $suggestions[$third->id] ?? null);
+                $this->assertArrayNotHasKey($unrelated->id, $suggestions);
+
+                return true;
+            });
     }
 
     public function test_calculates_summary_statistics(): void
@@ -364,6 +421,7 @@ final class StatementImportReviewTest extends TestCase
         $transaction = $transactions->first();
         $this->assertNotNull($transaction);
         $this->assertEqualsWithDelta(100.00, $transaction->amount, PHP_FLOAT_EPSILON);
+        $this->assertSame($import->id, $transaction->source_import_id);
         $this->assertNotNull($transaction->category);
         $this->assertTrue($transaction->category->is($category));
     }

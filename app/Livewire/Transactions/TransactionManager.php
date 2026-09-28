@@ -392,12 +392,13 @@ class TransactionManager extends Component
                 'frequency' => $this->frequency,
                 'recurring_until' => $this->recurring_until,
             ]);
-            $transaction->setRelation('occurrenceExceptions', new \Illuminate\Database\Eloquent\Collection());
 
-            return array_values($transaction->projectOccurrencesForRange($start, $end)
-                ->take(3)
+            /** @var list<string> $preview */
+            $preview = $transaction->projectOccurrencesForRange($start, $end)
                 ->map(fn (Transaction $transaction): string => $transaction->date->format('j M Y'))
-                ->all());
+                ->all();
+
+            return $preview;
         } catch (InvalidFormatException) {
             return [];
         }

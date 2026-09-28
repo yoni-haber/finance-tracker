@@ -72,7 +72,6 @@ final class ReportInsights
             'change' => $amounts['current'] - $amounts['previous'],
         ])->sort(fn (array $a, array $b): int => max($b['current'], $b['previous']) <=> max($a['current'], $a['previous']))
             ->take(6)
-            ->values()
             ->all());
     }
 
@@ -85,7 +84,10 @@ final class ReportInsights
         $firstMonth = $endMonth->subMonths($monthsCount - 1);
         $budgetsByMonth = Budget::with('category.children')
             ->where('user_id', $userId)
-            ->whereBetween('year', [$firstMonth->year, $endMonth->year])
+            ->whereRaw('year * 12 + month between ? and ?', [
+                $firstMonth->year * 12 + $firstMonth->month,
+                $endMonth->year * 12 + $endMonth->month,
+            ])
             ->get()
             ->groupBy(fn (Budget $budget): string => sprintf('%04d-%02d', $budget->year, $budget->month));
         $transactionsByMonth = $transactions->groupBy(fn (Transaction $transaction): string => $transaction->date->format('Y-m'));

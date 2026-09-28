@@ -61,6 +61,7 @@ final class TransactionManagerTest extends TestCase
             ->assertSee('31 Jan 2024')
             ->assertSee('29 Feb 2024')
             ->assertSee('31 Mar 2024')
+            ->assertDontSee('30 Apr 2024')
             ->set('recurring_until', '2024-02-15')
             ->assertSee('31 Jan 2024')
             ->assertDontSee('29 Feb 2024');
@@ -79,7 +80,29 @@ final class TransactionManagerTest extends TestCase
         $this->assertSame(['29 Feb 2024', '28 Feb 2025', '28 Feb 2026'], $component->recurringPreview());
 
         $component->date = 'not-a-date';
-        $this->assertSame([], $component->recurringPreview());
+        $this->assertCount(0, $component->recurringPreview());
+    }
+
+    public function test_recurring_preview_requires_a_valid_schedule_and_shows_exactly_three_weekly_dates(): void
+    {
+        $user = User::factory()->create();
+        $component = Livewire::actingAs($user)->test(TransactionManager::class)->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->date = '2024-05-01';
+        $component->frequency = 'weekly';
+
+        $this->assertCount(0, $component->recurringPreview());
+
+        $component->is_recurring = true;
+        $component->date = '   ';
+        $this->assertCount(0, $component->recurringPreview());
+
+        $component->date = '2024-05-01';
+        $component->frequency = 'daily';
+        $this->assertCount(0, $component->recurringPreview());
+
+        $component->frequency = 'weekly';
+        $this->assertSame(['1 May 2024', '8 May 2024', '15 May 2024'], $component->recurringPreview());
     }
 
     public function test_mount_sets_date_month_and_year_to_current(): void

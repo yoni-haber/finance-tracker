@@ -70,9 +70,38 @@ final class BudgetManagerTest extends TestCase
                 'date' => '2024-05-10',
             ]);
         }
+        $zero = Category::factory()->for($user)->expense()->create(['name' => 'Zero']);
+        Budget::factory()->for($user)->for($zero, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 0]);
+        $user->transactions()->create([
+            'category_id' => $zero->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 5,
+            'date' => '2024-05-10',
+        ]);
 
         Livewire::actingAs($user)->test(BudgetManager::class)
-            ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Over', 'High', 'Mid A', 'Mid Z', 'Low']);
+            ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Zero', 'Over', 'High', 'Mid A', 'Mid Z', 'Low']);
+    }
+
+    public function test_editing_budget_shows_progress_for_the_selected_category(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $housing = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        $foodBudget = Budget::factory()->for($user)->for($food, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 100]);
+        Budget::factory()->for($user)->for($housing, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 200]);
+        $user->transactions()->create([
+            'category_id' => $food->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 40,
+            'date' => '2024-05-10',
+        ]);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->call('edit', $foodBudget->id)
+            ->assertViewHas('editingBudgetCategoryId', $food->id)
+            ->assertViewHas('editingBudgetSummary', fn (array $summary): bool => $summary['category'] === 'Food' && $summary['actual'] === '40.00');
     }
 
     public function test_mount_uses_the_users_persisted_period_for_the_form(): void
