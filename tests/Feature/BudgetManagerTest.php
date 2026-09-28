@@ -70,6 +70,7 @@ final class BudgetManagerTest extends TestCase
                 'date' => '2024-05-10',
             ]);
         }
+
         $zero = Category::factory()->for($user)->expense()->create(['name' => 'Zero']);
         Budget::factory()->for($user)->for($zero, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 0]);
         $user->transactions()->create([

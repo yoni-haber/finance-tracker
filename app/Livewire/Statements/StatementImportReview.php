@@ -210,7 +210,7 @@ class StatementImportReview extends Component
      */
     public function updateCategory(int $transactionId, int|string|null $categoryId): void
     {
-        $categoryId = $categoryId === '' || $categoryId === null ? null : (int) $categoryId;
+        $categoryId = $categoryId === '' ? null : $categoryId;
 
         if ($categoryId !== null) {
             $category = Category::where('id', $categoryId)->where('user_id', Auth::id())->first();

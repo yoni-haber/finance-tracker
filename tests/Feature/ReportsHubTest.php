@@ -89,6 +89,7 @@ final class ReportsHubTest extends TestCase
                 'date' => '2024-06-04',
             ]);
         }
+
         Transaction::factory()->for($user)->for($categories[0])->create([
             'type' => Transaction::TYPE_EXPENSE, 'amount' => '80.00', 'date' => '2024-05-04',
         ]);
@@ -101,13 +102,11 @@ final class ReportsHubTest extends TestCase
         ]);
 
         Livewire::actingAs($user)->test(ReportsHub::class)->set('range', '3_months')
-            ->assertViewHas('categoryChanges', function (array $changes): bool {
-                return count($changes) === 6
-                    && array_column($changes, 'category') === ['Group 1', 'Group 7', 'Group 6', 'Group 5', 'Group 4', 'Group 3']
-                    && $changes[0]['previous'] === 8000
-                    && $changes[0]['current'] === 1000
-                    && $changes[0]['change'] === -7000;
-            });
+            ->assertViewHas('categoryChanges', fn (array $changes): bool => count($changes) === 6
+                && array_column($changes, 'category') === ['Group 1', 'Group 7', 'Group 6', 'Group 5', 'Group 4', 'Group 3']
+                && $changes[0]['previous'] === 8000
+                && $changes[0]['current'] === 1000
+                && $changes[0]['change'] === -7000);
     }
 
     public function test_budget_performance_starts_at_the_selected_range_boundary(): void

@@ -1303,6 +1303,13 @@ final class TransactionManagerTest extends TestCase
         $testable->call('nextPage')->set('filterType', Transaction::TYPE_INCOME)
             ->assertSet('paginators.page', 1);
         $testable->call('clearSearch')->assertSet('paginators.page', 1);
+
+        $testable->call('clearFilters');
+        $testable->set('search', 'Searchable')->call('nextPage')->assertSet('paginators.page', 2);
+        $testable->call('clearFilters')->assertSet('paginators.page', 1);
+
+        $testable->set('search', 'Searchable')->call('nextPage')->assertSet('paginators.page', 2);
+        $testable->call('showSelectedMonth')->assertSet('paginators.page', 1);
     }
 
     public function test_search_displays_recurring_series_once_and_delete_targets_the_series(): void
