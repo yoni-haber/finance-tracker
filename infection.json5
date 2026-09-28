@@ -6,8 +6,8 @@
     "mutators": {
         "@default": true
     },
-    "minMsi": 70,
-    "minCoveredMsi": 70,
+    "minMsi": 100,
+    "minCoveredMsi": 100,
     "testFramework": "phpunit",
     "phpUnit": {
         "configDir": "."
