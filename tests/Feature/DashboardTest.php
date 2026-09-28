@@ -373,7 +373,7 @@ final class DashboardTest extends TestCase
         Carbon::setTestNow('2024-05-15');
         $user = User::factory()->create();
 
-        foreach (['Low' => 10, 'High' => 90, 'Over' => 120, 'Unused' => 0] as $name => $spent) {
+        foreach (['Low' => 10, 'High Z' => 90, 'Medium' => 85, 'Over' => 120, 'High A' => 90, 'Unused' => 0] as $name => $spent) {
             $category = Category::factory()->for($user)->expense()->create(['name' => $name]);
             Budget::factory()->for($user)->for($category)->create([
                 'month' => 5, 'year' => 2024, 'amount' => 100,
@@ -389,7 +389,7 @@ final class DashboardTest extends TestCase
         }
 
         Livewire::actingAs($user)->test(Dashboard::class)
-            ->assertViewHas('budgetHighlights', fn ($highlights): bool => $highlights->pluck('category')->all() === ['Over', 'High']);
+            ->assertViewHas('budgetHighlights', fn ($highlights): bool => $highlights->pluck('category')->all() === ['Over', 'High A', 'High Z']);
     }
 
     public function test_recent_activity_is_limited_to_recorded_current_user_entries_through_today(): void
