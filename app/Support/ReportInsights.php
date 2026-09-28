@@ -51,13 +51,18 @@ final class ReportInsights
                 && ($transaction->category?->effectiveExpenseTreatment() ?? Category::TREATMENT_SPENDING) === Category::TREATMENT_SPENDING
                 && in_array($transaction->date->format('Y-m'), $months, true))
             ->groupBy(fn (Transaction $transaction): string => self::categoryName($transaction))
-            ->map(fn (Collection $items): array => [
-                'previous' => $items->filter(fn (Transaction $transaction): bool => $transaction->date->format('Y-m') === $months[0])
-                    ->sum(TransactionImpact::expensePennies(...)),
-                'current' => $items->filter(fn (Transaction $transaction): bool => $transaction->date->format('Y-m') === $months[1])
-                    ->sum(TransactionImpact::expensePennies(...)),
-                'category_id' => $items->first()?->category?->parent_id ?? $items->first()?->category_id,
-            ]);
+            ->map(function (Collection $items) use ($months): array {
+                $first = $items->first();
+                assert($first instanceof Transaction);
+
+                return [
+                    'previous' => $items->filter(fn (Transaction $transaction): bool => $transaction->date->format('Y-m') === $months[0])
+                        ->sum(TransactionImpact::expensePennies(...)),
+                    'current' => $items->filter(fn (Transaction $transaction): bool => $transaction->date->format('Y-m') === $months[1])
+                        ->sum(TransactionImpact::expensePennies(...)),
+                    'category_id' => $first->category->parent_id ?? $first->category_id,
+                ];
+            });
 
         return array_values($totals->map(fn (array $amounts, string $category): array => [
             'category' => $category,

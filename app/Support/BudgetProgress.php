@@ -13,7 +13,7 @@ class BudgetProgress
     /**
      * @param Collection<int, Budget> $budgets
      * @param Collection<int, Transaction> $transactions Projected occurrences for the selected month.
-     * @return Collection<int, array{category: string, budget: string, actual: string, remaining: string, over: string, overspent: bool, percent: int|null, barPercent: int}>
+     * @return Collection<int, array{category: string, category_id: int, budget: string, actual: string, remaining: string, over: string, overspent: bool, percent: int|null, barPercent: int}>
      */
     public static function forPeriod(Collection $budgets, Collection $transactions, int $month, int $year): Collection
     {

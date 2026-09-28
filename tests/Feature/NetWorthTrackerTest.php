@@ -46,7 +46,9 @@ final class NetWorthTrackerTest extends TestCase
             ->call('save')
             ->assertHasErrors(['date']);
 
-        $this->assertSame('2026-09-20', $entry->fresh()->date->toDateString());
+        $freshEntry = $entry->fresh();
+        $this->assertNotNull($freshEntry);
+        $this->assertSame('2026-09-20', $freshEntry->date->toDateString());
     }
 
     public function test_saves_entry_and_line_items_transactionally(): void

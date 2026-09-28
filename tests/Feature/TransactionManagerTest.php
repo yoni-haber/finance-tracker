@@ -66,6 +66,22 @@ final class TransactionManagerTest extends TestCase
             ->assertDontSee('29 Feb 2024');
     }
 
+    public function test_recurring_preview_handles_leap_day_and_invalid_dates(): void
+    {
+        $user = User::factory()->create();
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $component = $testable->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->is_recurring = true;
+        $component->frequency = 'yearly';
+        $component->date = '2024-02-29';
+
+        $this->assertSame(['29 Feb 2024', '28 Feb 2025', '28 Feb 2026'], $component->recurringPreview());
+
+        $component->date = 'not-a-date';
+        $this->assertSame([], $component->recurringPreview());
+    }
+
     public function test_mount_sets_date_month_and_year_to_current(): void
     {
         Carbon::setTestNow('2024-06-15');
@@ -1033,6 +1049,29 @@ final class TransactionManagerTest extends TestCase
             ->actingAs($user)
             ->test(TransactionManager::class)
             ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $old->id);
+    }
+
+    public function test_clear_filters_restores_the_selected_month_and_all_transactions_in_it(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $category = Category::factory()->for($user)->expense()->create();
+        $current = Transaction::factory()->for($user)->for($category)->create(['type' => Transaction::TYPE_EXPENSE, 'date' => '2024-06-10']);
+        Transaction::factory()->for($user)->for($category)->create(['type' => Transaction::TYPE_EXPENSE, 'date' => '2024-05-10']);
+
+        Livewire::actingAs($user)->test(TransactionManager::class)
+            ->set('scope', 'all')
+            ->set('search', 'no match')
+            ->set('filterParentCategory', $category->id)
+            ->set('filterType', Transaction::TYPE_INCOME)
+            ->call('clearFilters')
+            ->assertSet('scope', 'month')
+            ->assertSet('search', '')
+            ->assertSet('filterParentCategory', null)
+            ->assertSet('filterSubCategory', null)
+            ->assertSet('filterType', null)
+            ->assertSet('filterImportId', null)
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
     }
 
     public function test_search_trims_whitespace_and_matches_within_descriptions(): void

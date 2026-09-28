@@ -104,10 +104,8 @@ class StatementImportManager extends Component
     {
         $this->validate();
 
-        if (!$this->csvFile instanceof TemporaryUploadedFile) {
-            // this is defensive as the validation rules ensure that it is either a txt or csv file, so covering this in tests is tricky
-            return;
-        }
+        /** @var TemporaryUploadedFile $file */
+        $file = $this->csvFile;
 
         try {
             // Get the selected bank profile to determine statement type (ensure it belongs to user)
@@ -116,14 +114,14 @@ class StatementImportManager extends Component
             // Create the import record
             $import = BankStatementImport::create([
                 'user_id' => Auth::id(),
-                'original_filename' => $this->csvFile->getClientOriginalName(),
+                'original_filename' => $file->getClientOriginalName(),
                 'status' => BankStatementConfig::STATUS_UPLOADED,
                 'bank_profile_id' => $this->bankProfileId,
                 'statement_type' => $bankProfile->statement_type,
             ]);
 
             // Store the file with a predictable name for the parser
-            $this->csvFile->storeAs('statements', $import->id . '.csv', BankStatementConfig::statementsDisk());
+            $file->storeAs('statements', $import->id . '.csv', BankStatementConfig::statementsDisk());
 
             // Dispatch the parsing job
             ParseBankStatementJob::dispatch($import->id);
@@ -137,7 +135,7 @@ class StatementImportManager extends Component
             logger()->error('Failed to upload bank statement', [
                 'user_id' => Auth::id(),
                 'bank_profile_id' => $this->bankProfileId,
-                'filename' => $this->csvFile->getClientOriginalName(),
+                'filename' => $file->getClientOriginalName(),
                 'error' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
             ]);

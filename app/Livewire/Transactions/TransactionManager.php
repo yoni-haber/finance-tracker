@@ -426,6 +426,9 @@ class TransactionManager extends Component
         }
     }
 
+    /** @param Builder<Transaction> $builder
+     *  @return Builder<Transaction>
+     */
     private function applyTypeFilter(Builder $builder): Builder
     {
         return $builder->where('type', $this->filterType);

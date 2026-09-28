@@ -33,7 +33,9 @@ final class StatementImportReviewTest extends TestCase
         Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
             ->call('updateCategory', $row->id, '')
             ->assertHasNoErrors();
-        $this->assertNull($row->fresh()->category_id);
+        $freshRow = $row->fresh();
+        $this->assertNotNull($freshRow);
+        $this->assertNull($freshRow->category_id);
 
         $row->update(['category_id' => $category->id]);
         Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
@@ -41,7 +43,9 @@ final class StatementImportReviewTest extends TestCase
             ->set('editForm.category_id', '')
             ->call('updateTransaction')
             ->assertHasNoErrors();
-        $this->assertNull($row->fresh()->category_id);
+        $freshRow = $row->fresh();
+        $this->assertNotNull($freshRow);
+        $this->assertNull($freshRow->category_id);
     }
 
     public function test_matching_rows_inside_one_statement_are_flagged_without_skipping_either(): void
@@ -56,9 +60,9 @@ final class StatementImportReviewTest extends TestCase
             ]);
         }
 
-        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
-            ->assertViewHas('summary', fn (array $summary): bool => $summary['possible_duplicates'] === 2 && $summary['new_transactions'] === 2)
-            ->set('viewFilter', 'possible')
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+        $testable->assertViewHas('summary', fn (array $summary): bool => $summary['possible_duplicates'] === 2 && $summary['new_transactions'] === 2);
+        $testable->set('viewFilter', 'possible')
             ->assertViewHas('transactions', fn ($rows): bool => $rows->count() === 2)
             ->assertSee('Possible match in this file');
     }
@@ -173,11 +177,34 @@ final class StatementImportReviewTest extends TestCase
             ->test(StatementImportReview::class, ['importId' => $import->id]);
 
         $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 3);
+        $testable->set('viewFilter', 'ready');
+        $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'READY ENTRY');
         $testable->set('viewFilter', 'needs_attention');
         $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'NEEDS CATEGORY')
             ->assertSee('Ready to import');
         $testable->set('viewFilter', 'duplicates');
         $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'DUPLICATE ENTRY');
+    }
+
+    public function test_review_suggests_a_category_from_another_row_in_the_same_statement(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $category = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'MONTHLY PAY',
+            'amount' => 100.00,
+            'category_id' => $category->id,
+        ]);
+        $uncategorised = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => ' Monthly   Pay ',
+            'amount' => 200.00,
+            'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', fn (array $suggestions): bool => ($suggestions[$uncategorised->id] ?? null) === ['id' => $category->id, 'name' => 'Salary']);
     }
 
     public function test_calculates_summary_statistics(): void
@@ -999,6 +1026,22 @@ final class StatementImportReviewTest extends TestCase
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
         $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
+    }
+
+    public function test_commit_import_reports_when_the_statement_disappears_during_review(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+
+        $import->delete();
+
+        $component = $testable->instance();
+        $this->assertInstanceOf(StatementImportReview::class, $component);
+        $component->commitImport();
+
+        $this->assertTrue($component->getErrorBag()->has('commit'));
     }
 
     public function test_bulk_delete_with_empty_selection_does_nothing(): void

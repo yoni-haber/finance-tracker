@@ -13,6 +13,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 final class ReportsHubTest extends TestCase
@@ -87,6 +88,36 @@ final class ReportsHubTest extends TestCase
         $testable->set('transactionMode', 'recorded');
         $testable->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 5000)
             ->assertSee('Recorded entries only');
+    }
+
+    public function test_invalid_transaction_mode_returns_to_projected_data(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        Transaction::factory()->for($user)->create([
+            'type' => Transaction::TYPE_INCOME,
+            'amount' => '50.00',
+            'date' => '2024-04-01',
+            'is_recurring' => true,
+            'frequency' => 'monthly',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable->set('transactionMode', 'recorded');
+        $testable->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 5000);
+        $testable->set('transactionMode', 'invalid')
+            ->assertSet('transactionMode', 'projected')
+            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 15000);
+    }
+
+    public function test_transaction_mode_update_rejects_unauthenticated_calls(): void
+    {
+        try {
+            new ReportsHub()->updatedTransactionMode();
+            $this->fail('Expected the transaction mode update to require authentication.');
+        } catch (HttpException $httpException) {
+            $this->assertSame(401, $httpException->getStatusCode());
+        }
     }
 
     public function test_render_passes_range_options_to_view(): void

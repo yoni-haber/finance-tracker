@@ -292,7 +292,10 @@ class StatementImportReview extends Component
         return $importedTransaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE;
     }
 
-    /** @return array<int, array{id: int, name: string}> */
+    /**
+     * @param \Illuminate\Support\Collection<int, ImportedTransaction> $visibleRows
+     * @return array<int, array{id: int, name: string}>
+     */
     private function categorySuggestions(\Illuminate\Support\Collection $visibleRows): array
     {
         $names = $visibleRows->whereNull('category_id')->pluck('description')
@@ -321,9 +324,10 @@ class StatementImportReview extends Component
                 && $ownedCategories->get($importedTransaction->category_id)?->type === $expectedType);
             $matching = $previous->first(fn (Transaction $transaction): bool => Str::squish(Str::upper((string) $transaction->description)) === Str::squish(Str::upper($visibleRow->description))
                 && $ownedCategories->get($transaction->category_id)?->type === $expectedType);
-            $categoryId = $matchingStaged?->category_id ?? $matching?->category_id;
-            if ($categoryId) {
-                $suggestions[$visibleRow->id] = ['id' => $categoryId, 'name' => $ownedCategories->get($categoryId)->name];
+            $categoryId = $matchingStaged->category_id ?? $matching->category_id ?? null;
+            $suggestedCategory = $categoryId ? $ownedCategories->get($categoryId) : null;
+            if ($suggestedCategory instanceof Category) {
+                $suggestions[$visibleRow->id] = ['id' => $suggestedCategory->id, 'name' => $suggestedCategory->name];
             }
         }
 
