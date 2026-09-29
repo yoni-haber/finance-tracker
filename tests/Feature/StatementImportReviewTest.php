@@ -346,6 +346,7 @@ final class StatementImportReviewTest extends TestCase
         } finally {
             Schema::enableForeignKeyConstraints();
         }
+
         $uncategorised = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
             'description' => 'Monthly Pay',
             'amount' => '100.00',
