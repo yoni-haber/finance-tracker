@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Support\BankStatement\DuplicateDetector;
 use App\Support\BankStatementConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -320,6 +321,42 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
             ->assertViewHas('categorySuggestions', []);
+    }
+
+    public function test_category_suggestions_skip_recorded_transactions_with_another_users_category(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $ownedCategory = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
+        $otherCategory = Category::factory()->for($other)->income()->create(['name' => 'Private']);
+
+        Transaction::factory()->for($user)->for($ownedCategory)->create([
+            'type' => Transaction::TYPE_INCOME,
+            'description' => 'MONTHLY PAY',
+        ]);
+        // Simulate a legacy transaction that predates the category ownership constraint.
+        Schema::disableForeignKeyConstraints();
+        try {
+            Transaction::factory()->for($user)->for($otherCategory)->create([
+                'type' => Transaction::TYPE_INCOME,
+                'description' => 'MONTHLY PAY',
+            ]);
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
+        $uncategorised = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'Monthly Pay',
+            'amount' => '100.00',
+            'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', fn (array $suggestions): bool => ($suggestions[$uncategorised->id] ?? null) === [
+                'id' => $ownedCategory->id,
+                'name' => 'Salary',
+            ]);
     }
 
     public function test_calculates_summary_statistics(): void
