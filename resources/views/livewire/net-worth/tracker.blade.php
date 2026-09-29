@@ -1,4 +1,12 @@
-<div class="space-y-4">
+<div class="space-y-5">
+    <x-page-header eyebrow="Your position" title="Net worth" description="Record a snapshot to see how your assets and liabilities change over time.">
+        <button type="button" wire:click="openModal" class="app-button-primary">+ New snapshot</button>
+    </x-page-header>
+    <div class="grid gap-3 sm:grid-cols-3">
+        <div class="app-card p-4"><p class="app-eyebrow">Latest net worth</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry && \App\Support\Money::normalize($latestEntry->net_worth) < 0 ? 'text-rose-700 dark:text-rose-400' : '' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->net_worth) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Assets</p><p class="mt-2 text-2xl font-semibold tabular-nums">{{ $latestEntry ? \App\Support\Money::format($latestEntry->assets) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Liabilities</p><p class="mt-2 text-2xl font-semibold tabular-nums">{{ $latestEntry ? \App\Support\Money::format($latestEntry->liabilities) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+    </div>
     {{-- Status message --}}
     @if (session()->has('status'))
         <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
@@ -7,22 +15,12 @@
     @endif
 
     {{-- History card --}}
-    <div class="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div class="app-card overflow-hidden">
 
-        {{-- Toolbar --}}
-        <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-            <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Net Worth</h2>
-            <button
-                wire:click="openModal"
-                class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
-            >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New snapshot
-            </button>
-        </div>
+        <div class="border-b border-app-border px-4 py-4 sm:px-5"><h2 class="font-semibold">Snapshot history</h2><p class="mt-1 text-sm app-muted">{{ $latestEntry ? 'Latest snapshot: ' . $latestEntry->date->format('j M Y') : 'Your first snapshot will appear here.' }}</p></div>
 
         {{-- History table --}}
-        <div class="overflow-x-auto">
+        <div class="hidden overflow-x-auto md:block">
             <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
                 <thead class="bg-zinc-50 dark:bg-zinc-800">
                     <tr>
@@ -78,6 +76,21 @@
                 </tbody>
             </table>
         </div>
+        <div class="divide-y divide-app-border md:hidden">
+            @forelse ($entries as $entry)
+                <article class="p-4" x-data="{ expanded: false }">
+                    <div class="flex items-start justify-between gap-3"><div><p class="font-semibold">{{ $entry->date->format('j M Y') }}</p><p class="mt-1 text-sm app-muted">Assets {{ \App\Support\Money::format($entry->assets) }} · Liabilities {{ \App\Support\Money::format($entry->liabilities) }}</p></div><p class="shrink-0 font-semibold tabular-nums {{ \App\Support\Money::normalize($entry->net_worth) < 0 ? 'text-rose-700 dark:text-rose-400' : '' }}">{{ \App\Support\Money::format($entry->net_worth) }}</p></div>
+                    <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="app-link mt-3 text-sm" x-text="expanded ? 'Hide details' : 'Show details'"></button>
+                    <div x-show="expanded" x-cloak class="mt-3 grid grid-cols-2 gap-3 border-t border-app-border pt-3 text-xs">
+                        <div><p class="font-semibold">Assets</p>@foreach ($entry->lineItems->where('type', 'asset') as $item)<p class="mt-1 break-words app-muted">{{ $item->category }} · {{ \App\Support\Money::format($item->amount) }}</p>@endforeach</div>
+                        <div><p class="font-semibold">Liabilities</p>@foreach ($entry->lineItems->where('type', 'liability') as $item)<p class="mt-1 break-words app-muted">{{ $item->category }} · {{ \App\Support\Money::format($item->amount) }}</p>@endforeach</div>
+                    </div>
+                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $entry->id }})" class="app-link">Edit</button><button type="button" wire:click="confirmDelete({{ $entry->id }})" class="font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
+                </article>
+            @empty
+                <p class="app-empty m-4">No snapshots yet. Add your current assets and liabilities to start tracking net worth.</p>
+            @endforelse
+        </div>
         @if ($entries->hasPages())
             <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
                 {{ $entries->links() }}
@@ -91,12 +104,12 @@
         x-on:open-networth-modal.window="$flux.modal('networth-form').show()"
         x-on:close-networth-modal.window="$flux.modal('networth-form').close()"
         focusable
-        class="max-w-4xl"
+        class="min-w-0 w-[calc(100vw-2rem)] max-w-4xl"
     >
         <div class="space-y-5">
-            <div class="flex items-start justify-between gap-4">
-                <flux:heading size="lg">{{ $entryId ? 'Edit Snapshot' : 'New Snapshot' }}</flux:heading>
-                <div class="text-centre px-7 py-3">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div><flux:heading size="lg">{{ $entryId ? 'Edit snapshot' : 'New snapshot' }}</flux:heading><p class="mt-1 max-w-md text-sm app-muted">Add assets and liabilities, or copy a previous snapshot and update its amounts.</p></div>
+                <div class="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
                     <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Net Worth</p>
                     <div class="mt-1 rounded-lg px-3 py-1.5 text-lg font-bold {{ $this->calculatedNetWorthStyle }}">
                         £{{ $this->calculatedNetWorth }}
@@ -112,16 +125,16 @@
                 {{-- Date --}}
                 <div class="space-y-3">
                     <div class="max-w-xs">
-                        <label for="networth-snapshot-date" class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Date</label>
-                        <input id="networth-snapshot-date" type="date" wire:model="date"
-                               class="mt-1.5 w-full rounded-md border border-gray-300 dark:bg-zinc-800 dark:border-zinc-700"/>
+                        <label for="networth-snapshot-date" class="app-form-label">Snapshot date</label>
+                        <input id="networth-snapshot-date" type="date" wire:model="date" max="{{ today()->toDateString() }}"
+                               class="app-field mt-1.5 w-full"/>
                         @error('date') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                     </div>
                     @if (!$entryId)
                         <div class="flex flex-wrap items-center gap-3">
                             <button type="button" wire:click="copyPreviousSnapshot"
                                     wire:loading.attr="disabled" wire:target="copyPreviousSnapshot"
-                                    class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                                    class="app-button-secondary">
                                 Copy most recent snapshot before this date
                             </button>
                             @if ($copiedFromDate)
@@ -134,6 +147,7 @@
                     @endif
                 </div>
 
+                <p class="text-xs app-muted">Use one line per asset or liability. The total above updates when you add or edit lines.</p>
                 {{-- Assets & Liabilities side by side --}}
                 <div class="grid gap-4 lg:grid-cols-2">
                     {{-- Assets --}}
@@ -142,11 +156,11 @@
                             <h4 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Assets</h4>
                         </div>
                         <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
+                            <table class="networth-line-table min-w-full text-sm">
                                 <thead class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
                                     <tr>
                                         <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Category</th>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount (£)</th>
                                         <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500">Actions</th>
                                     </tr>
                                 </thead>
@@ -155,8 +169,8 @@
                                         <tr>
                                             <td class="px-3 py-2 align-top">
                                                 @if ($editingAssetIndex === $index)
-                                                    <input type="text" wire:model="assetLines.{{ $index }}.category"
-                                                           class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                                    <input type="text" wire:model="assetLines.{{ $index }}.category" aria-label="Asset name {{ $index + 1 }}"
+                                                           class="app-field w-full text-sm"/>
                                                     @error('assetLines.' . $index . '.category') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="text-zinc-800 dark:text-zinc-100">{{ $asset['category'] }}</span>
@@ -164,8 +178,8 @@
                                             </td>
                                             <td class="px-3 py-2 align-top">
                                                 @if ($editingAssetIndex === $index)
-                                                    <input type="number" min="0" step="0.01" wire:model="assetLines.{{ $index }}.amount"
-                                                           class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                                    <input type="number" min="0" step="0.01" wire:model="assetLines.{{ $index }}.amount" aria-label="Asset amount {{ $index + 1 }} in pounds"
+                                                           class="app-field w-full text-sm"/>
                                                     @error('assetLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="font-medium tabular-nums">{{ \App\Support\Money::format($asset['amount']) }}</span>
@@ -188,13 +202,13 @@
                                     {{-- Inline add row --}}
                                     <tr class="bg-zinc-50 dark:bg-zinc-800/50">
                                         <td class="px-3 py-2">
-                                            <input type="text" wire:model="newAssetCategory" placeholder="e.g. Cash ISA"
-                                                   class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                            <input type="text" wire:model="newAssetCategory" aria-label="New asset name" placeholder="e.g., Cash ISA"
+                                                   class="app-field w-full text-sm"/>
                                             @error('newAssetCategory') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2">
-                                            <input type="number" min="0" step="0.01" wire:model="newAssetAmount"
-                                                   class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                            <input type="number" min="0" step="0.01" inputmode="decimal" wire:model="newAssetAmount" aria-label="New asset amount in pounds" placeholder="0.00"
+                                                   class="app-field w-full text-sm"/>
                                             @error('newAssetAmount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2 text-right">
@@ -213,11 +227,11 @@
                             <h4 class="text-sm font-semibold text-rose-800 dark:text-rose-300">Liabilities</h4>
                         </div>
                         <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
+                            <table class="networth-line-table min-w-full text-sm">
                                 <thead class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
                                     <tr>
                                         <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Category</th>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount (£)</th>
                                         <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500">Actions</th>
                                     </tr>
                                 </thead>
@@ -226,8 +240,8 @@
                                         <tr>
                                             <td class="px-3 py-2 align-top">
                                                 @if ($editingLiabilityIndex === $index)
-                                                    <input type="text" wire:model="liabilityLines.{{ $index }}.category"
-                                                           class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                                    <input type="text" wire:model="liabilityLines.{{ $index }}.category" aria-label="Liability name {{ $index + 1 }}"
+                                                           class="app-field w-full text-sm"/>
                                                     @error('liabilityLines.' . $index . '.category') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="text-zinc-800 dark:text-zinc-100">{{ $liability['category'] }}</span>
@@ -235,8 +249,8 @@
                                             </td>
                                             <td class="px-3 py-2 align-top">
                                                 @if ($editingLiabilityIndex === $index)
-                                                    <input type="number" min="0" step="0.01" wire:model="liabilityLines.{{ $index }}.amount"
-                                                           class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                                    <input type="number" min="0" step="0.01" wire:model="liabilityLines.{{ $index }}.amount" aria-label="Liability amount {{ $index + 1 }} in pounds"
+                                                           class="app-field w-full text-sm"/>
                                                     @error('liabilityLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="font-medium tabular-nums">{{ \App\Support\Money::format($liability['amount']) }}</span>
@@ -259,13 +273,13 @@
                                     {{-- Inline add row --}}
                                     <tr class="bg-zinc-50 dark:bg-zinc-800/50">
                                         <td class="px-3 py-2">
-                                            <input type="text" wire:model="newLiabilityCategory" placeholder="e.g. Mortgage"
-                                                   class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                            <input type="text" wire:model="newLiabilityCategory" aria-label="New liability name" placeholder="e.g., Mortgage"
+                                                   class="app-field w-full text-sm"/>
                                             @error('newLiabilityCategory') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2">
-                                            <input type="number" min="0" step="0.01" wire:model="newLiabilityAmount"
-                                                   class="w-full rounded-md border-gray-300 text-sm dark:bg-zinc-900 dark:border-zinc-700"/>
+                                            <input type="number" min="0" step="0.01" inputmode="decimal" wire:model="newLiabilityAmount" aria-label="New liability amount in pounds" placeholder="0.00"
+                                                   class="app-field w-full text-sm"/>
                                             @error('newLiabilityAmount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2 text-right">
@@ -281,14 +295,14 @@
 
                 @error('save') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
 
-                <div class="flex items-center justify-end gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                <div class="app-form-actions">
                     <flux:modal.close>
-                        <button type="button" class="rounded-md border border-zinc-300 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                        <button type="button" class="app-button-secondary">
                             Cancel
                         </button>
                     </flux:modal.close>
-                    <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                        Save snapshot
+                    <button type="submit" class="app-button-primary">
+                        {{ $entryId ? 'Save changes' : 'Add snapshot' }}
                     </button>
                 </div>
             </form>

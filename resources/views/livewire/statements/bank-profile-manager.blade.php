@@ -1,4 +1,7 @@
-<div class="space-y-4">
+<div class="space-y-5">
+    <x-page-header eyebrow="Import setup" title="Bank profiles" description="Save the format for each bank or card statement so future imports are quicker.">
+        <button type="button" wire:click="showCreate" class="app-button-primary">+ New profile</button>
+    </x-page-header>
     @if (session('status'))
         <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-900/20">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
@@ -11,29 +14,14 @@
         </div>
     @enderror
 
-    <div class="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div class="app-card overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <div>
                 <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Bank profiles</h2>
                 <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Configure CSV parsing formats for different banks.</p>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 text-sm">
-                <a
-                    href="{{ route('statements.import') }}"
-                    class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                    Back to import
-                </a>
-                <button
-                    type="button"
-                    wire:click="showCreate"
-                    class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
-                >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    New profile
-                </button>
-            </div>
+            <a href="{{ route('statements.import') }}" class="app-button-secondary">← Back to import</a>
         </div>
 
         <div class="p-4">
@@ -52,8 +40,8 @@
                             $hasHeader = $profile->config['has_header'] ?? true;
                         @endphp
 
-                        <div class="rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                            <div class="flex items-start justify-between gap-4">
+                        <div class="rounded-xl border border-app-border p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 class="truncate font-medium text-zinc-900 dark:text-white">{{ $profile->name }}</h3>
@@ -134,76 +122,76 @@
         x-on:open-bank-profile-modal.window="$flux.modal('bank-profile-form').show()"
         x-on:close-bank-profile-modal.window="$flux.modal('bank-profile-form').close()"
         focusable
-        class="max-w-3xl"
+        class="min-w-0 w-[calc(100vw-2rem)] max-w-3xl"
     >
         <div class="space-y-5">
-            <flux:heading size="lg">{{ $editingProfile ? 'Edit Bank Profile' : 'Create Bank Profile' }}</flux:heading>
-
-            <form wire:submit.prevent="save" class="space-y-4">
+            <div><flux:heading size="lg">{{ $editingProfile ? 'Edit bank profile' : 'New bank profile' }}</flux:heading><p class="mt-1 text-sm app-muted">Match your statement's columns so imports read dates, descriptions, and amounts correctly.</p></div>
+            <form wire:submit.prevent="save" class="space-y-5">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Profile Name</label>
+                    <label for="profile-name" class="app-form-label">Profile Name</label>
                     <input
                         type="text"
-                        wire:model="form.name"
-                        placeholder="e.g Halifax, American Express"
-                        class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                        id="profile-name" wire:model="form.name"
+                        placeholder="e.g., Halifax or American Express"
+                        class="app-field mt-1.5 w-full"
                     >
-                    @error('form.name') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    @error('form.name') <p class="app-form-error">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">A short name for this statement format.</p>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Statement Type</label>
-                    <select wire:model="form.statement_type" class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800">
+                    <label for="profile-type" class="app-form-label">Statement Type</label>
+                    <select id="profile-type" wire:model="form.statement_type" class="app-field mt-1.5 w-full">
                         <option value="bank">Bank Statement</option>
                         <option value="credit_card">Credit Card Statement</option>
                     </select>
-                    @error('form.statement_type') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    @error('form.statement_type') <p class="app-form-error">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Choose how positive and negative amounts should be interpreted.</p>
                 </div>
 
+                <div class="border-t border-app-border pt-4"><h3 class="font-semibold">Column mapping</h3><p class="mt-1 text-xs app-muted">Count columns from the left, starting at 1. Use the same order as your CSV file.</p></div>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Date Column</label>
+                        <label for="profile-date-column" class="app-form-label">Date Column</label>
                         <input
                             type="number"
-                            wire:model="form.date_column"
+                            id="profile-date-column" wire:model="form.date_column"
                             min="1"
-                            class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                            class="app-field mt-1.5 w-full"
                         >
-                        @error('form.date_column') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                        @error('form.date_column') <p class="app-form-error">{{ $message }}</p> @enderror
                         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for the transaction date.</p>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Description Column</label>
+                        <label for="profile-description-column" class="app-form-label">Description Column</label>
                         <input
                             type="number"
-                            wire:model="form.description_column"
+                            id="profile-description-column" wire:model="form.description_column"
                             min="1"
-                            class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                            class="app-field mt-1.5 w-full"
                         >
-                        @error('form.description_column') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                        @error('form.description_column') <p class="app-form-error">{{ $message }}</p> @enderror
                         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for the transaction description.</p>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Date Format</label>
+                    <label for="profile-date-format" class="app-form-label">Date Format</label>
                     <select
-                        wire:model="form.date_format"
-                        class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                        id="profile-date-format" wire:model="form.date_format"
+                        class="app-field mt-1.5 w-full"
                     >
-                        <option value="d/m/Y">DD/MM/YYYY (e.g 31/12/2025)</option>
-                        <option value="Y-m-d">YYYY-MM-DD (e.g 2025-12-31)</option>
-                        <option value="m/d/Y">MM/DD/YYYY (e.g 12/31/2025)</option>
-                        <option value="d-m-Y">DD-MM-YYYY (e.g 31-12-2025)</option>
+                        <option value="d/m/Y">DD/MM/YYYY (e.g., 31/12/2025)</option>
+                        <option value="Y-m-d">YYYY-MM-DD (e.g., 2025-12-31)</option>
+                        <option value="m/d/Y">MM/DD/YYYY (e.g., 12/31/2025)</option>
+                        <option value="d-m-Y">DD-MM-YYYY (e.g., 31-12-2025)</option>
                     </select>
-                    @error('form.date_format') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    @error('form.date_format') <p class="app-form-error">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Format of dates in the statement file.</p>
                 </div>
 
-                <div class="space-y-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+                <div class="space-y-3 rounded-xl border border-app-border p-4">
                     <label class="flex cursor-pointer items-center gap-2.5">
                         <input
                             type="checkbox"
@@ -216,7 +204,7 @@
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">Turn off when the first row is already a transaction.</p>
                 </div>
 
-                <div class="space-y-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+                <div class="space-y-3 rounded-xl border border-app-border p-4">
                     <label class="flex cursor-pointer items-center gap-2.5">
                         <input
                             type="checkbox"
@@ -230,55 +218,55 @@
 
                     @if (! $hasSeparateColumns)
                         <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Amount Column</label>
+                            <label for="profile-amount-column" class="app-form-label">Amount Column</label>
                             <input
                                 type="number"
-                                wire:model="form.amount_column"
+                                id="profile-amount-column" wire:model="form.amount_column"
                                 min="1"
-                                class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                                class="app-field mt-1.5 w-full"
                             >
-                            @error('form.amount_column') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                            @error('form.amount_column') <p class="app-form-error">{{ $message }}</p> @enderror
                             <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for signed +/- amounts.</p>
                         </div>
                     @else
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Debit Column</label>
+                                <label for="profile-debit-column" class="app-form-label">Debit Column</label>
                                 <input
                                     type="number"
-                                    wire:model="form.debit_column"
+                                    id="profile-debit-column" wire:model="form.debit_column"
                                     min="1"
-                                    class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                                    class="app-field mt-1.5 w-full"
                                 >
-                                @error('form.debit_column') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                @error('form.debit_column') <p class="app-form-error">{{ $message }}</p> @enderror
                                 <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for money out.</p>
                             </div>
 
                             <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Credit Column</label>
+                                <label for="profile-credit-column" class="app-form-label">Credit Column</label>
                                 <input
                                     type="number"
-                                    wire:model="form.credit_column"
+                                    id="profile-credit-column" wire:model="form.credit_column"
                                     min="1"
-                                    class="mt-1.5 w-full rounded-md border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800"
+                                    class="app-field mt-1.5 w-full"
                                 >
-                                @error('form.credit_column') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                @error('form.credit_column') <p class="app-form-error">{{ $message }}</p> @enderror
                                 <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for money in.</p>
                             </div>
                         </div>
                     @endif
                 </div>
 
-                <div class="flex items-center justify-end gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                <div class="app-form-actions">
                     <button
                         type="button"
                         wire:click="cancel"
-                        class="rounded-md border border-zinc-300 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        class="app-button-secondary"
                     >
                         Cancel
                     </button>
-                    <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                        {{ $editingProfile ? 'Update Profile' : 'Create Profile' }}
+                    <button type="submit" class="app-button-primary">
+                        {{ $editingProfile ? 'Save changes' : 'Create profile' }}
                     </button>
                 </div>
             </form>

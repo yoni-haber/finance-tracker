@@ -42,11 +42,11 @@ class NetWorthTracker extends Component
 
     public string $newAssetCategory = '';
 
-    public string $newAssetAmount = '0.00';
+    public string $newAssetAmount = '';
 
     public string $newLiabilityCategory = '';
 
-    public string $newLiabilityAmount = '0.00';
+    public string $newLiabilityAmount = '';
 
     public ?int $editingAssetIndex = null;
 
@@ -67,6 +67,12 @@ class NetWorthTracker extends Component
 
     public function render(): View
     {
+        $latestEntry = NetWorthEntry::where('user_id', Auth::id())
+            ->whereDate('date', '<=', today())
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->first();
+
         $entries = NetWorthEntry::where('user_id', Auth::id())
             ->with('lineItems')
             ->orderByDesc('date')
@@ -74,6 +80,7 @@ class NetWorthTracker extends Component
 
         return view('livewire.net-worth.tracker', [
             'entries' => $entries,
+            'latestEntry' => $latestEntry,
         ]);
     }
 
@@ -293,9 +300,9 @@ class NetWorthTracker extends Component
         $this->assetLines = [];
         $this->liabilityLines = [];
         $this->newAssetCategory = '';
-        $this->newAssetAmount = '0.00';
+        $this->newAssetAmount = '';
         $this->newLiabilityCategory = '';
-        $this->newLiabilityAmount = '0.00';
+        $this->newLiabilityAmount = '';
         $this->editingAssetIndex = null;
         $this->editingLiabilityIndex = null;
         $this->date = now()->toDateString();
@@ -310,7 +317,7 @@ class NetWorthTracker extends Component
     protected function rules(): array
     {
         return [
-            'date' => 'required|date',
+            'date' => 'required|date|before_or_equal:today',
         ];
     }
 
@@ -379,7 +386,7 @@ class NetWorthTracker extends Component
         ];
 
         $this->newAssetCategory = '';
-        $this->newAssetAmount = '0.00';
+        $this->newAssetAmount = '';
     }
 
     public function addLiabilityLine(): void
@@ -397,7 +404,7 @@ class NetWorthTracker extends Component
         ];
 
         $this->newLiabilityCategory = '';
-        $this->newLiabilityAmount = '0.00';
+        $this->newLiabilityAmount = '';
     }
 
     public function removeAssetLine(int $index): void

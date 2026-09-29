@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Transactions;
 
 use App\Livewire\Concerns\InteractsWithSelectedPeriod;
+use App\Models\BankStatementImport;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Support\Money;
@@ -32,9 +33,15 @@ class TransactionManager extends Component
     #[Url(as: 'search', except: '')]
     public string $search = '';
 
+    #[Url(as: 'scope', except: 'month')]
+    public string $scope = 'month';
+
+    #[Url(as: 'new', except: false)]
+    public bool $new = false;
+
     public string $type = Transaction::TYPE_EXPENSE;
 
-    public string $amount = '0.00';
+    public string $amount = '';
 
     public string $date;
 
@@ -67,10 +74,24 @@ class TransactionManager extends Component
     #[Url(as: 'type')]
     public ?string $filterType = null;
 
+    #[Url(as: 'import')]
+    public ?int $filterImportId = null;
+
     public function mount(): void
     {
         $this->date = $this->defaultTransactionDate();
         $this->normaliseFilterType();
+        if ($this->filterImportId && !BankStatementImport::forUser((int) Auth::id())->whereKey($this->filterImportId)->exists()) {
+            $this->filterImportId = null;
+        }
+
+        if ($this->filterImportId) {
+            $this->scope = 'all';
+        }
+
+        if ($this->new) {
+            $this->dispatch('open-transaction-modal');
+        }
     }
 
     public function render(): View
@@ -112,36 +133,41 @@ class TransactionManager extends Component
 
         $search = trim($this->search);
         $searching = $search !== '';
+        $showingRecorded = $searching || $this->scope === 'all';
 
-        if ($searching) {
+        if ($showingRecorded) {
             $pattern = '%' . $search . '%';
             $amount = $this->searchAmount($search);
 
             $transactions = Transaction::forUser($userId)
                 ->forCategory($effectiveCategoryFilter)
                 ->with('category.parent')
-                ->when($this->filterType, fn (Builder $builder) => $builder->where('type', $this->filterType))
-                ->where(function (Builder $builder) use ($pattern, $amount): void {
-                    $builder->where('description', 'like', $pattern)
-                        ->orWhereHas('category', function (Builder $builder) use ($pattern): void {
-                            $builder->where('name', 'like', $pattern)
-                                ->orWhereHas('parent', fn (Builder $builder) => $builder->where('name', 'like', $pattern));
-                        });
+                ->when($this->filterImportId, fn (Builder $builder) => $builder->where('source_import_id', $this->filterImportId))
+                ->when($this->filterType, fn (Builder $builder): Builder => $this->applyTypeFilter($builder))
+                ->when($searching, function (Builder $query) use ($pattern, $amount): void {
+                    $query->where(function (Builder $builder) use ($pattern, $amount): void {
+                        $builder->where('description', 'like', $pattern)
+                            ->orWhereHas('category', function (Builder $builder) use ($pattern): void {
+                                $builder->where('name', 'like', $pattern)
+                                    ->orWhereHas('parent', fn (Builder $builder) => $builder->where('name', 'like', $pattern));
+                            });
 
-                    if ($amount !== null) {
-                        $builder->orWhere('amount', $amount);
-                    }
+                        if ($amount !== null) {
+                            $builder->orWhere('amount', $amount);
+                        }
+                    });
                 })
                 ->orderByDesc('date')
                 ->orderByDesc('id')
                 ->paginate(20);
         } else {
             $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear, $effectiveCategoryFilter)
-                ->when($this->filterType, fn ($items) => $items->where('type', $this->filterType))
+                ->when($this->filterImportId, fn ($items) => $items->where('source_import_id', $this->filterImportId))
+                ->when($this->filterType, fn ($items) => $items->filter(fn (Transaction $transaction): bool => $this->matchesTypeFilter($transaction)))
                 ->sortByDesc('date');
         }
 
-        return view('livewire.transactions.manager', ['transactions' => $transactions, 'searching' => $searching, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
+        return view('livewire.transactions.manager', ['transactions' => $transactions, 'searching' => $searching, 'showingRecorded' => $showingRecorded, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
     }
 
     public function save(): void
@@ -298,6 +324,24 @@ class TransactionManager extends Component
         $this->resetPage();
     }
 
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->scope = 'month';
+        $this->filterParentCategory = null;
+        $this->filterSubCategory = null;
+        $this->filterType = null;
+        $this->filterImportId = null;
+        $this->resetPage();
+    }
+
+    public function showSelectedMonth(): void
+    {
+        $this->scope = 'month';
+        $this->search = '';
+        $this->resetPage();
+    }
+
     public function updatedIsRecurring(bool $value): void
     {
         if (!$value) {
@@ -316,7 +360,7 @@ class TransactionManager extends Component
     {
         $this->transactionId = null;
         $this->type = Transaction::TYPE_EXPENSE;
-        $this->amount = '0.00';
+        $this->amount = '';
         $this->date = $this->defaultTransactionDate();
         $this->description = null;
         $this->category_id = null;
@@ -326,6 +370,38 @@ class TransactionManager extends Component
 
         $this->resetValidation();
         $this->resetErrorBag();
+    }
+
+    /** @return list<string> */
+    public function recurringPreview(): array
+    {
+        if (!$this->is_recurring || trim($this->date) === '' || !in_array($this->frequency, ['weekly', 'monthly', 'yearly'], true)) {
+            return [];
+        }
+
+        try {
+            $start = Carbon::parse($this->date)->startOfDay();
+            $end = match ($this->frequency) {
+                'weekly' => $start->copy()->addWeeks(2),
+                'monthly' => $start->copy()->addMonths(2)->endOfMonth(),
+                default => $start->copy()->addYears(2)->endOfYear(),
+            };
+            $transaction = new Transaction([
+                'date' => $start,
+                'is_recurring' => true,
+                'frequency' => $this->frequency,
+                'recurring_until' => $this->recurring_until,
+            ]);
+
+            /** @var list<string> $preview */
+            $preview = $transaction->projectOccurrencesForRange($start, $end)
+                ->map(fn (Transaction $transaction): string => $transaction->date->format('j M Y'))
+                ->all();
+
+            return $preview;
+        } catch (InvalidFormatException) {
+            return [];
+        }
     }
 
     /**
@@ -349,6 +425,19 @@ class TransactionManager extends Component
         ) {
             $this->filterType = null;
         }
+    }
+
+    /** @param Builder<Transaction> $builder
+     *  @return Builder<Transaction>
+     */
+    private function applyTypeFilter(Builder $builder): Builder
+    {
+        return $builder->where('type', $this->filterType);
+    }
+
+    private function matchesTypeFilter(Transaction $transaction): bool
+    {
+        return $transaction->type === $this->filterType;
     }
 
     private function searchAmount(string $search): ?string

@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Livewire\Statements\StatementImportReview;
 use App\Models\BankProfile;
 use App\Models\BankStatementImport;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\ImportedTransaction;
 use App\Models\Transaction;
@@ -14,12 +15,106 @@ use App\Models\User;
 use App\Support\BankStatement\DuplicateDetector;
 use App\Support\BankStatementConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 final class StatementImportReviewTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_category_can_be_cleared_from_both_review_controls(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->income()->create();
+        $profile = BankProfile::factory()->for($user)->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $row = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['amount' => 25, 'category_id' => $category->id]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('updateCategory', $row->id, '')
+            ->assertHasNoErrors();
+        $freshRow = $row->fresh();
+        $this->assertNotNull($freshRow);
+        $this->assertNull($freshRow->category_id);
+
+        $row->update(['category_id' => $category->id]);
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->call('editTransaction', $row->id)
+            ->set('editForm.category_id', '')
+            ->call('updateTransaction')
+            ->assertHasNoErrors();
+        $freshRow = $row->fresh();
+        $this->assertNotNull($freshRow);
+        $this->assertNull($freshRow->category_id);
+    }
+
+    public function test_matching_rows_inside_one_statement_are_flagged_without_skipping_either(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        foreach (range(1, 2) as $index) {
+            ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+                'date' => '2026-07-04', 'description' => 'DOJO*OVENEAT', 'amount' => -14.99,
+                'hash' => 'matching-hash', 'is_duplicate' => false,
+            ]);
+        }
+
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+        $testable->assertViewHas('summary', fn (array $summary): bool => $summary['possible_duplicates'] === 2 && $summary['new_transactions'] === 2);
+        $testable->set('viewFilter', 'possible')
+            ->assertViewHas('transactions', fn ($rows): bool => $rows->count() === 2)
+            ->assertSee('Possible match in this file');
+    }
+
+    public function test_possible_match_filter_excludes_a_single_unmatched_row(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'ONE OFF', 'hash' => 'only-this-row', 'is_duplicate' => false,
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+        $testable->assertViewHas('summary', fn (array $summary): bool => $summary['possible_duplicates'] === 0);
+        $testable->set('viewFilter', 'possible')
+            ->assertViewHas('transactions', fn ($rows): bool => $rows->isEmpty());
+    }
+
+    public function test_credit_card_credits_commit_as_ordinary_income(): void
+    {
+        $user = User::factory()->create(['selected_month' => 7, 'selected_year' => 2026]);
+        $profile = BankProfile::factory()->for($user)->create(['statement_type' => 'credit_card']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create(['statement_type' => 'credit_card']);
+        $expenseCategory = Category::factory()->for($user)->expense()->create();
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        Budget::factory()->for($user)->for($expenseCategory, 'category')->create(['month' => 7, 'year' => 2026, 'amount' => '100.00']);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-07-05', 'description' => 'PAYMENT RECEIVED - THANK YOU', 'amount' => 1902.03,
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-07-06', 'description' => 'RETAILER REFUND', 'amount' => 80.99, 'category_id' => $incomeCategory->id,
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'date' => '2026-07-07', 'description' => 'PURCHASE', 'amount' => -100, 'category_id' => $expenseCategory->id,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertDontSee('Meaning for')
+            ->call('commitImport')->assertHasNoErrors();
+
+        $this->assertSame(Transaction::TYPE_INCOME, Transaction::forUser($user->id)->where('description', 'PAYMENT RECEIVED - THANK YOU')->value('type'));
+        $this->assertSame(Transaction::TYPE_INCOME, Transaction::forUser($user->id)->where('description', 'RETAILER REFUND')->value('type'));
+        Livewire::actingAs($user)->test(\App\Livewire\Dashboard::class)
+            ->assertViewHas('income', '1983.02')
+            ->assertViewHas('spending', '100.00')
+            ->assertViewHas('netCashFlow', '1883.02')
+            ->assertViewHas('budgetSummaries', fn ($rows): bool => $rows->sole()['actual'] === '100.00');
+        Livewire::actingAs($user)->test(\App\Livewire\Reports\ReportsHub::class)
+            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 198302 && $insights['spending'] === 10000);
+    }
 
     public function test_renders_successfully_with_valid_import(): void
     {
@@ -81,6 +176,188 @@ final class StatementImportReviewTest extends TestCase
             ->assertSee('£50.00')
             ->assertSee('1 Jan 2026')
             ->assertSee('2 Jan 2026');
+    }
+
+    public function test_review_filters_keep_summary_counts_and_stable_row_order(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $category = Category::factory()->for($user)->income()->create();
+
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['description' => 'READY ENTRY', 'category_id' => $category->id, 'is_duplicate' => false]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['description' => 'NEEDS CATEGORY', 'category_id' => null, 'is_duplicate' => false]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['description' => 'DUPLICATE ENTRY', 'is_duplicate' => true]);
+
+        $testable = Livewire::actingAs($user)
+            ->test(StatementImportReview::class, ['importId' => $import->id]);
+
+        $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 3);
+        $testable->set('viewFilter', 'ready');
+        $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'READY ENTRY');
+        $testable->set('viewFilter', 'needs_attention');
+        $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'NEEDS CATEGORY')
+            ->assertSee('Ready to import');
+        $testable->set('viewFilter', 'duplicates');
+        $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'DUPLICATE ENTRY');
+    }
+
+    public function test_review_suggests_a_category_from_another_row_in_the_same_statement(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $category = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'MONTHLY PAY',
+            'amount' => 100.00,
+            'category_id' => $category->id,
+        ]);
+        $uncategorised = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => ' Monthly   Pay ',
+            'amount' => 200.00,
+            'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', fn (array $suggestions): bool => ($suggestions[$uncategorised->id] ?? null) === ['id' => $category->id, 'name' => 'Salary']);
+    }
+
+    public function test_category_suggestions_match_description_and_transaction_type_with_staged_choice_first(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create(['statement_type' => 'bank']);
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $income = Category::factory()->for($user)->income()->create(['name' => 'Wages']);
+        $preferred = Category::factory()->for($user)->income()->create(['name' => 'Interest']);
+        $expense = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        Transaction::factory()->for($user)->for($income)->create([
+            'type' => Transaction::TYPE_INCOME, 'description' => 'PAYMENT', 'amount' => '20.00',
+        ]);
+        Transaction::factory()->for($user)->for($expense)->create([
+            'type' => Transaction::TYPE_EXPENSE, 'description' => 'PAYMENT', 'amount' => '20.00',
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'PAYMENT', 'amount' => '10.00', 'category_id' => $preferred->id,
+        ]);
+        $first = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => ' payment ', 'amount' => '15.00', 'category_id' => null,
+        ]);
+        $second = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'PAYMENT', 'amount' => '-15.00', 'category_id' => null,
+        ]);
+        $third = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => ' payment ', 'amount' => '16.00', 'category_id' => null,
+        ]);
+        $unrelated = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'OTHER', 'amount' => '16.00', 'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', function (array $suggestions) use ($first, $second, $third, $unrelated, $preferred, $expense): bool {
+                $this->assertCount(3, $suggestions);
+                $this->assertSame(['id' => $preferred->id, 'name' => 'Interest'], $suggestions[$first->id] ?? null);
+                $this->assertSame(['id' => $expense->id, 'name' => 'Food'], $suggestions[$second->id] ?? null);
+                $this->assertSame(['id' => $preferred->id, 'name' => 'Interest'], $suggestions[$third->id] ?? null);
+                $this->assertArrayNotHasKey($unrelated->id, $suggestions);
+
+                return true;
+            });
+    }
+
+    public function test_category_suggestions_consider_the_500_most_recent_recorded_transactions(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $category = Category::factory()->for($user)->income()->create(['name' => 'Income']);
+        $rows = [];
+        foreach (range(1, 501) as $index) {
+            $rows[] = [
+                'user_id' => $user->id,
+                'category_id' => $category->id,
+                'type' => Transaction::TYPE_INCOME,
+                'amount' => '1.00',
+                'date' => '2024-06-01',
+                'description' => 'MATCH ' . $index,
+                'is_recurring' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        Transaction::query()->insert($rows);
+        $included = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'MATCH 2', 'amount' => '1.00', 'category_id' => null,
+        ]);
+        $outsideWindow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'MATCH 1', 'amount' => '1.00', 'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', fn (array $suggestions): bool => ($suggestions[$included->id] ?? null) === ['id' => $category->id, 'name' => 'Income']
+                && !isset($suggestions[$outsideWindow->id]));
+    }
+
+    public function test_category_suggestions_ignore_missing_and_other_users_categories(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $otherCategory = Category::factory()->for($other)->income()->create();
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'UNKNOWN', 'amount' => '10.00', 'category_id' => 999999,
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'PRIVATE', 'amount' => '10.00', 'category_id' => $otherCategory->id,
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'UNKNOWN', 'amount' => '15.00', 'category_id' => null,
+        ]);
+        ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'PRIVATE', 'amount' => '15.00', 'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', []);
+    }
+
+    public function test_category_suggestions_skip_recorded_transactions_with_another_users_category(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->parsed()->create();
+        $ownedCategory = Category::factory()->for($user)->income()->create(['name' => 'Salary']);
+        $otherCategory = Category::factory()->for($other)->income()->create(['name' => 'Private']);
+
+        Transaction::factory()->for($user)->for($ownedCategory)->create([
+            'type' => Transaction::TYPE_INCOME,
+            'description' => 'MONTHLY PAY',
+        ]);
+        // Simulate a legacy transaction that predates the category ownership constraint.
+        Schema::disableForeignKeyConstraints();
+        try {
+            Transaction::factory()->for($user)->for($otherCategory)->create([
+                'type' => Transaction::TYPE_INCOME,
+                'description' => 'MONTHLY PAY',
+            ]);
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
+
+        $uncategorised = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
+            'description' => 'Monthly Pay',
+            'amount' => '100.00',
+            'category_id' => null,
+        ]);
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->assertViewHas('categorySuggestions', fn (array $suggestions): bool => ($suggestions[$uncategorised->id] ?? null) === [
+                'id' => $ownedCategory->id,
+                'name' => 'Salary',
+            ]);
     }
 
     public function test_calculates_summary_statistics(): void
@@ -240,6 +517,7 @@ final class StatementImportReviewTest extends TestCase
         $transaction = $transactions->first();
         $this->assertNotNull($transaction);
         $this->assertEqualsWithDelta(100.00, $transaction->amount, PHP_FLOAT_EPSILON);
+        $this->assertSame($import->id, $transaction->source_import_id);
         $this->assertNotNull($transaction->category);
         $this->assertTrue($transaction->category->is($category));
     }
@@ -902,6 +1180,22 @@ final class StatementImportReviewTest extends TestCase
         $fresh = $import->fresh();
         $this->assertNotNull($fresh);
         $this->assertEquals(BankStatementConfig::STATUS_PARSED, $fresh->status);
+    }
+
+    public function test_commit_import_reports_when_the_statement_disappears_during_review(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+
+        $import->delete();
+
+        $component = $testable->instance();
+        $this->assertInstanceOf(StatementImportReview::class, $component);
+        $component->commitImport();
+
+        $this->assertTrue($component->getErrorBag()->has('commit'));
     }
 
     public function test_bulk_delete_with_empty_selection_does_nothing(): void

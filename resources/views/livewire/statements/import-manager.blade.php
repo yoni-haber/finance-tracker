@@ -3,6 +3,8 @@
          wire:poll.2s="checkImportStatus"
      @endif>
 
+    <x-page-header eyebrow="Bring data in" title="Import a statement" description="Upload a bank or card statement, review each transaction, then add the new entries to your ledger." />
+
     @if (session('status'))
         <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
@@ -33,8 +35,8 @@
         $steps = ['Bank Profile', 'Upload File', 'Processing', 'Review'];
     @endphp
 
-    <div class="rounded-xl border border-zinc-200 bg-white px-4 py-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <nav class="flex items-center justify-between" aria-label="Import progress">
+    <div class="app-card px-4 py-4">
+        <nav class="flex items-start justify-between gap-1" aria-label="Import progress">
             @foreach ($steps as $i => $label)
                 @php $stepNum = $i; $isActive = $currentStep === $stepNum; $isDone = $currentStep > $stepNum && $currentStep >= 0; @endphp
                 <div class="flex items-center {{ $loop->last ? '' : 'flex-1' }}">
@@ -49,7 +51,7 @@
                                 {{ $i + 1 }}
                             @endif
                         </div>
-                        <span class="text-xs font-medium {{ $isActive ? 'text-emerald-700 dark:text-emerald-400' : ($isDone ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400') }}">{{ $label }}</span>
+                        <span class="text-center text-[10px] font-medium sm:text-xs {{ $isActive ? 'text-emerald-700 dark:text-emerald-400' : ($isDone ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400') }}">{{ $label }}</span>
                     </div>
                     @if (!$loop->last)
                         <div class="mx-2 h-px flex-1 {{ $isDone ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-zinc-200 dark:bg-zinc-700' }}"></div>
@@ -76,7 +78,7 @@
         </div>
     @elseif ($currentImport)
         {{-- Current import status --}}
-        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="app-card p-4 sm:p-6">
             <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                     <p class="font-semibold text-zinc-900 dark:text-white truncate">{{ $currentImport->original_filename }}</p>
@@ -116,7 +118,7 @@
                     <button
                         wire:key="review-button-{{ $currentImport->id }}"
                         wire:click="proceedToReview"
-                        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+                        class="app-button-primary"
                     >
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         Review transactions
@@ -137,7 +139,7 @@
         </div>
     @else
         {{-- Upload form --}}
-        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="app-card p-4 sm:p-6">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Upload statement</h3>
@@ -145,7 +147,7 @@
                 </div>
                 <a
                     href="{{ route('statements.bank-profiles') }}"
-                    class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    class="app-button-secondary"
                 >
                     Manage profiles
                 </a>
@@ -153,8 +155,8 @@
 
             <form wire:submit="uploadStatement" class="mt-5 space-y-5">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">profile</label>
-                    <select wire:model="bankProfileId" class="mt-1.5 w-full rounded-md border-gray-300 dark:bg-zinc-800 dark:border-zinc-700">
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Bank profile</label>
+                    <select wire:model="bankProfileId" class="app-field mt-1.5 w-full">
                         <option value="">Select a profile…</option>
                         @foreach ($bankProfiles as $profile)
                             <option value="{{ $profile->id }}">
@@ -175,7 +177,7 @@
                         type="file"
                         wire:model="csvFile"
                         accept=".csv,.txt"
-                        class="mt-1.5 w-full rounded-md border-gray-300 text-sm dark:bg-zinc-800 dark:border-zinc-700"
+                        class="app-field mt-1.5 w-full text-sm"
                     >
                     @error('csvFile')
                         <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
@@ -186,7 +188,7 @@
                 <div>
                     <button
                         type="submit"
-                        class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50"
+                        class="app-button-primary"
                         wire:loading.attr="disabled"
                     >
                         <span wire:loading.remove wire:target="uploadStatement">Upload statement</span>
@@ -194,6 +196,13 @@
                     </button>
                 </div>
             </form>
+        </div>
+    @endif
+
+    @if ($lastCommittedImport)
+        <div class="app-card flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+            <div><h2 class="font-semibold">Last imported statement</h2><p class="mt-1 text-sm app-muted">{{ $lastCommittedImport->original_filename }} · Imported {{ $lastCommittedImport->updated_at?->format('j M Y') }}</p></div>
+            <a class="app-link text-sm" href="{{ route('transactions', ['scope' => 'all', 'import' => $lastCommittedImport->id]) }}" wire:navigate>Review imported transactions ↗</a>
         </div>
     @endif
 

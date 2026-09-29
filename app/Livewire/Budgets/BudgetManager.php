@@ -8,6 +8,7 @@ use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Support\BudgetProgress;
+use App\Support\Money;
 use App\Support\TransactionReport;
 use Closure;
 use Illuminate\Contracts\View\View;
@@ -30,7 +31,7 @@ class BudgetManager extends Component
 
     public int $year;
 
-    public string $amount = '0.00';
+    public string $amount = '';
 
     public ?int $budgetId = null;
 
@@ -64,6 +65,25 @@ class BudgetManager extends Component
             ? collect()
             : TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
         $budgetSummaries = BudgetProgress::forPeriod($budgets, $transactions, $this->periodMonth, $this->periodYear);
+        $budgetRows = $budgets->map(function (Budget $budget, int $index) use ($budgetSummaries): array {
+            $summary = $budgetSummaries->get($index);
+            assert($summary !== null);
+
+            return ['budget' => $budget, 'summary' => $summary];
+        })->sort(function (array $a, array $b): int {
+            $aSummary = $a['summary'];
+            $bSummary = $b['summary'];
+
+            return ($bSummary['overspent'] <=> $aSummary['overspent'])
+                ?: (($bSummary['percent'] === null) <=> ($aSummary['percent'] === null))
+                ?: ($bSummary['percent'] <=> $aSummary['percent'])
+                ?: strcmp($aSummary['category'], $bSummary['category']);
+        })->values();
+        $budgetTotals = [
+            'planned' => $budgetSummaries->sum(fn (array $summary): int => Money::normalize($summary['budget'])),
+            'spent' => $budgetSummaries->sum(fn (array $summary): int => Money::normalize($summary['actual'])),
+        ];
+        $budgetTotals['remaining'] = $budgetTotals['planned'] - $budgetTotals['spent'];
 
         // Budgets may only be set on expense parent categories.
         $categories = Category::forUser($userId)
@@ -73,11 +93,20 @@ class BudgetManager extends Component
             ->orderBy('name')
             ->get();
 
+        $editingBudgetRow = $this->budgetId
+            ? $budgetRows->first(fn (array $row): bool => $row['budget']->id === $this->budgetId)
+            : null;
+
         return view('livewire.budgets.manager', [
             'budgets' => $budgets,
             'budgetSummaries' => $budgetSummaries,
+            'budgetRows' => $budgetRows,
+            'budgetTotals' => $budgetTotals,
+            'editingBudgetSummary' => $editingBudgetRow['summary'] ?? null,
+            'editingBudgetCategoryId' => $editingBudgetRow['budget']->category_id ?? null,
             'categories' => $categories,
             'periodLabel' => $this->selectedPeriod()->label(),
+            'previousPeriodLabel' => $this->selectedPeriod()->previous()->label(),
         ]);
     }
 
@@ -230,7 +259,7 @@ class BudgetManager extends Component
     {
         $this->budgetId = null;
         $this->category_id = null;
-        $this->amount = '0.00';
+        $this->amount = '';
 
         $this->resetValidation();
         $this->resetErrorBag();

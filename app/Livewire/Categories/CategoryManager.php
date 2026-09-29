@@ -65,7 +65,22 @@ class CategoryManager extends Component
             ->orderBy('name')
             ->get();
 
-        return view('livewire.categories.manager', ['incomeParents' => $incomeParents, 'expenseParents' => $expenseParents, 'parentOptions' => $parentOptions]);
+        $editingCategoryImpact = null;
+        if ($this->categoryId !== null) {
+            $editing = Category::forUser($userId)
+                ->with(['children' => fn ($query) => $query->withCount('transactions')])
+                ->withCount(['transactions', 'budgets'])
+                ->find($this->categoryId);
+            if ($editing !== null) {
+                $editingCategoryImpact = [
+                    'treatment' => $editing->expense_treatment,
+                    'transactions' => $editing->transactions_count + $editing->children->sum('transactions_count'),
+                    'budgets' => $editing->budgets_count,
+                ];
+            }
+        }
+
+        return view('livewire.categories.manager', ['incomeParents' => $incomeParents, 'expenseParents' => $expenseParents, 'parentOptions' => $parentOptions, 'editingCategoryImpact' => $editingCategoryImpact]);
     }
 
     /**

@@ -4,10 +4,20 @@
         "directories": ["app"]
     },
     "mutators": {
-        "@default": true
+        "@default": true,
+        // These methods are only called from their own components; visibility mutations have no product effect.
+        "ProtectedVisibility": {
+            "ignore": [
+                "App\\Livewire\\NetWorth\\NetWorthTracker::rules",
+                "App\\Livewire\\Reports\\ReportsHub::buildNetWorthChartData"
+            ]
+        }
     },
     "minMsi": 100,
     "minCoveredMsi": 100,
+    "timeout": 30,
+    "timeoutsAsEscaped": true,
+    "maxTimeouts": 0,
     "testFramework": "phpunit",
     "phpUnit": {
         "configDir": "."

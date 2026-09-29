@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Livewire\Transactions\TransactionManager;
+use App\Models\BankProfile;
+use App\Models\BankStatementImport;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
@@ -16,6 +18,104 @@ use Tests\TestCase;
 final class TransactionManagerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_quick_add_opens_the_standard_form_without_recent_entries(): void
+    {
+        $user = User::factory()->create();
+        Transaction::factory()->for($user)->create(['description' => 'Groceries', 'amount' => 21.50, 'type' => 'expense']);
+
+        Livewire::actingAs($user);
+        Livewire::withQueryParams(['new' => 1])->test(TransactionManager::class)
+            ->assertDispatched('open-transaction-modal')
+            ->assertDontSee('Use a recent entry')
+            ->assertSet('description', null)
+            ->assertSet('amount', '');
+    }
+
+    public function test_import_filter_shows_only_transactions_from_own_statement(): void
+    {
+        $user = User::factory()->create();
+        $profile = BankProfile::factory()->for($user)->create();
+        $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create();
+        $other = User::factory()->create();
+        $otherProfile = BankProfile::factory()->for($other)->create();
+        $otherImport = BankStatementImport::factory()->for($other)->for($otherProfile, 'bankProfile')->create();
+        Transaction::factory()->for($user)->create(['description' => 'From statement', 'source_import_id' => $import->id]);
+        Transaction::factory()->for($user)->create(['description' => 'Other entry']);
+
+        Livewire::actingAs($user);
+        Livewire::withQueryParams(['import' => $import->id, 'scope' => 'all'])->test(TransactionManager::class)
+            ->assertViewHas('transactions', fn ($rows): bool => $rows->total() === 1 && $rows->first()->description === 'From statement');
+        Livewire::withQueryParams(['import' => $otherImport->id, 'scope' => 'all'])->test(TransactionManager::class)
+            ->assertSet('filterImportId', null);
+    }
+
+    public function test_recurring_form_previews_dates_using_the_anchored_schedule(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)->test(TransactionManager::class)
+            ->set('date', '2024-01-31')
+            ->set('is_recurring', true)
+            ->set('frequency', 'monthly')
+            ->assertSee('31 Jan 2024')
+            ->assertSee('29 Feb 2024')
+            ->assertSee('31 Mar 2024')
+            ->assertDontSee('30 Apr 2024')
+            ->set('recurring_until', '2024-02-15')
+            ->assertSee('31 Jan 2024')
+            ->assertDontSee('29 Feb 2024');
+    }
+
+    public function test_recurring_preview_handles_leap_day_and_invalid_dates(): void
+    {
+        $user = User::factory()->create();
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $component = $testable->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->is_recurring = true;
+        $component->frequency = 'yearly';
+        $component->date = '2024-02-29';
+
+        $this->assertSame(['29 Feb 2024', '28 Feb 2025', '28 Feb 2026'], $component->recurringPreview());
+
+        $component->date = 'not-a-date';
+        $this->assertCount(0, $component->recurringPreview());
+    }
+
+    public function test_recurring_preview_requires_a_valid_schedule_and_shows_exactly_three_weekly_dates(): void
+    {
+        $user = User::factory()->create();
+        $component = Livewire::actingAs($user)->test(TransactionManager::class)->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->date = '2024-05-01';
+        $component->frequency = 'weekly';
+
+        $this->assertCount(0, $component->recurringPreview());
+
+        $component->is_recurring = true;
+        $component->date = '   ';
+        $this->assertCount(0, $component->recurringPreview());
+
+        $component->date = '2024-05-01';
+        $component->frequency = 'daily';
+        $this->assertCount(0, $component->recurringPreview());
+
+        $component->frequency = 'weekly';
+        $this->assertSame(['1 May 2024', '8 May 2024', '15 May 2024'], $component->recurringPreview());
+    }
+
+    public function test_monthly_preview_includes_the_third_month(): void
+    {
+        $user = User::factory()->create();
+        $component = Livewire::actingAs($user)->test(TransactionManager::class)->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->date = '2024-01-15';
+        $component->is_recurring = true;
+        $component->frequency = 'monthly';
+
+        $this->assertSame(['15 Jan 2024', '15 Feb 2024', '15 Mar 2024'], $component->recurringPreview());
+    }
 
     public function test_mount_sets_date_month_and_year_to_current(): void
     {
@@ -747,7 +847,7 @@ final class TransactionManagerTest extends TestCase
             ->call('resetForm')
             ->assertSet('transactionId', null)
             ->assertSet('type', Transaction::TYPE_EXPENSE)
-            ->assertSet('amount', '0.00')
+            ->assertSet('amount', '')
             ->assertSet('description', null)
             ->assertSet('category_id', null)
             ->assertSet('is_recurring', false)
@@ -784,7 +884,7 @@ final class TransactionManagerTest extends TestCase
             ->call('openModal')
             ->assertSet('transactionId', null)
             ->assertSet('type', Transaction::TYPE_EXPENSE)
-            ->assertSet('amount', '0.00');
+            ->assertSet('amount', '');
     }
 
     public function test_edit_dispatches_open_transaction_modal_event(): void
@@ -955,6 +1055,57 @@ final class TransactionManagerTest extends TestCase
         $testable->call('clearSearch')
             ->assertSet('search', '')
             ->assertDontSee('Searching all dates')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
+    }
+
+    public function test_recorded_all_dates_scope_matches_category_counts_and_can_return_to_selected_month(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $otherUser = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        $otherChild = Category::factory()->subcategoryOf($parent)->create(['name' => 'Restaurants']);
+        $old = Transaction::factory()->for($user)->create(['category_id' => $child->id, 'type' => Transaction::TYPE_EXPENSE, 'date' => '2022-04-10']);
+        $current = Transaction::factory()->for($user)->create(['category_id' => $otherChild->id, 'type' => Transaction::TYPE_EXPENSE, 'date' => '2024-06-10']);
+        Transaction::factory()->for($otherUser)->create(['date' => '2024-06-10']);
+
+        Livewire::withQueryParams(['scope' => 'all', 'category' => $parent->id])
+            ->actingAs($user)
+            ->test(TransactionManager::class)
+            ->assertSet('scope', 'all')
+            ->assertSee('All recorded dates')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 2 && $items->pluck('id')->all() === [$current->id, $old->id])
+            ->call('showSelectedMonth')
+            ->assertSet('scope', 'month')
+            ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
+
+        Livewire::withQueryParams(['scope' => 'all', 'category' => $parent->id, 'subcategory' => $child->id])
+            ->actingAs($user)
+            ->test(TransactionManager::class)
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $old->id);
+    }
+
+    public function test_clear_filters_restores_the_selected_month_and_all_transactions_in_it(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $category = Category::factory()->for($user)->expense()->create();
+        $current = Transaction::factory()->for($user)->for($category)->create(['type' => Transaction::TYPE_EXPENSE, 'date' => '2024-06-10']);
+        Transaction::factory()->for($user)->for($category)->create(['type' => Transaction::TYPE_EXPENSE, 'date' => '2024-05-10']);
+
+        Livewire::actingAs($user)->test(TransactionManager::class)
+            ->set('scope', 'all')
+            ->set('search', 'no match')
+            ->set('filterParentCategory', $category->id)
+            ->set('filterType', Transaction::TYPE_INCOME)
+            ->call('clearFilters')
+            ->assertSet('scope', 'month')
+            ->assertSet('search', '')
+            ->assertSet('filterParentCategory', null)
+            ->assertSet('filterSubCategory', null)
+            ->assertSet('filterType', null)
+            ->assertSet('filterImportId', null)
             ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
     }
 
@@ -1164,6 +1315,13 @@ final class TransactionManagerTest extends TestCase
         $testable->call('nextPage')->set('filterType', Transaction::TYPE_INCOME)
             ->assertSet('paginators.page', 1);
         $testable->call('clearSearch')->assertSet('paginators.page', 1);
+
+        $testable->call('clearFilters');
+        $testable->set('search', 'Searchable')->call('nextPage')->assertSet('paginators.page', 2);
+        $testable->call('clearFilters')->assertSet('paginators.page', 1);
+
+        $testable->set('search', 'Searchable')->call('nextPage')->assertSet('paginators.page', 2);
+        $testable->call('showSelectedMonth')->assertSet('paginators.page', 1);
     }
 
     public function test_search_displays_recurring_series_once_and_delete_targets_the_series(): void

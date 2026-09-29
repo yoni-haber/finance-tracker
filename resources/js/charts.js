@@ -1,12 +1,6 @@
 import Chart from 'chart.js/auto';
 
 const instances = new Map();
-const colours = [
-    '#1d4ed8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#0ea5e9', '#ec4899', '#14b8a6', '#f97316', '#db2777',
-    '#84cc16', '#6366f1', '#06b6d4', '#eab308', '#f43f5e',
-];
-
 const destroyChart = (id) => {
     instances.get(id)?.destroy();
     instances.delete(id);
@@ -30,125 +24,130 @@ const parseData = (element) => {
     }
 };
 
-const dashboardPayload = () => {
-    const element = document.getElementById('dashboardChartPayload');
-    if (!element) return null;
-
-    try {
-        return {
-            incomeCategoryBreakdown: JSON.parse(element.dataset.incomeBreakdown ?? '[]'),
-            spendingCategoryBreakdown: JSON.parse(element.dataset.spendingBreakdown ?? '[]'),
-            savingInvestmentCategoryBreakdown: JSON.parse(element.dataset.savingInvestmentBreakdown ?? '[]'),
-            transactionsUrl: element.dataset.transactionsUrl,
-        };
-    } catch (error) {
-        console.error('Unable to parse dashboard chart data', error);
-        return null;
-    }
-};
-
-const navigateToTransactions = (item, transactionsUrl) => {
-    if (!item?.type || !transactionsUrl) return;
-
-    const url = new URL(transactionsUrl, window.location.origin);
-    url.searchParams.set('type', item.type);
-
-    if (item.category_id !== null && item.category_id !== undefined && item.category_id !== '') {
-        url.searchParams.set('category', item.category_id);
+const renderDashboardTrend = (chartData = parseData(document.getElementById('dashboardTrendChart'))) => {
+    if (!chartData?.labels?.length || !document.getElementById('dashboardTrendChart')) {
+        destroyChart('dashboardTrendChart');
+        return;
     }
 
-    if (window.Livewire?.navigate) {
-        window.Livewire.navigate(url.toString());
-    } else {
-        window.location.assign(url.toString());
-    }
-};
+    const dark = document.documentElement.classList.contains('dark');
+    const axisColour = dark ? '#a8b8ad' : '#65736a';
+    const gridColour = dark ? '#304038' : '#e4e9e1';
 
-const renderDashboardCharts = (payload = dashboardPayload()) => {
-    if (!payload) return;
-
-    const transactionsUrl = payload.transactionsUrl
-        ?? document.getElementById('dashboardChartPayload')?.dataset.transactionsUrl;
-
-    const pie = (id, items = []) => {
-        if (items.length === 0) {
-            destroyChart(id);
-            return;
-        }
-
-        replaceChart(id, {
-            type: 'pie',
-            data: {
-                labels: items.map((item) => item.category),
-                datasets: [{
-                    data: items.map((item) => item.total),
-                    backgroundColor: colours,
-                }],
+    replaceChart('dashboardTrendChart', {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                { label: 'Income', data: chartData.income, borderColor: '#46ad80', backgroundColor: '#46ad80', tension: 0.35 },
+                { label: 'Spending', data: chartData.spending, borderColor: '#d5746a', backgroundColor: '#d5746a', tension: 0.35 },
+                { label: 'Saved & invested', data: chartData.savedAndInvested, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.35 },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                x: { ticks: { color: axisColour }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { color: gridColour } },
             },
-            options: {
-                onClick: (_event, elements) => {
-                    if (elements[0]) navigateToTransactions(items[elements[0].index], transactionsUrl);
-                },
-                onHover: (_event, elements, chart) => {
-                    chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
-                },
-                plugins: { legend: { position: 'bottom' } },
-            },
-        });
-    };
-
-    pie('incomeCategoryChart', payload.incomeCategoryBreakdown);
-    pie('spendingCategoryChart', payload.spendingCategoryBreakdown);
-    pie('savingInvestmentCategoryChart', payload.savingInvestmentCategoryBreakdown);
+            plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true, boxWidth: 8 } } },
+        },
+    });
 };
 
 const renderReportsChart = (chartData = parseData(document.getElementById('incomeVsExpensesChart'))) => {
-    if (!chartData?.labels) return;
+    if (!chartData?.labels?.length || !document.getElementById('incomeVsExpensesChart')) {
+        destroyChart('incomeVsExpensesChart');
+        return;
+    }
+
+    const dark = document.documentElement.classList.contains('dark');
+    const axisColour = dark ? '#a8b8ad' : '#65736a';
+    const gridColour = dark ? '#304038' : '#e4e9e1';
 
     replaceChart('incomeVsExpensesChart', {
         type: 'line',
         data: {
             labels: chartData.labels,
             datasets: [
-                { label: 'Income', data: chartData.income, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', tension: 0.3, fill: true },
-                { label: 'Spending', data: chartData.spending, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', tension: 0.3, fill: true },
-                { label: 'Saved & Invested', data: chartData.savedAndInvested, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.2)', tension: 0.3, fill: true },
+                { label: 'Income', data: chartData.income, borderColor: '#46ad80', backgroundColor: '#46ad80', tension: 0.3 },
+                { label: 'Spending', data: chartData.spending, borderColor: '#d5746a', backgroundColor: '#d5746a', tension: 0.3 },
+                { label: 'Saved & invested', data: chartData.savedAndInvested, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.3 },
             ],
         },
         options: {
             responsive: true,
             interaction: { intersect: false, mode: 'index' },
-            scales: { y: { beginAtZero: true, ticks: { callback: (value) => `£${value}` } } },
-            plugins: { legend: { labels: { usePointStyle: true } } },
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: axisColour }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { color: gridColour } },
+            },
+            plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true } } },
         },
     });
 };
 
-const renderNetWorthChart = () => {
-    const chartData = parseData(document.getElementById('netWorthChart'));
-    if (!chartData?.labels?.length) {
+const renderBudgetChart = (chartData = parseData(document.getElementById('budgetPerformanceChart'))) => {
+    if (!chartData?.hasBudgets || !document.getElementById('budgetPerformanceChart')) {
+        destroyChart('budgetPerformanceChart');
+        return;
+    }
+
+    const dark = document.documentElement.classList.contains('dark');
+    const axisColour = dark ? '#a8b8ad' : '#65736a';
+    replaceChart('budgetPerformanceChart', {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                { label: 'Planned', data: chartData.planned, backgroundColor: '#729aca', borderRadius: 5 },
+                { label: 'Spent', data: chartData.spent, backgroundColor: '#d5746a', borderRadius: 5 },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: axisColour }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { display: false } },
+            },
+            plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true } } },
+        },
+    });
+};
+
+const renderNetWorthChart = (chartData = parseData(document.getElementById('netWorthChart'))) => {
+    if (!chartData?.labels?.length || !document.getElementById('netWorthChart')) {
         destroyChart('netWorthChart');
         return;
     }
+
+    const dark = document.documentElement.classList.contains('dark');
+    const axisColour = dark ? '#a8b8ad' : '#65736a';
+    const gridColour = dark ? '#304038' : '#e4e9e1';
 
     replaceChart('netWorthChart', {
         type: 'line',
         data: {
             labels: chartData.labels,
-            datasets: [{
-                label: 'Net Worth',
-                data: chartData.netWorth,
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                tension: 0.3,
-                fill: true,
-            }],
+            datasets: [
+                { label: 'Assets', data: chartData.assets, borderColor: '#46ad80', backgroundColor: '#46ad80', tension: 0.3 },
+                { label: 'Liabilities', data: chartData.liabilities, borderColor: '#d5746a', backgroundColor: '#d5746a', tension: 0.3 },
+                { label: 'Net worth', data: chartData.netWorth, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.3 },
+            ],
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             interaction: { intersect: false, mode: 'index' },
-            scales: { y: { ticks: { callback: (value) => `£${value}` } } },
-            plugins: { legend: { labels: { usePointStyle: true } } },
+            scales: {
+                x: { ticks: { color: axisColour }, grid: { display: false } },
+                y: { ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { color: gridColour } },
+            },
+            plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true } } },
         },
     });
 };
@@ -158,14 +157,19 @@ const hydrateCharts = () => {
         if (!document.getElementById(id)) destroyChart(id);
     }
 
-    renderDashboardCharts();
+    renderDashboardTrend();
     renderReportsChart();
+    renderBudgetChart();
     renderNetWorthChart();
 };
 
 document.addEventListener('DOMContentLoaded', hydrateCharts);
 document.addEventListener('livewire:navigated', hydrateCharts);
 document.addEventListener('livewire:init', () => {
-    window.Livewire.on('dashboard-charts-updated', (payload) => renderDashboardCharts(payload));
-    window.Livewire.on('reports-chart-data', (payload) => renderReportsChart(payload.chartData ?? payload));
+    window.Livewire.on('dashboard-trend-updated', (payload) => renderDashboardTrend(payload.chartData ?? payload));
+    window.Livewire.on('reports-chart-data', (payload) => {
+        renderReportsChart(payload.chartData ?? payload);
+        renderBudgetChart(payload.budgetData);
+        renderNetWorthChart(payload.netWorthData);
+    });
 });

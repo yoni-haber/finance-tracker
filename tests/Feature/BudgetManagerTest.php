@@ -33,6 +33,78 @@ final class BudgetManagerTest extends TestCase
             ->assertSet('periodYear', (int) $now->year);
     }
 
+    public function test_budget_overview_orders_overspent_first_and_isolates_user_totals(): void
+    {
+        Carbon::setTestNow('2026-09-20');
+        $user = User::factory()->create(['selected_month' => 9, 'selected_year' => 2026]);
+        $otherUser = User::factory()->create();
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $housing = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        $private = Category::factory()->for($otherUser)->expense()->create(['name' => 'Private']);
+
+        Budget::factory()->for($user)->for($food, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '100.00']);
+        Budget::factory()->for($user)->for($housing, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '200.00']);
+        Budget::factory()->for($otherUser)->for($private, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '900.00']);
+        $user->transactions()->create(['category_id' => $food->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '30.00', 'date' => '2026-09-03']);
+        $user->transactions()->create(['category_id' => $housing->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '250.00', 'date' => '2026-09-04']);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->assertViewHas('budgetTotals', ['planned' => 30000, 'spent' => 28000, 'remaining' => 2000])
+            ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Housing', 'Food'])
+            ->assertSee('£300.00')
+            ->assertDontSee('Private');
+    }
+
+    public function test_budget_overview_ranks_equal_status_by_usage_then_category_name(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        foreach (['Low' => 10, 'Mid Z' => 80, 'Over' => 120, 'Mid A' => 80, 'High' => 90] as $name => $spent) {
+            $category = Category::factory()->for($user)->expense()->create(['name' => $name]);
+            Budget::factory()->for($user)->for($category, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 100]);
+            $user->transactions()->create([
+                'category_id' => $category->id,
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => $spent,
+                'date' => '2024-05-10',
+            ]);
+        }
+
+        $zero = Category::factory()->for($user)->expense()->create(['name' => 'Zero']);
+        Budget::factory()->for($user)->for($zero, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 0]);
+        $user->transactions()->create([
+            'category_id' => $zero->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 5,
+            'date' => '2024-05-10',
+        ]);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Zero', 'Over', 'High', 'Mid A', 'Mid Z', 'Low']);
+    }
+
+    public function test_editing_budget_shows_progress_for_the_selected_category(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $housing = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        $foodBudget = Budget::factory()->for($user)->for($food, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 100]);
+        Budget::factory()->for($user)->for($housing, 'category')->create(['month' => 5, 'year' => 2024, 'amount' => 200]);
+        $user->transactions()->create([
+            'category_id' => $food->id,
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => 40,
+            'date' => '2024-05-10',
+        ]);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->call('edit', $foodBudget->id)
+            ->assertViewHas('editingBudgetCategoryId', $food->id)
+            ->assertViewHas('editingBudgetSummary', fn (array $summary): bool => $summary['category'] === 'Food' && $summary['actual'] === '40.00');
+    }
+
     public function test_mount_uses_the_users_persisted_period_for_the_form(): void
     {
         $user = User::factory()->create(['selected_month' => 4, 'selected_year' => 2023]);
@@ -420,14 +492,14 @@ final class BudgetManagerTest extends TestCase
         ]);
 
         $expected = [
-            'category' => 'Food', 'budget' => '100.00', 'actual' => '70.30',
+            'category' => 'Food', 'category_id' => $parent->id, 'budget' => '100.00', 'actual' => '70.30',
             'remaining' => '29.70', 'over' => '0.00', 'overspent' => false,
             'percent' => 70, 'barPercent' => 70,
         ];
 
         Livewire::actingAs($user)->test(BudgetManager::class)
             ->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole() === $expected)
-            ->assertSee('Budgets for May 2024')
+            ->assertSee('plans for May 2024')
             ->assertSee('£70.30')
             ->assertSee('£29.70 remaining')
             ->assertSee('70% used')
@@ -471,7 +543,7 @@ final class BudgetManagerTest extends TestCase
             ->assertDontSee('-£15.00');
 
         Livewire::actingAs($user)->test(Dashboard::class)
-            ->assertViewHas('budgetSummaries', function ($summaries): bool {
+            ->assertViewHas('budgetHighlights', function ($summaries): bool {
                 $food = $summaries->firstWhere('category', 'Food');
                 $travel = $summaries->firstWhere('category', 'Travel');
 
@@ -538,7 +610,7 @@ final class BudgetManagerTest extends TestCase
         $testable->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '40.00');
         $testable->set('periodMonth', 6)
             ->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '0.00')
-            ->assertSee('Budgets for June 2024')
+            ->assertSee('plans for June 2024')
             ->assertSee('£100.00 remaining');
     }
 
@@ -679,7 +751,7 @@ final class BudgetManagerTest extends TestCase
             ->call('resetForm')
             ->assertSet('budgetId', null)
             ->assertSet('category_id', null)
-            ->assertSet('amount', '0.00');
+            ->assertSet('amount', '');
     }
 
     public function test_open_modal_dispatches_open_budget_modal_event(): void
@@ -705,7 +777,7 @@ final class BudgetManagerTest extends TestCase
             ->call('openModal')
             ->assertSet('budgetId', null)
             ->assertSet('category_id', null)
-            ->assertSet('amount', '0.00');
+            ->assertSet('amount', '');
     }
 
     public function test_open_modal_copies_filter_month_and_year_to_form_fields(): void

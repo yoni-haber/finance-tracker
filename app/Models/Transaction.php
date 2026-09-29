@@ -69,6 +69,7 @@ use Override;
     'user_id',
     'category_id',
     'type',
+    'source_import_id',
     'amount',
     'date',
     'is_recurring',
@@ -262,11 +263,12 @@ class Transaction extends Model
             return 0;
         }
 
-        $step = match ($this->frequency) {
+        /** @var 'weekly'|'monthly'|'yearly' $frequency */
+        $frequency = $this->frequency;
+        $step = match ($frequency) {
             'weekly' => intdiv((int) $anchor->diffInDays($rangeStart), 7),
             'monthly' => ($rangeStart->year - $anchor->year) * 12 + $rangeStart->month - $anchor->month,
             'yearly' => $rangeStart->year - $anchor->year,
-            default => 0,
         };
 
         return $this->occurrenceDateForStep($step)->lessThan($rangeStart) ? $step + 1 : $step;

@@ -1,17 +1,18 @@
 @php use App\Models\Transaction; @endphp
-<div class="space-y-6">
+<div class="space-y-5">
+    <x-page-header eyebrow="Import" title="Review statement" description="Check possible matches, choose which transactions to keep, and assign categories before importing." />
     @if (session('status'))
-        <div class="rounded-md bg-emerald-50 border border-emerald-200 p-4">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20" role="status">
             <div class="flex">
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-emerald-800">{{ session('status') }}</p>
+                    <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">{{ session('status') }}</p>
                 </div>
             </div>
         </div>
     @endif
 
     <!-- Import Summary -->
-    <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div class="app-card p-4 sm:p-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Import Summary</h3>
@@ -25,7 +26,7 @@
             </div>
             <button
                 wire:click="backToImport"
-                class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                class="app-button-secondary"
             >
                 ← Back
             </button>
@@ -55,9 +56,16 @@
                     class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{ $summary['total_amount'] >= 0 ? 'Net credit' : 'Net debit' }}</div>
             </div>
         </div>
+        <p class="mt-3 text-xs app-muted">Net credit or debit is the movement on this statement. Money-in entries will count as income when imported.</p>
+
+        @if ($summary['possible_duplicates'] > 0)
+            <div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
+                Review before importing: {{ $summary['possible_duplicates'] }} matching {{ \Illuminate\Support\Str::plural('row', $summary['possible_duplicates']) }} within this file. Matching charges may both be genuine.
+            </div>
+        @endif
 
         @if ($summary['new_transactions'] > 0)
-            <div class="mt-5 flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-700">
+            <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                 <p class="text-sm text-zinc-600 dark:text-zinc-400">
                     Ready to import <strong
                         class="text-zinc-900 dark:text-white">{{ $summary['new_transactions'] }}</strong> new
@@ -65,7 +73,7 @@
                 </p>
                 <flux:modal.trigger name="confirm-import-commit">
                     <button
-                        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1">
+                        class="app-button-primary">
                         Import {{ $summary['new_transactions'] }}
                         transaction{{ $summary['new_transactions'] !== 1 ? 's' : '' }}
                     </button>
@@ -79,14 +87,14 @@
     <!-- Bulk Actions Toolbar -->
     @if (count($selectedTransactionIds) > 0)
         <div
-            class="rounded-xl border border-blue-200 bg-blue-50 px-6 py-3 shadow-sm dark:border-blue-800 dark:bg-blue-900/20">
+            class="app-card sticky top-2 z-10 border-emerald-200 bg-emerald-50 p-3 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/90">
             <div class="flex flex-wrap items-center gap-4">
-                <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
+                <span class="text-sm font-medium text-emerald-900 dark:text-emerald-100">
                     {{ count($selectedTransactionIds) }} transaction{{ count($selectedTransactionIds) !== 1 ? 's' : '' }} selected
                 </span>
                 <button
                     wire:click="$set('selectedTransactionIds', [])"
-                    class="text-xs text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+                    class="app-link text-xs"
                 >
                     Clear selection
                 </button>
@@ -94,10 +102,10 @@
                 <div class="ml-auto flex flex-wrap items-center gap-3">
                     <!-- Bulk Category Assignment -->
                     <div class="flex items-center gap-2">
-                        <label class="text-sm text-blue-700 dark:text-blue-300">Assign category:</label>
+                        <label class="text-sm text-emerald-900 dark:text-emerald-100">Assign category:</label>
                         <select
                             wire:change="bulkAssignCategory($event.target.value)"
-                            class="text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
+                            class="app-field text-sm"
                         >
                             <option value="">— select —</option>
                             @foreach (($bulkSelectionType ? $categories->where('type', $bulkSelectionType) : $categories) as $parent)
@@ -131,252 +139,59 @@
     @endif
 
     <!-- Transaction List -->
-    <div class="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div class="app-card overflow-hidden">
         <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
             <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Transaction Details</h3>
             <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Review, edit, categorize, or remove transactions
                 before importing.</p>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-                        Select
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                    </th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                    </th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                    </th>
-                </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200 dark:bg-zinc-900 dark:divide-gray-700">
-                @forelse ($transactions as $transaction)
-                    <tr class="{{ $transaction->is_duplicate ? 'opacity-60 bg-amber-50/50 dark:bg-amber-900/10' : '' }}">
-                        @if ($editingTransactionId === $transaction->id)
-                            <!-- Edit Mode -->
-                            <td class="px-4 py-4 text-center">
-                                <input
-                                    type="checkbox"
-                                    wire:model.live="selectedTransactionIds"
-                                    value="{{ $transaction->id }}"
-                                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                >
-                            </td>
-                            <td class="px-6 py-4">
-                                <input
-                                    type="date"
-                                    wire:model="editForm.date"
-                                    class="w-full text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
-                                >
-                                @error('editForm.date')
-                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                @enderror
-                            </td>
-                            <td class="px-6 py-4">
-                                    <textarea
-                                        wire:model="editForm.description"
-                                        class="w-full text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
-                                        rows="2"
-                                    ></textarea>
-                                @error('editForm.description')
-                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                @enderror
-                            </td>
-                            <td class="px-6 py-4">
-                                <select
-                                    wire:model="editForm.type"
-                                    class="w-full text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
-                                >
-                                    <option value="{{ Transaction::TYPE_EXPENSE }}">Money out</option>
-                                    <option value="{{ Transaction::TYPE_INCOME }}">Money in</option>
-                                </select>
-                                @error('editForm.type')
-                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                @enderror
-                            </td>
-                            <td class="px-6 py-4">
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    wire:model="editForm.amount"
-                                    class="w-full text-sm border-gray-300 rounded-md text-right dark:bg-zinc-800 dark:border-zinc-700"
-                                >
-                                @error('editForm.amount')
-                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                @enderror
-                            </td>
-                            <td class="px-6 py-4">
-                                <select
-                                    wire:model="editForm.category_id"
-                                    class="w-full text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
-                                >
-                                    <option value="">Uncategorised</option>
-                                    @foreach ($categories->where('type', $editForm['type'] ?? '') as $parent)
-                                        @if ($parent->children->isNotEmpty())
-                                            <optgroup label="{{ $parent->name }}">
-                                                @foreach ($parent->children as $sub)
-                                                    <option value="{{ $sub->id }}">{{ $sub->name }}</option>
-                                                @endforeach
-                                            </optgroup>
-                                        @else
-                                            <option value="{{ $parent->id }}">{{ $parent->name }}</option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                    <span
-                                        class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                                        Editing
-                                    </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex gap-2 justify-center">
-                                    <button
-                                        wire:click="updateTransaction"
-                                        class="text-emerald-600 hover:text-emerald-800 text-xs font-medium"
-                                    >
-                                        Save
-                                    </button>
-                                    <button
-                                        wire:click="cancelEdit"
-                                        class="text-gray-600 hover:text-gray-800 text-xs font-medium"
-                                    >
-                                        Cancel
-                                    </button>
+        <div class="flex flex-wrap gap-2 border-b border-app-border px-4 py-3 sm:px-6" role="group" aria-label="Filter imported transactions">
+            @foreach (['all' => 'All', 'needs_attention' => 'Needs a category', 'ready' => 'Ready', 'possible' => 'Possible matches', 'duplicates' => 'Skipped duplicates'] as $filterValue => $filterLabel)
+                <button type="button" wire:click="$set('viewFilter', '{{ $filterValue }}')" aria-pressed="{{ $viewFilter === $filterValue ? 'true' : 'false' }}" class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors {{ $viewFilter === $filterValue ? 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-600 dark:hover:text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:hover:text-white' }}">{{ $filterLabel }} <span class="tabular-nums">{{ match ($filterValue) { 'all' => $summary['total'], 'needs_attention' => $summary['needs_attention'], 'ready' => $summary['new_transactions'] - $summary['needs_attention'], 'possible' => $summary['possible_duplicates'], default => $summary['duplicates'] } }}</span></button>
+            @endforeach
+        </div>
+        <div class="grid gap-3 p-3 sm:p-4">
+            @forelse ($transactions as $transaction)
+                @php
+                    $mobileType = $import->statement_type === 'credit_card'
+                        ? ($transaction->amount < 0 ? Transaction::TYPE_EXPENSE : Transaction::TYPE_INCOME)
+                        : ($transaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE);
+                @endphp
+                <article wire:key="import-row-{{ $transaction->id }}" class="min-w-0 rounded-xl border border-app-border bg-app-surface p-4">
+                    @if ($editingTransactionId === $transaction->id)
+                        <div class="space-y-3">
+                            <h3 class="font-semibold">Edit imported transaction</h3>
+                            <label class="block text-sm">Date<input type="date" wire:model="editForm.date" class="app-field mt-1 w-full"></label>
+                            <label class="block text-sm">Description<textarea wire:model="editForm.description" rows="2" class="app-field mt-1 w-full"></textarea></label>
+                            <div class="grid grid-cols-2 gap-2"><label class="block text-sm">Amount<input type="number" step="0.01" min="0.01" wire:model="editForm.amount" class="app-field mt-1 w-full"></label><label class="block text-sm">Direction<select wire:model.live="editForm.type" class="app-field mt-1 w-full"><option value="expense">Money out</option><option value="income">Money in</option></select></label></div>
+                            <label class="block text-sm">Category<select wire:model="editForm.category_id" class="app-field mt-1 w-full"><option value="">Uncategorised</option>@foreach ($categories->where('type', $editForm['type'] ?? '') as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}">{{ $parent->name }}</option>@endif @endforeach</select></label>
+                            @foreach (['date', 'description', 'amount', 'type', 'category_id'] as $field) @error('editForm.' . $field)<p class="text-xs text-rose-700">{{ $message }}</p>@enderror @endforeach
+                            <div class="flex flex-wrap gap-2 border-t border-app-border pt-3"><button type="button" wire:click="cancelEdit" class="app-button-secondary">Cancel</button><button type="button" wire:click="updateTransaction" class="app-button-primary">Save changes</button></div>
+                        </div>
+                    @else
+                        <div class="flex flex-wrap items-start gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_6rem_minmax(10rem,14rem)_5rem] lg:items-center">
+                            <div class="min-w-0 flex-1">
+                                <p class="break-words font-semibold">{{ $transaction->description }}</p>
+                                <p class="mt-1 text-xs app-muted">{{ $transaction->date->format('j M Y') }} · {{ $mobileType === Transaction::TYPE_INCOME ? 'Money in' : 'Money out' }}</p>
+                                @if (in_array($transaction->id, $possibleDuplicateIds, true))<p class="mt-1 text-xs font-medium text-amber-800 dark:text-amber-300">Possible match in this file · check both charges</p>@endif
+                            </div>
+                            <p class="shrink-0 font-semibold tabular-nums lg:text-right">{{ \App\Support\Money::format(abs($transaction->amount)) }}</p>
+                            @if ($transaction->is_duplicate)
+                                <span class="app-badge basis-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Duplicate · skipped</span>
+                            @else
+                                <div class="min-w-0 basis-full">
+                                    <div class="flex items-center gap-2"><input type="checkbox" wire:model.live="selectedTransactionIds" value="{{ $transaction->id }}" aria-label="Select {{ $transaction->description }}" class="rounded border-zinc-300"><select wire:change="updateCategory({{ $transaction->id }}, $event.target.value)" aria-label="Category for {{ $transaction->description }}" class="app-field min-w-0 flex-1 text-sm"><option value="" @selected($transaction->category_id === null)>Uncategorised</option>@foreach ($categories->where('type', $mobileType) as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}" @selected($transaction->category_id == $sub->id)>{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}" @selected($transaction->category_id == $parent->id)>{{ $parent->name }}</option>@endif @endforeach</select></div>
+                                    @if (isset($categorySuggestions[$transaction->id]))<button type="button" wire:click="updateCategory({{ $transaction->id }}, {{ $categorySuggestions[$transaction->id]['id'] }})" class="app-link mt-1 text-xs">Use previous category: {{ $categorySuggestions[$transaction->id]['name'] }}</button>@endif
                                 </div>
-                            </td>
-                        @else
-                            <!-- View Mode -->
-                            @php
-                                $rowType = $import->statement_type === 'credit_card'
-                                    ? ($transaction->amount < 0 ? Transaction::TYPE_EXPENSE : Transaction::TYPE_INCOME)
-                                    : ($transaction->amount >= 0 ? Transaction::TYPE_INCOME : Transaction::TYPE_EXPENSE);
-                            @endphp
-                            <td class="px-4 py-4 text-center">
-                                @if (!$transaction->is_duplicate)
-                                    <input
-                                        type="checkbox"
-                                        wire:model.live="selectedTransactionIds"
-                                        value="{{ $transaction->id }}"
-                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    >
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                {{ $transaction->date->format('j M Y') }}
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                                {{ $transaction->description }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                @if (!$transaction->is_duplicate)
-                                    <select
-                                        wire:change="updateType({{ $transaction->id }}, $event.target.value)"
-                                        class="text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
-                                    >
-                                        <option
-                                            value="{{ Transaction::TYPE_EXPENSE }}" {{ $rowType === Transaction::TYPE_EXPENSE ? 'selected' : '' }}>
-                                            Money out
-                                        </option>
-                                        <option
-                                            value="{{ Transaction::TYPE_INCOME }}" {{ $rowType === Transaction::TYPE_INCOME ? 'selected' : '' }}>
-                                            Money in
-                                        </option>
-                                    </select>
-                                @else
-                                    <span class="text-gray-400 text-sm">
-                                            {{ $rowType === Transaction::TYPE_EXPENSE ? 'Money out' : 'Money in' }}
-                                        </span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                                £{{ number_format(abs($transaction->amount), 2) }}
-                            </td>
-                            <td class="px-6 py-4">
-                                @if (!$transaction->is_duplicate)
-                                    <select
-                                        wire:change="updateCategory({{ $transaction->id }}, $event.target.value)"
-                                        class="text-sm border-gray-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700"
-                                    >
-                                        <option value="">Uncategorised</option>
-                                        @foreach ($categories->where('type', $rowType) as $parent)
-                                            @if ($parent->children->isNotEmpty())
-                                                <optgroup label="{{ $parent->name }}">
-                                                    @foreach ($parent->children as $sub)
-                                                        <option
-                                                            value="{{ $sub->id }}" @selected($transaction->category_id == $sub->id)>{{ $sub->name }}</option>
-                                                    @endforeach
-                                                </optgroup>
-                                            @else
-                                                <option
-                                                    value="{{ $parent->id }}" @selected($transaction->category_id == $parent->id)>{{ $parent->name }}</option>
-                                            @endif
-                                        @endforeach
-                                    </select>
-                                @else
-                                    <span class="text-gray-400 text-sm">N/A</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center">
-                                @if ($transaction->is_duplicate)
-                                    <span
-                                        class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                                            Duplicate
-                                        </span>
-                                @else
-                                    <span
-                                        class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                                            New
-                                        </span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center">
-                                @if (!$transaction->is_duplicate)
-                                    <div class="flex gap-2 justify-center">
-                                        <button
-                                            wire:click="editTransaction({{ $transaction->id }})"
-                                            class="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            wire:click="confirmDeleteTransaction({{ $transaction->id }})"
-                                            class="text-red-600 hover:text-red-800 text-xs font-medium"
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                @else
-                                    <span class="text-gray-400 text-xs">N/A</span>
-                                @endif
-                            </td>
-                        @endif
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="8" class="px-6 py-4 text-center text-gray-500">
-                            No transactions found.
-                        </td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
+                                <div class="flex basis-full gap-3 text-sm lg:flex-col lg:items-end lg:gap-1"><button type="button" wire:click="editTransaction({{ $transaction->id }})" class="app-link">Edit</button><button type="button" wire:click="confirmDeleteTransaction({{ $transaction->id }})" class="font-medium text-rose-700 dark:text-rose-400">Remove</button></div>
+                            @endif
+                        </div>
+                    @endif
+                </article>
+            @empty
+                <p class="app-empty m-4">No transactions in this view.</p>
+            @endforelse
         </div>
     </div>
 
@@ -390,6 +205,11 @@
                     account.
                     Categories will be assigned as selected. This action cannot be undone.
                 </flux:subheading>
+                @if ($summary['needs_attention'] > 0 || $summary['possible_duplicates'] > 0)
+                    <div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
+                        {{ $summary['needs_attention'] }} without a category · {{ $summary['possible_duplicates'] }} possible matching rows. Review these before importing.
+                    </div>
+                @endif
             </div>
 
             @error('commit')

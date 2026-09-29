@@ -25,7 +25,7 @@ class extends \Livewire\Component {
     }
 }; ?>
 
-<section class="mt-10 space-y-6">
+<section class="mt-10 space-y-6 rounded-xl border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900/50 dark:bg-rose-950/10">
     <div class="relative mb-5">
         <flux:heading>{{ __('Delete account') }}</flux:heading>
         <flux:subheading>{{ __('Delete your account and all of its resources') }}</flux:subheading>

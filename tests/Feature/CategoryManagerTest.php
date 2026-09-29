@@ -47,6 +47,43 @@ final class CategoryManagerTest extends TestCase
             ->assertViewHas('expenseParents', fn ($p) => $p->doesntContain('id', $incomeParent->id));
     }
 
+    public function test_transaction_counts_link_to_recorded_parent_and_subcategory_views(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        Transaction::factory()->for($user)->create(['category_id' => $parent->id, 'type' => Transaction::TYPE_EXPENSE]);
+        Transaction::factory()->for($user)->create(['category_id' => $child->id, 'type' => Transaction::TYPE_EXPENSE]);
+
+        Livewire::actingAs($user)
+            ->test(CategoryManager::class)
+            ->assertSeeHtml('href="' . str_replace('&', '&amp;', route('transactions', ['scope' => 'all', 'category' => $parent->id])) . '"')
+            ->assertSeeHtml('href="' . str_replace('&', '&amp;', route('transactions', ['scope' => 'all', 'category' => $parent->id, 'subcategory' => $child->id])) . '"')
+            ->assertSee('2 transactions total')
+            ->assertSee('1 transaction');
+    }
+
+    public function test_changing_parent_reporting_treatment_warns_about_child_activity_and_budgets(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        Transaction::factory()->count(2)->for($user)->for($parent)->create(['type' => Transaction::TYPE_EXPENSE]);
+        Transaction::factory()->count(3)->for($user)->for($child)->create(['type' => Transaction::TYPE_EXPENSE]);
+        Budget::factory()->for($user)->for($parent, 'category')->create();
+
+        $testable = Livewire::actingAs($user)->test(CategoryManager::class);
+        $testable->call('edit', $parent->id);
+        $testable->assertViewHas('editingCategoryImpact', [
+            'treatment' => Category::TREATMENT_SPENDING,
+            'transactions' => 5,
+            'budgets' => 1,
+        ]);
+        $testable->set('expenseTreatment', Category::TREATMENT_SAVING)
+            ->assertSee('This will reclassify 5 existing transactions')
+            ->assertSee('budgets before making this change.');
+    }
+
     public function test_render_parent_options_filtered_by_selected_type(): void
     {
         $user = User::factory()->create();
