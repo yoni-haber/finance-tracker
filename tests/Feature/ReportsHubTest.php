@@ -10,8 +10,11 @@ use App\Models\Category;
 use App\Models\NetWorthEntry;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\ReportInsights;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
@@ -126,6 +129,23 @@ final class ReportsHubTest extends TestCase
                 && $data['hasBudgets']);
     }
 
+    public function test_budget_query_is_bounded_to_the_three_report_months(): void
+    {
+        $user = User::factory()->create();
+        $budgetQueries = [];
+        DB::listen(static function ($query) use (&$budgetQueries): void {
+            if (str_contains($query->sql, 'year * 12 + month between ? and ?')) {
+                $budgetQueries[] = $query->bindings;
+            }
+        });
+
+        $data = ReportInsights::budgets($user->id, collect(), CarbonImmutable::create(2024, 6, 1), 3);
+
+        $this->assertSame([[$user->id, 24292, 24294]], $budgetQueries);
+        $this->assertSame(['labels', 'planned', 'spent', 'hasBudgets'], array_keys($data));
+        $this->assertSame(['Apr 2024', 'May 2024', 'Jun 2024'], $data['labels']);
+    }
+
     public function test_ytd_comparison_uses_the_previous_calendar_month_at_year_start(): void
     {
         Carbon::setTestNow('2024-01-15');
@@ -210,6 +230,30 @@ final class ReportsHubTest extends TestCase
         $testable->set('transactionMode', 'recorded');
         $testable->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 5000)
             ->assertSee('Recorded entries only');
+    }
+
+    public function test_category_changes_follow_the_selected_transaction_mode(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        Transaction::factory()->for($user)->for($food)->create([
+            'type' => Transaction::TYPE_EXPENSE,
+            'amount' => '20.00',
+            'date' => '2024-05-04',
+            'is_recurring' => true,
+            'frequency' => 'monthly',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
+        $testable->assertViewHas('categoryChanges', fn (array $changes): bool => count($changes) === 1
+            && $changes[0]['previous'] === 2000
+            && $changes[0]['current'] === 2000);
+
+        $testable->set('transactionMode', 'recorded')
+            ->assertViewHas('categoryChanges', fn (array $changes): bool => count($changes) === 1
+                && $changes[0]['previous'] === 2000
+                && $changes[0]['current'] === 0);
     }
 
     public function test_invalid_transaction_mode_returns_to_projected_data(): void

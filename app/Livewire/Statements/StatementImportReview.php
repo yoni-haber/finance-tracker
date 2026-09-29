@@ -315,7 +315,7 @@ class StatementImportReview extends Component
             $matchingStaged = $stagedDecisions->first(fn (ImportedTransaction $importedTransaction): bool => Str::squish(Str::upper($importedTransaction->description)) === Str::squish(Str::upper($visibleRow->description))
                 && $ownedCategories->get($importedTransaction->category_id)?->type === $expectedType);
             $matching = $previous->first(fn (Transaction $transaction): bool => Str::squish(Str::upper((string) $transaction->description)) === Str::squish(Str::upper($visibleRow->description))
-                && $ownedCategories->get($transaction->category_id)?->type === $expectedType);
+                && $ownedCategories->get($transaction->category_id)->type === $expectedType);
             $categoryId = $matchingStaged->category_id ?? $matching->category_id ?? null;
             $suggestedCategory = $categoryId ? $ownedCategories->get($categoryId) : null;
             if ($suggestedCategory instanceof Category) {

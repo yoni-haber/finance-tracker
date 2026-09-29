@@ -16,7 +16,7 @@ final class CashFlowSeries
      */
     public static function endingAt(int $userId, int $month, int $year, int $monthsCount, bool $projected = true): array
     {
-        $endMonth = CarbonImmutable::create($year, $month, 1);
+        $endMonth = CarbonImmutable::createFromFormat('!Y-n', $year . '-' . $month);
         assert($endMonth instanceof CarbonImmutable);
 
         $months = collect(range($monthsCount - 1, 0))
@@ -38,14 +38,12 @@ final class CashFlowSeries
 
         foreach ($months as $period) {
             $transactions = $transactionsByMonth->get($period->format('Y-m'), collect());
-            $expenses = $transactions->filter(fn (Transaction $transaction): bool => TransactionImpact::expensePennies($transaction) !== 0);
-
             $series['labels'][] = $period->format('M Y');
             $series['income'][] = (float) ($transactions->sum(TransactionImpact::incomePennies(...)) / 100);
-            $series['spending'][] = self::expenseTotal($expenses->filter(
+            $series['spending'][] = self::expenseTotal($transactions->filter(
                 fn (Transaction $transaction): bool => self::expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
             ));
-            $series['savedAndInvested'][] = self::expenseTotal($expenses->reject(
+            $series['savedAndInvested'][] = self::expenseTotal($transactions->reject(
                 fn (Transaction $transaction): bool => self::expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
             ));
         }

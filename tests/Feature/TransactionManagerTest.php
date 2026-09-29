@@ -105,6 +105,18 @@ final class TransactionManagerTest extends TestCase
         $this->assertSame(['1 May 2024', '8 May 2024', '15 May 2024'], $component->recurringPreview());
     }
 
+    public function test_monthly_preview_includes_the_third_month(): void
+    {
+        $user = User::factory()->create();
+        $component = Livewire::actingAs($user)->test(TransactionManager::class)->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->date = '2024-01-15';
+        $component->is_recurring = true;
+        $component->frequency = 'monthly';
+
+        $this->assertSame(['15 Jan 2024', '15 Feb 2024', '15 Mar 2024'], $component->recurringPreview());
+    }
+
     public function test_mount_sets_date_month_and_year_to_current(): void
     {
         Carbon::setTestNow('2024-06-15');

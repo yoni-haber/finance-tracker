@@ -36,11 +36,10 @@ class Dashboard extends Component
 
         $income = Money::fromPennies($transactions->sum(TransactionImpact::incomePennies(...)));
 
-        $expenseTransactions = $transactions->filter(fn (Transaction $transaction): bool => TransactionImpact::expensePennies($transaction) !== 0);
-        $spendingTransactions = $expenseTransactions->filter(
+        $spendingTransactions = $transactions->filter(
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
-        $savingInvestmentTransactions = $expenseTransactions->reject(
+        $savingInvestmentTransactions = $transactions->reject(
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
 
@@ -78,7 +77,7 @@ class Dashboard extends Component
         $trend = CashFlowSeries::endingAt($userId, $this->periodMonth, $this->periodYear, 6);
         $budgetHighlights = $budgetSummaries
             ->filter(fn (array $row): bool => $row['overspent'] || ($row['percent'] !== null && $row['percent'] >= 80))
-            ->sort(fn (array $a, array $b): int => ((int) $b['overspent'] <=> (int) $a['overspent'])
+            ->sort(fn (array $a, array $b): int => ($b['overspent'] <=> $a['overspent'])
                 ?: (($b['percent'] === null) <=> ($a['percent'] === null))
                 ?: ($b['percent'] <=> $a['percent'])
                 ?: strcmp($a['category'], $b['category']))
@@ -125,7 +124,6 @@ class Dashboard extends Component
     private function categoryTotals(Collection $transactions, string $type, Collection $categoryParents): Enumerable
     {
         return $transactions
-            ->filter(fn (Transaction $transaction): bool => TransactionImpact::expensePennies($transaction) !== 0)
             ->groupBy(function (Transaction $transaction) use ($categoryParents): int|string {
                 if (!$transaction->category_id) {
                     return 'Uncategorised';

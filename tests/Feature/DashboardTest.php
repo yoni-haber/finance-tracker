@@ -392,6 +392,27 @@ final class DashboardTest extends TestCase
             ->assertViewHas('budgetHighlights', fn ($highlights): bool => $highlights->pluck('category')->all() === ['Zero', 'Over', 'High A']);
     }
 
+    public function test_budget_highlights_include_exactly_eighty_percent_but_exclude_lower_utilisation(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create();
+
+        foreach (['At threshold' => 80, 'Below threshold' => 79] as $name => $spent) {
+            $category = Category::factory()->for($user)->expense()->create(['name' => $name]);
+            Budget::factory()->for($user)->for($category)->create([
+                'month' => 5, 'year' => 2024, 'amount' => 100,
+            ]);
+            Transaction::factory()->for($user)->for($category)->create([
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => $spent,
+                'date' => '2024-05-10',
+            ]);
+        }
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('budgetHighlights', fn ($highlights): bool => $highlights->pluck('category')->all() === ['At threshold']);
+    }
+
     public function test_recent_activity_is_limited_to_recorded_current_user_entries_through_today(): void
     {
         Carbon::setTestNow('2024-05-15');
