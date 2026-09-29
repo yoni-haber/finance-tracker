@@ -34,6 +34,7 @@ final class MonthlyFlow
             } elseif ($treatment === Category::TREATMENT_INVESTMENT) {
                 $invested += $expense;
             }
+
             // Saving transactions document transfers; the remainder already includes them.
         }
 

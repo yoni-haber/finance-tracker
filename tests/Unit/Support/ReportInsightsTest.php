@@ -69,6 +69,12 @@ final class ReportInsightsTest extends TestCase
 
     public function test_investment_rate_rounds_and_is_unavailable_without_income(): void
     {
+        $allIncomeInvested = ReportInsights::summary([
+            'labels' => ['June'],
+            'income' => [100.0], 'spending' => [0.0], 'invested' => [100.0], 'savings' => [0.0],
+        ]);
+        $this->assertSame(100, $allIncomeInvested['investmentRate']);
+
         $summary = ReportInsights::summary([
             'labels' => ['June'],
             'income' => [99.0], 'spending' => [0.0], 'invested' => [49.0], 'savings' => [50.0],

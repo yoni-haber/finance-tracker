@@ -56,6 +56,8 @@ final class BudgetManagerTest extends TestCase
 
         Livewire::actingAs($user)->test(BudgetManager::class)
             ->assertViewHas('budgetTotals', ['planned' => 30000, 'spent' => 28000, 'remaining' => 2000])
+            ->assertViewHas('investmentTotals', ['target' => 2000, 'invested' => 3000, 'toGoal' => 0])
+            ->assertViewHas('budgetSummaries', fn ($rows): bool => $rows->firstWhere('category_id', $investment->id)['over'] === '0.00')
             ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Housing', 'Food', 'A Investments'])
             ->assertSee('£300.00')
             ->assertDontSee('Private');
@@ -928,6 +930,23 @@ final class BudgetManagerTest extends TestCase
         $this->assertDatabaseHas('budgets', [
             'user_id' => $user->id, 'category_id' => $investment->id,
             'month' => 5, 'year' => 2024, 'amount' => '100.00',
+        ]);
+    }
+
+    public function test_budget_amount_is_required_and_spending_limits_can_be_zero(): void
+    {
+        $user = User::factory()->create();
+        $spending = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->set('category_id', $spending->id)
+            ->set('month', 5)->set('year', 2024)
+            ->set('amount', '')->call('save')->assertHasErrors(['amount' => 'required'])
+            ->set('amount', '0.00')->call('save')->assertHasNoErrors();
+
+        $this->assertDatabaseHas('budgets', [
+            'user_id' => $user->id, 'category_id' => $spending->id,
+            'month' => 5, 'year' => 2024, 'amount' => '0.00',
         ]);
     }
 
