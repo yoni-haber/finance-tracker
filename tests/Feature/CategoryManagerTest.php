@@ -726,6 +726,25 @@ final class CategoryManagerTest extends TestCase
         $this->assertSame(Category::TREATMENT_SPENDING, $freshCategory->expense_treatment);
     }
 
+    public function test_investment_category_with_a_goal_cannot_be_reclassified_as_spending(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+        Budget::factory()->for($user)->for($category)->create();
+
+        Livewire::actingAs($user)->test(CategoryManager::class)
+            ->call('edit', $category->id)
+            ->set('expenseTreatment', Category::TREATMENT_SPENDING)
+            ->assertSee('budgets before making this change.')
+            ->call('save')->assertHasErrors('save');
+
+        $freshCategory = $category->fresh();
+        $this->assertInstanceOf(Category::class, $freshCategory);
+        $this->assertSame(Category::TREATMENT_INVESTMENT, $freshCategory->expense_treatment);
+    }
+
     public function test_category_without_budgets_can_be_reclassified_as_saving(): void
     {
         $user = User::factory()->create();

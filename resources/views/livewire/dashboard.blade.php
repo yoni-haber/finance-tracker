@@ -11,14 +11,14 @@
         @foreach ([
             ['label' => 'Income', 'value' => $income, 'accent' => 'text-[#126e51] dark:text-[#75ddb2]'],
             ['label' => 'Spending', 'value' => $spending, 'accent' => 'text-[#bd5b52] dark:text-[#f19b91]'],
-            ['label' => 'Saved & invested', 'value' => $savedAndInvested, 'accent' => 'text-[#4d6f96] dark:text-[#a7c9ec]'],
-            ['label' => 'Net cash flow', 'value' => $netCashFlow, 'accent' => (float) $netCashFlow < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]'],
+            ['label' => 'Invested', 'value' => $invested, 'accent' => 'text-[#4d6f96] dark:text-[#a7c9ec]'],
+            ['label' => 'Savings', 'value' => $savings, 'accent' => (float) $savings < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]'],
         ] as $metric)
             <div class="app-card min-w-0 p-3 sm:p-6">
                 <p class="text-sm font-medium app-muted">{{ $metric['label'] }}</p>
                 <p class="mt-2 break-words text-xl font-semibold tracking-tight tabular-nums {{ $metric['accent'] }} sm:mt-3 sm:text-3xl">{{ (float) $metric['value'] < 0 ? '−' : '' }}{{ \App\Support\Money::format(ltrim((string) $metric['value'], '-')) }}</p>
-                @if ($metric['label'] === 'Net cash flow')
-                    <p class="mt-2 text-xs app-muted">Income less spending and saved &amp; invested</p>
+                @if ($metric['label'] === 'Savings')
+                    <p class="mt-2 text-xs app-muted">{{ $savingsIsEstimate ? 'Estimated month-end remainder' : 'Income less spending and investing' }}</p>
                 @endif
             </div>
         @endforeach
@@ -29,7 +29,7 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h2 id="dashboard-budgets-heading" class="text-lg font-semibold tracking-tight">Budgets needing attention</h2>
-                    <p class="mt-1 text-sm app-muted">Over budget or at least 80% used in {{ $periodLabel }}</p>
+                    <p class="mt-1 text-sm app-muted">Spending limits near or over plan. Investment goals appear here after month-end.</p>
                 </div>
                 <a class="app-link shrink-0 text-sm" href="{{ route('budgets') }}" wire:navigate>All budgets</a>
             </div>
@@ -37,15 +37,15 @@
                 <div class="mt-5 border-t border-[#e4e9e1] pt-4 dark:border-[#304038]">
                     <div class="flex justify-between gap-3 text-sm">
                         <a class="app-link font-medium" href="{{ route('transactions', ['type' => 'expense', 'category' => $summary['category_id']]) }}" wire:navigate>{{ $summary['category'] }}</a>
-                        <span class="font-semibold tabular-nums {{ $summary['overspent'] ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['overspent'] ? 'over' : 'left' }}</span>
+                        <span class="font-semibold tabular-nums {{ $summary['overspent'] || $summary['isInvestment'] ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['isInvestment'] ? 'short of goal' : ($summary['overspent'] ? 'over' : 'left') }}</span>
                     </div>
-                    <p class="mt-1 text-xs app-muted">{{ \App\Support\Money::format($summary['actual']) }} of {{ \App\Support\Money::format($summary['budget']) }} used</p>
-                    <div class="mt-3 h-2 rounded-full bg-[#e8eee6] dark:bg-[#314539]" role="progressbar" aria-label="{{ $summary['category'] }} budget used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $summary['barPercent'] }}" aria-valuetext="{{ $summary['percent'] === null ? 'Over budget with no limit' : $summary['percent'] . '% used' }}">
+                    <p class="mt-1 text-xs app-muted">{{ \App\Support\Money::format($summary['actual']) }} of {{ \App\Support\Money::format($summary['budget']) }} {{ $summary['isInvestment'] ? 'invested' : 'used' }}</p>
+                    <div class="mt-3 h-2 rounded-full bg-[#e8eee6] dark:bg-[#314539]" role="progressbar" aria-label="{{ $summary['category'] }} {{ $summary['isInvestment'] ? 'goal progress' : 'budget used' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $summary['barPercent'] }}" aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget with no limit' : $summary['percent'] . '% used') }}">
                         <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-[#bd5b52]' : 'bg-[#54a886]' }}" style="width: {{ $summary['barPercent'] }}%"></div>
                     </div>
                 </div>
             @empty
-                <p class="mt-6 rounded-xl bg-[#f4f7f2] px-5 py-8 text-center text-sm app-muted dark:bg-[#26362b]">{{ $hasBudgets ? 'Your budgets are on track this month.' : 'No budgets for this period.' }} <a class="app-link" href="{{ route('budgets') }}" wire:navigate>{{ $hasBudgets ? 'View all budgets' : 'Create a budget' }}</a>.</p>
+                <p class="mt-6 rounded-xl bg-[#f4f7f2] px-5 py-8 text-center text-sm app-muted dark:bg-[#26362b]">{{ $hasBudgets ? 'No budgets need attention for this period.' : 'No budgets for this period.' }} <a class="app-link" href="{{ route('budgets') }}" wire:navigate>{{ $hasBudgets ? 'View all budgets' : 'Create a budget' }}</a>.</p>
             @endforelse
         </section>
 
@@ -80,9 +80,9 @@
                 </div>
                 <a class="app-link shrink-0 whitespace-nowrap text-sm" href="{{ route('reports') }}" wire:navigate>Explore reports</a>
             </div>
-            @if (collect($trend['income'])->merge($trend['spending'])->merge($trend['savedAndInvested'])->contains(fn ($value) => (float) $value !== 0.0))
+            @if (collect($trend['income'])->merge($trend['spending'])->merge($trend['invested'])->merge($trend['savings'])->contains(fn ($value) => (float) $value !== 0.0))
                 <div class="mt-6 h-64">
-                    <canvas id="dashboardTrendChart" wire:ignore data-chart-data='@json($trend)' role="img" aria-label="Monthly income, spending, and saving trend" aria-describedby="dashboard-trend-data"></canvas>
+                    <canvas id="dashboardTrendChart" wire:ignore data-chart-data='@json($trend)' role="img" aria-label="Monthly income, spending, investing, and savings trend" aria-describedby="dashboard-trend-data"></canvas>
                 </div>
             @else
                 <p class="mt-6 rounded-xl bg-[#f4f7f2] px-5 py-10 text-center text-sm app-muted dark:bg-[#26362b]">
@@ -93,10 +93,10 @@
                 <summary class="cursor-pointer font-medium app-link">View chart data</summary>
                 <div class="mt-3 overflow-x-auto">
                     <table class="min-w-full text-sm tabular-nums">
-                        <thead><tr class="border-b border-[#e4e9e1] dark:border-[#304038]"><th scope="col" class="py-2 text-left">Month</th><th scope="col" class="py-2 text-right">Income</th><th scope="col" class="py-2 text-right">Spending</th><th scope="col" class="py-2 text-right">Saved</th></tr></thead>
+                        <thead><tr class="border-b border-[#e4e9e1] dark:border-[#304038]"><th scope="col" class="py-2 text-left">Month</th><th scope="col" class="py-2 text-right">Income</th><th scope="col" class="py-2 text-right">Spending</th><th scope="col" class="py-2 text-right">Invested</th><th scope="col" class="py-2 text-right">Savings</th></tr></thead>
                         <tbody class="divide-y divide-[#edf0ea] dark:divide-[#304038]">
                             @foreach ($trend['labels'] as $index => $label)
-                                <tr><th scope="row" class="py-2 text-left font-medium">{{ $label }}</th><td class="py-2 text-right">£{{ number_format($trend['income'][$index], 2) }}</td><td class="py-2 text-right">£{{ number_format($trend['spending'][$index], 2) }}</td><td class="py-2 text-right">£{{ number_format($trend['savedAndInvested'][$index], 2) }}</td></tr>
+                                <tr><th scope="row" class="py-2 text-left font-medium">{{ $label }}</th><td class="py-2 text-right">{{ \App\Support\Money::format($trend['income'][$index]) }}</td><td class="py-2 text-right">{{ \App\Support\Money::format($trend['spending'][$index]) }}</td><td class="py-2 text-right">{{ \App\Support\Money::format($trend['invested'][$index]) }}</td><td class="py-2 text-right">{{ \App\Support\Money::format($trend['savings'][$index]) }}</td></tr>
                             @endforeach
                         </tbody>
                     </table>

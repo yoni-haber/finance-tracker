@@ -13,27 +13,29 @@ use Illuminate\Support\Collection;
 final class ReportInsights
 {
     /**
-     * @param array{labels: list<string>, income: list<float>, spending: list<float>, savedAndInvested: list<float>} $series
-     * @return array{income: int, spending: int, savedAndInvested: int, netCashFlow: int, savingsRate: int|null, lastMonthNet: int, priorMonthNet: int, monthChange: int}
+     * @param array{labels: list<string>, income: list<float>, spending: list<float>, invested: list<float>, savings: list<float>} $series
+     * @return array{income: int, spending: int, invested: int, savings: int, investmentRate: int|null, savingsRate: int|null, lastMonthSavings: int, priorMonthSavings: int, monthChange: int}
      */
     public static function summary(array $series): array
     {
         $income = self::sumSeries($series['income']);
         $spending = self::sumSeries($series['spending']);
-        $saved = self::sumSeries($series['savedAndInvested']);
+        $invested = self::sumSeries($series['invested']);
+        $savings = self::sumSeries($series['savings']);
         $last = count($series['labels']) - 1;
-        $lastMonthNet = self::netForIndex($series, $last);
-        $priorMonthNet = self::netForIndex($series, $last - 1);
+        $lastMonthSavings = self::savingsForIndex($series, $last);
+        $priorMonthSavings = self::savingsForIndex($series, $last - 1);
 
         return [
             'income' => $income,
             'spending' => $spending,
-            'savedAndInvested' => $saved,
-            'netCashFlow' => $income - $spending - $saved,
-            'savingsRate' => $income > 0 ? (int) round($saved * 100 / $income) : null,
-            'lastMonthNet' => $lastMonthNet,
-            'priorMonthNet' => $priorMonthNet,
-            'monthChange' => $lastMonthNet - $priorMonthNet,
+            'invested' => $invested,
+            'savings' => $savings,
+            'investmentRate' => $income > 0 ? (int) round($invested * 100 / $income) : null,
+            'savingsRate' => $income > 0 ? (int) round($savings * 100 / $income) : null,
+            'lastMonthSavings' => $lastMonthSavings,
+            'priorMonthSavings' => $priorMonthSavings,
+            'monthChange' => $lastMonthSavings - $priorMonthSavings,
         ];
     }
 
@@ -96,7 +98,8 @@ final class ReportInsights
         for ($offset = $monthsCount - 1; $offset >= 0; $offset--) {
             $month = $endMonth->subMonths($offset);
             $key = $month->format('Y-m');
-            $budgets = $budgetsByMonth->get($key, collect());
+            $budgets = $budgetsByMonth->get($key, collect())
+                ->filter(fn (Budget $budget): bool => $budget->category->effectiveExpenseTreatment() === Category::TREATMENT_SPENDING);
             $progress = BudgetProgress::forPeriod($budgets, $transactionsByMonth->get($key, collect()), $month->month, $month->year);
 
             $result['labels'][] = $month->format('M Y');
@@ -114,16 +117,14 @@ final class ReportInsights
         return array_sum(array_map(Money::normalize(...), $values));
     }
 
-    /** @param array{labels: list<string>, income: list<float>, spending: list<float>, savedAndInvested: list<float>} $series */
-    private static function netForIndex(array $series, int $index): int
+    /** @param array{labels: list<string>, income: list<float>, spending: list<float>, invested: list<float>, savings: list<float>} $series */
+    private static function savingsForIndex(array $series, int $index): int
     {
         if ($index < 0) {
             return 0;
         }
 
-        return Money::normalize($series['income'][$index])
-            - Money::normalize($series['spending'][$index])
-            - Money::normalize($series['savedAndInvested'][$index]);
+        return Money::normalize($series['savings'][$index]);
     }
 
     private static function categoryName(Transaction $transaction): string

@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Support\BudgetProgress;
 use App\Support\CashFlowSeries;
 use App\Support\Money;
+use App\Support\MonthlyFlow;
 use App\Support\SelectedPeriod;
 use App\Support\TransactionImpact;
 use App\Support\TransactionReport;
@@ -34,20 +35,15 @@ class Dashboard extends Component
 
         $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear);
 
-        $income = Money::fromPennies($transactions->sum(TransactionImpact::incomePennies(...)));
+        $totals = MonthlyFlow::totals($transactions);
+        $income = Money::fromPennies($totals['income']);
 
         $spendingTransactions = $transactions->filter(
             fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
         );
-        $savingInvestmentTransactions = $transactions->reject(
-            fn (Transaction $transaction): bool => $this->expenseTreatment($transaction) === Category::TREATMENT_SPENDING,
-        );
-
-        $spending = Money::fromPennies($spendingTransactions->sum(TransactionImpact::expensePennies(...)));
-        $savedAndInvested = Money::fromPennies($savingInvestmentTransactions->sum(TransactionImpact::expensePennies(...)));
-        $netCashFlow = Money::fromPennies(
-            Money::normalize($income) - Money::normalize($spending) - Money::normalize($savedAndInvested),
-        );
+        $spending = Money::fromPennies($totals['spending']);
+        $invested = Money::fromPennies($totals['invested']);
+        $savings = Money::fromPennies($totals['savings']);
 
         $budgets = Budget::with('category.children')
             ->where('user_id', $userId)
@@ -76,7 +72,9 @@ class Dashboard extends Component
 
         $trend = CashFlowSeries::endingAt($userId, $this->periodMonth, $this->periodYear, 6);
         $budgetHighlights = $budgetSummaries
-            ->filter(fn (array $row): bool => $row['overspent'] || ($row['percent'] !== null && $row['percent'] >= 80))
+            ->filter(fn (array $row): bool => $row['isInvestment']
+                ? $this->selectedPeriod()->startOfMonth()->endOfMonth()->isPast() && !$row['goalMet']
+                : $row['overspent'] || ($row['percent'] !== null && $row['percent'] >= 80))
             ->sort(fn (array $a, array $b): int => ($b['overspent'] <=> $a['overspent'])
                 ?: (($b['percent'] === null) <=> ($a['percent'] === null))
                 ?: ($b['percent'] <=> $a['percent'])
@@ -100,8 +98,9 @@ class Dashboard extends Component
             'periodLabel' => SelectedPeriod::clamp($this->periodMonth, $this->periodYear)->label(),
             'income' => $income,
             'spending' => $spending,
-            'savedAndInvested' => $savedAndInvested,
-            'netCashFlow' => $netCashFlow,
+            'invested' => $invested,
+            'savings' => $savings,
+            'savingsIsEstimate' => $this->selectedPeriod()->isCurrentMonth(),
             'trend' => $trend,
             'budgetHighlights' => $budgetHighlights,
             'budgetSummaries' => $budgetSummaries,

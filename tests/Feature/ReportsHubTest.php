@@ -42,7 +42,8 @@ final class ReportsHubTest extends TestCase
         $this->assertArrayHasKey('labels', $chartData);
         $this->assertArrayHasKey('income', $chartData);
         $this->assertArrayHasKey('spending', $chartData);
-        $this->assertArrayHasKey('savedAndInvested', $chartData);
+        $this->assertArrayHasKey('invested', $chartData);
+        $this->assertArrayHasKey('savings', $chartData);
     }
 
     public function test_mount_initializes_net_worth_chart_data_with_required_keys(): void
@@ -72,10 +73,36 @@ final class ReportsHubTest extends TestCase
 
         Livewire::actingAs($user)->test(ReportsHub::class)
             ->set('range', '3_months')
-            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 10000 && $insights['spending'] === 8000 && $insights['savedAndInvested'] === 1000 && $insights['netCashFlow'] === 1000 && $insights['savingsRate'] === 10)
+            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 10000 && $insights['spending'] === 8000 && $insights['invested'] === 0 && $insights['savings'] === 2000 && $insights['savingsRate'] === 20)
             ->assertViewHas('categoryChanges', fn (array $changes): bool => $changes[0]['category'] === 'Food' && $changes[0]['category_id'] === $food->id && $changes[0]['current'] === 6000 && $changes[0]['previous'] === 2000 && $changes[0]['change'] === 4000)
             ->assertViewHas('budgetData', fn (array $data): bool => $data['hasBudgets'] && $data['planned'][2] === 100.0 && $data['spent'][2] === 60.0)
-            ->assertSee('Budget performance');
+            ->assertSee('Spending budget performance');
+    }
+
+    public function test_investment_goals_are_excluded_from_spending_budget_chart(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create();
+        $spending = Category::factory()->for($user)->expense()->create();
+        $investment = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+        Budget::factory()->for($user)->for($spending, 'category')->create([
+            'month' => 6, 'year' => 2024, 'amount' => '100.00',
+        ]);
+        Budget::factory()->for($user)->for($investment, 'category')->create([
+            'month' => 6, 'year' => 2024, 'amount' => '200.00',
+        ]);
+        $user->transactions()->createMany([
+            ['type' => 'income', 'amount' => '300.00', 'date' => '2024-06-01'],
+            ['type' => 'expense', 'category_id' => $spending->id, 'amount' => '30.00', 'date' => '2024-06-02'],
+            ['type' => 'expense', 'category_id' => $investment->id, 'amount' => '50.00', 'date' => '2024-06-03'],
+        ]);
+
+        Livewire::actingAs($user)->test(ReportsHub::class)->set('range', '3_months')
+            ->assertViewHas('insights', fn (array $insights): bool => $insights['invested'] === 5000 && $insights['savings'] === 22000 && $insights['investmentRate'] === 17)
+            ->assertSee('17% of income')
+            ->assertViewHas('budgetData', fn (array $data): bool => $data['planned'][2] === 100.0 && $data['spent'][2] === 30.0);
     }
 
     public function test_category_changes_include_only_spending_from_the_two_comparison_months_and_rank_six_categories(): void
@@ -403,7 +430,8 @@ final class ReportsHubTest extends TestCase
         $this->assertStringContainsString('Jun 2024', (string) $chartData['labels'][$lastIndex]);
         $this->assertEqualsWithDelta(1000.0, $chartData['income'][$lastIndex], PHP_FLOAT_EPSILON);
         $this->assertEqualsWithDelta(350.0, $chartData['spending'][$lastIndex], PHP_FLOAT_EPSILON);
-        $this->assertEqualsWithDelta(200.0, $chartData['savedAndInvested'][$lastIndex], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(0.0, $chartData['invested'][$lastIndex], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(650.0, $chartData['savings'][$lastIndex], PHP_FLOAT_EPSILON);
     }
 
     public function test_chart_data_does_not_include_other_users_transactions(): void
@@ -464,7 +492,7 @@ final class ReportsHubTest extends TestCase
         $this->assertCount(3, $testable->get('chartData')['labels']);
         $this->assertCount(3, $testable->get('chartData')['income']);
         $this->assertCount(3, $testable->get('chartData')['spending']);
-        $this->assertCount(3, $testable->get('chartData')['savedAndInvested']);
+        $this->assertCount(3, $testable->get('chartData')['savings']);
     }
 
     public function test_net_worth_chart_data_includes_entries_within_last_12_months(): void

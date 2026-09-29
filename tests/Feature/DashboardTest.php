@@ -144,10 +144,12 @@ final class DashboardTest extends TestCase
         $testable
             ->assertViewHas('income', '2500.00')
             ->assertViewHas('spending', '250.00')
-            ->assertViewHas('savedAndInvested', '300.00')
-            ->assertViewHas('netCashFlow', '1950.00')
+            ->assertViewHas('invested', '0.00')
+            ->assertViewHas('savings', '2250.00')
             ->assertViewHas('periodLabel', 'May 2024')
-            ->assertSee('Net cash flow');
+            ->assertSee('Estimated month-end remainder')
+            ->assertSee('Investment goals appear here after month-end.')
+            ->assertDontSee('past investment goals missed');
 
         $testable->assertDispatched('dashboard-trend-updated');
 
@@ -172,7 +174,8 @@ final class DashboardTest extends TestCase
             && $trend['labels'][5] === 'May 2024'
             && $trend['income'][5] === 2500.0
             && $trend['spending'][5] === 250.0
-            && $trend['savedAndInvested'][5] === 300.0);
+            && $trend['invested'][5] === 0.0
+            && $trend['savings'][5] === 2250.0);
     }
 
     public function test_budget_actuals_ignore_future_projected_recurring_transactions(): void
@@ -300,8 +303,8 @@ final class DashboardTest extends TestCase
 
         $this->assertEquals(0, $view->getData()['income']);
         $this->assertEquals(0, $view->getData()['spending']);
-        $this->assertEquals(0, $view->getData()['savedAndInvested']);
-        $this->assertSame('0.00', $view->getData()['netCashFlow']);
+        $this->assertSame('0.00', $view->getData()['invested']);
+        $this->assertSame('0.00', $view->getData()['savings']);
         $this->assertCount(0, $view->getData()['budgetHighlights']);
     }
 
@@ -318,7 +321,7 @@ final class DashboardTest extends TestCase
             ->assertDontSeeHtml('<canvas id="dashboardTrendChart"');
     }
 
-    public function test_net_cash_flow_can_be_negative(): void
+    public function test_calculated_savings_can_be_negative(): void
     {
         Carbon::setTestNow('2024-05-15');
         $user = User::factory()->create();
@@ -332,7 +335,7 @@ final class DashboardTest extends TestCase
             ['type' => Transaction::TYPE_EXPENSE, 'category_id' => $savings->id, 'amount' => 5, 'date' => '2024-05-03'],
         ]);
 
-        Livewire::actingAs($user)->test(Dashboard::class)->assertViewHas('netCashFlow', '-15.00');
+        Livewire::actingAs($user)->test(Dashboard::class)->assertViewHas('savings', '-10.00');
     }
 
     public function test_zero_amount_transactions_do_not_create_spending_bars(): void
@@ -453,5 +456,80 @@ final class DashboardTest extends TestCase
             ->assertViewHas('recentTransactions', fn ($items): bool => $items->pluck('description')->all() === [
                 'Entry 6', 'Entry 5', 'Entry 4', 'Entry 3', 'Entry 2',
             ]);
+    }
+
+    public function test_savings_is_signed_remainder_and_saving_transfers_are_only_activity(): void
+    {
+        Carbon::setTestNow('2024-06-15');
+        $user = User::factory()->create(['selected_month' => 6, 'selected_year' => 2024]);
+        $spending = Category::factory()->for($user)->expense()->create();
+        $investment = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+        $saving = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_SAVING,
+        ]);
+
+        foreach ([
+            ['income', null, '100.00', '2024-04-02'],
+            ['expense', $spending->id, '60.00', '2024-04-03'],
+            ['expense', $investment->id, '40.00', '2024-04-04'],
+            ['expense', $saving->id, '20.00', '2024-04-05'],
+            ['income', null, '50.00', '2024-05-02'],
+            ['expense', $spending->id, '70.00', '2024-05-03'],
+            ['expense', $investment->id, '10.00', '2024-05-04'],
+            ['income', null, '100.00', '2024-06-02'],
+            ['expense', $spending->id, '10.00', '2024-06-03'],
+            ['expense', $investment->id, '20.00', '2024-06-04'],
+            ['expense', $saving->id, '15.00', '2024-06-05'],
+        ] as [$type, $categoryId, $amount, $date]) {
+            $user->transactions()->create([
+                'type' => $type, 'category_id' => $categoryId, 'amount' => $amount, 'date' => $date,
+            ]);
+        }
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('savings', '70.00')
+            ->assertViewHas('invested', '20.00')
+            ->assertViewHas('trend', fn (array $trend): bool => $trend['savings'][3] === 0.0
+                && $trend['savings'][4] === -30.0 && $trend['savings'][5] === 70.0)
+            ->assertViewHas('recentTransactions', fn ($items): bool => $items->contains('category_id', $saving->id))
+            ->assertSee('Estimated month-end remainder');
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->dispatch('period-changed', month: 5, year: 2024)
+            ->assertViewHas('savings', '-30.00')
+            ->assertSee('−£30.00');
+    }
+
+    public function test_investment_goal_shortfall_is_highlighted_only_after_month_end(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $investment = Category::factory()->for($user)->expense()->create([
+            'name' => 'Investments', 'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+        Budget::factory()->for($user)->for($investment, 'category')->create([
+            'month' => 5, 'year' => 2024, 'amount' => '100.00',
+        ]);
+        $user->transactions()->create([
+            'type' => 'expense', 'category_id' => $investment->id,
+            'amount' => '40.00', 'date' => '2024-05-02',
+        ]);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('budgetHighlights', fn ($rows): bool => $rows->isEmpty());
+
+        Carbon::setTestNow('2024-06-01');
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('budgetHighlights', fn ($rows): bool => $rows->sole()['remaining'] === '60.00')
+            ->assertSee('£60.00 short of goal');
+
+        $user->transactions()->create([
+            'type' => 'expense', 'category_id' => $investment->id,
+            'amount' => '60.00', 'date' => '2024-05-20',
+        ]);
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('budgetHighlights', fn ($rows): bool => $rows->isEmpty());
     }
 }
