@@ -23,38 +23,9 @@ class UserAndFinanceSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function () {
-            $now = Carbon::now();
-
             $user = $this->seedUser();
             $categories = $this->seedCategories($user);
-
-            $this->seedBudgets($user, $categories, [
-                [
-                    'category' => 'Housing',
-                    'month' => $now->month,
-                    'year' => $now->year,
-                    'amount' => 1800.00,
-                ],
-                [
-                    'category' => 'Food',
-                    'month' => $now->month,
-                    'year' => $now->year,
-                    'amount' => 650.00,
-                ],
-                [
-                    'category' => 'Bills',
-                    'month' => $now->copy()->subMonth()->month,
-                    'year' => $now->copy()->subMonth()->year,
-                    'amount' => 220.00,
-                ],
-                [
-                    'category' => 'Transport',
-                    'month' => $now->copy()->addMonths(2)->month,
-                    'year' => $now->copy()->addMonths(2)->year,
-                    'amount' => 1200.00,
-                ],
-            ]);
-
+            $this->seedBudgets($user, $categories);
             $this->seedTransactions($user, $categories);
         });
     }
@@ -162,167 +133,129 @@ class UserAndFinanceSeeder extends Seeder
 
     /**
      * @param array<string, Category> $categories
-     * @param list<array{category: string, month: int, year: int, amount: float}> $budgetDefinitions
      */
-    private function seedBudgets(User $user, array $categories, array $budgetDefinitions): void
+    private function seedBudgets(User $user, array $categories): void
     {
-        foreach ($budgetDefinitions as $definition) {
-            Budget::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'category_id' => $categories[$definition['category']]->id,
-                    'month' => $definition['month'],
-                    'year' => $definition['year'],
-                ],
-                ['amount' => $definition['amount']],
-            );
+        $currentMonth = Carbon::now()->startOfMonth();
+
+        for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
+            $month = $currentMonth->copy()->subMonths($monthsAgo);
+            $index = 5 - $monthsAgo;
+
+            // The lower Food limits and the larger travel month show both over- and under-budget states.
+            $amounts = [
+                'Housing' => 1800,
+                'Food' => [600, 480, 650, 500, 620, 550][$index],
+                'Bills' => 220,
+                'Transport' => [200, 200, 650, 200, 200, 200][$index],
+                'Lifestyle' => [150, 150, 150, 90, 150, 150][$index],
+                'Investments' => [400, 400, 400, 500, 400, 400][$index],
+            ];
+
+            foreach ($amounts as $category => $amount) {
+                Budget::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'category_id' => $categories[$category]->id,
+                        'month' => $month->month,
+                        'year' => $month->year,
+                    ],
+                    ['amount' => $amount],
+                );
+            }
         }
     }
 
     /** @param array<string, Category> $categories */
     private function seedTransactions(User $user, array $categories): void
     {
-        $now = Carbon::now();
+        $today = Carbon::now();
+        $firstMonth = $today->copy()->startOfMonth()->subMonths(5);
+        $end = $today->copy()->addMonth()->endOfMonth();
 
-        $transactions = [
-            // Income — recurring salary with exceptions.
-            [
-                'category' => $categories['Employment.Salary'],
-                'type' => Transaction::TYPE_INCOME,
-                'amount' => 5500.00,
-                'date' => $now->copy()->subMonths(1)->startOfMonth(),
-                'is_recurring' => true,
-                'frequency' => 'monthly',
-                'recurring_until' => $now->copy()->addMonths(6),
-                'description' => 'Full-time salary (recurring)',
-            ],
-            [
-                'category' => $categories['Self Employment.Freelance'],
-                'type' => Transaction::TYPE_INCOME,
-                'amount' => 850.00,
-                'date' => $now->copy()->subWeeks(2),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Freelance web design gig',
-            ],
-
-            // Expenses spread across subcategories.
-            [
-                'category' => $categories['Housing.Rent'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 1750.00,
-                'date' => $now->copy()->startOfMonth(),
-                'is_recurring' => true,
-                'frequency' => 'monthly',
-                'recurring_until' => $now->copy()->addMonths(11),
-                'description' => 'Apartment rent recurring',
-            ],
-            [
-                'category' => $categories['Bills.Utilities'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 95.40,
-                'date' => $now->copy()->subMonth()->startOfMonth()->addDays(5),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Electricity bill (prior month)',
-            ],
-            [
-                'category' => $categories['Bills.Utilities'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 0.00,
-                'date' => $now->copy()->startOfMonth()->addDays(5),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Utility credit from provider',
-            ],
-            [
-                'category' => $categories['Food.Groceries'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 125.80,
-                'date' => $now->copy()->subDays(10),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Weekly grocery run',
-            ],
-            [
-                'category' => $categories['Lifestyle.Entertainment'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 64.99,
-                'date' => $now->copy()->subDays(3),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Concert ticket',
-            ],
-            [
-                'category' => $categories['Transport.Travel'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 480.00,
-                'date' => $now->copy()->addMonths(1)->startOfMonth(),
-                'is_recurring' => false,
-                'frequency' => null,
-                'recurring_until' => null,
-                'description' => 'Flight booking for conference',
-            ],
-            [
-                'category' => $categories['Savings'],
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => 300.00,
-                'date' => $now->copy()->startOfMonth()->addDays(2),
-                'is_recurring' => true,
-                'frequency' => 'monthly',
-                'recurring_until' => $now->copy()->addMonths(4),
-                'description' => 'Automatic savings transfer',
-            ],
+        $recurring = [
+            ['Employment.Salary', Transaction::TYPE_INCOME, 5500, 1, 'Monthly salary', 'monthly'],
+            ['Housing.Rent', Transaction::TYPE_EXPENSE, 1750, 2, 'Apartment rent', 'monthly'],
+            ['Savings', Transaction::TYPE_EXPENSE, 300, 3, 'Automatic savings transfer', 'monthly'],
+            ['Investments', Transaction::TYPE_EXPENSE, 350, 4, 'Index fund contribution', 'monthly'],
+            ['Food.Groceries', Transaction::TYPE_EXPENSE, 112.50, 7, 'Weekly groceries', 'weekly'],
+            ['Bills.Utilities', Transaction::TYPE_EXPENSE, 14.99, 10, 'Streaming subscription', 'monthly'],
+            ['Bills.Utilities', Transaction::TYPE_EXPENSE, 120, 12, 'Annual home insurance', 'yearly'],
         ];
 
-        $recurringExceptionSeeds = [];
+        foreach ($recurring as [$category, $type, $amount, $day, $description, $frequency]) {
+            $date = $firstMonth->copy()->addDays($day - 1);
+            $transaction = $this->storeTransaction($user, $categories, $category, $type, $amount, $date, $description, $frequency, $end);
 
-        foreach ($transactions as $data) {
-            $transaction = Transaction::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'date' => $data['date']->toDateString(),
-                    'amount' => $data['amount'],
-                    'description' => $data['description'],
-                ],
-                [
-                    'category_id' => $data['category']->id,
-                    'type' => $data['type'],
-                    'is_recurring' => $data['is_recurring'],
-                    'frequency' => $data['frequency'],
-                    'recurring_until' => $data['recurring_until'],
-                ],
-            );
-
-            if ($transaction->description === 'Apartment rent recurring') {
-                $recurringExceptionSeeds[] = [
-                    'transaction' => $transaction,
-                    'dates' => [$data['date']->copy()->addMonths(2)],
-                ];
+            if ($description === 'Apartment rent') {
+                TransactionException::firstOrCreate([
+                    'transaction_id' => $transaction->id,
+                    'date' => $date->copy()->addMonths(2)->toDateString(),
+                ]);
             }
 
-            if ($transaction->description === 'Automatic savings transfer') {
-                $recurringExceptionSeeds[] = [
-                    'transaction' => $transaction,
-                    'dates' => [$data['date']->copy()->addMonths(3)->addDay()],
-                ];
+            if ($description === 'Weekly groceries') {
+                TransactionException::firstOrCreate([
+                    'transaction_id' => $transaction->id,
+                    'date' => $date->copy()->addWeeks(3)->toDateString(),
+                ]);
             }
         }
 
-        foreach ($recurringExceptionSeeds as $exceptionSeed) {
-            foreach ($exceptionSeed['dates'] as $exceptionDate) {
-                TransactionException::updateOrCreate(
-                    [
-                        'transaction_id' => $exceptionSeed['transaction']->id,
-                        'date' => $exceptionDate->toDateString(),
-                    ],
-                );
+        // One-off activity changes the chart shapes and gives the budgets distinct outcomes.
+        for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
+            $month = $today->copy()->startOfMonth()->subMonths($monthsAgo);
+            $index = 5 - $monthsAgo;
+            $rows = [
+                ['Bills.Utilities', Transaction::TYPE_EXPENSE, [98.40, 132.10, 105.60, 188.50, 92.75, 116.20][$index], 6, 'Electricity and gas'],
+                ['Food.Restaurants', Transaction::TYPE_EXPENSE, [62, 118, 47, 135, 82, 76][$index], 14, 'Dinner out'],
+                ['Transport.Fuel', Transaction::TYPE_EXPENSE, [58, 72, 64, 81, 55, 69][$index], 18, 'Fuel station'],
+                ['Lifestyle.Entertainment', Transaction::TYPE_EXPENSE, [45, 80, 35, 120, 64, 55][$index], 21, 'Cinema and events'],
+                ['Self Employment.Freelance', Transaction::TYPE_INCOME, [300, 125, 950, 420, 210, 780][$index], 20, 'Freelance project'],
+                ['Investments', Transaction::TYPE_EXPENSE, [0, 75, 0, 175, 100, 0][$index], 23, 'Extra investment'],
+            ];
+
+            if ($index === 2) {
+                $rows[] = ['Transport.Travel', Transaction::TYPE_EXPENSE, 540, 16, 'Conference train and hotel'];
+                $rows[] = ['Employment.Bonus', Transaction::TYPE_INCOME, 1200, 25, 'Quarterly bonus'];
+            }
+
+            if ($index === 4) {
+                $rows[] = ['Food.Groceries', Transaction::TYPE_EXPENSE, 36.50, 9, 'Extra grocery shop'];
+            }
+
+            if ($index === 5) {
+                $rows[] = [null, Transaction::TYPE_EXPENSE, 42, 15, 'Uncategorised cash purchase'];
+            }
+
+            foreach ($rows as [$category, $type, $amount, $day, $description]) {
+                if ($amount === 0) {
+                    continue;
+                }
+
+                if ($monthsAgo === 0 && $day > $today->day) {
+                    continue;
+                }
+
+                $date = $month->copy()->addDays($day - 1);
+                $this->storeTransaction($user, $categories, $category, $type, $amount, $date, $description);
             }
         }
+    }
+
+    /** @param array<string, Category> $categories */
+    private function storeTransaction(User $user, array $categories, ?string $category, string $type, float $amount, Carbon $date, string $description, ?string $frequency = null, ?Carbon $recurringUntil = null): Transaction
+    {
+        return Transaction::updateOrCreate(
+            ['user_id' => $user->id, 'date' => $date->toDateString(), 'description' => $description],
+            [
+                'category_id' => $category === null ? null : $categories[$category]->id,
+                'type' => $type,
+                'amount' => $amount,
+                'is_recurring' => $frequency !== null,
+                'frequency' => $frequency,
+                'recurring_until' => $recurringUntil?->toDateString(),
+            ],
+        );
     }
 }

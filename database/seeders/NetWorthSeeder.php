@@ -18,53 +18,47 @@ class NetWorthSeeder extends Seeder
         DB::transaction(function () {
             $user = User::where('email', 'alex@example.com')->firstOrFail();
 
-            $this->seedEntriesForUser($user, [
-                'Checking account' => 4200.50,
-                'Brokerage' => 15200.75,
-                'Retirement 401k' => 33800.00,
-                'Credit card' => -1200.40,
-                'Auto loan' => -7300.00,
-            ]);
+            $this->seedEntriesForUser($user);
         });
     }
 
-    /** @param array<string, float> $lineItemDefinitions */
-    private function seedEntriesForUser(User $user, array $lineItemDefinitions): void
+    private function seedEntriesForUser(User $user): void
     {
         $now = Carbon::now();
-
-        $checkpoints = [
-            $now->copy()->subMonths(2)->startOfMonth(),
-            $now->copy()->startOfMonth(),
-            $now->copy()->addMonth()->startOfMonth(),
+        $balances = [
+            [3800, 2100, 13400, 30700, 1450, 8600],
+            [4150, 2350, 13950, 31400, 1310, 8350],
+            [3900, 2600, 14600, 32300, 1675, 8100],
+            [4400, 2850, 15150, 32900, 1240, 7850],
+            [4250, 3100, 15800, 33800, 1520, 7600],
+            [4700, 3400, 16450, 34600, 1180, 7350],
         ];
 
-        foreach ($checkpoints as $date) {
+        foreach ($balances as $index => [$checking, $savings, $brokerage, $retirement, $creditCard, $autoLoan]) {
+            $date = $now->copy()->startOfMonth()->subMonths(5 - $index);
+            if ($index !== 5) {
+                $date->endOfMonth();
+            }
+            $lineItemDefinitions = [
+                'asset' => [
+                    'Checking account' => $checking,
+                    'Savings account' => $savings,
+                    'Brokerage' => $brokerage,
+                    'Retirement account' => $retirement,
+                ],
+                'liability' => [
+                    'Credit card' => $creditCard,
+                    'Auto loan' => $autoLoan,
+                ],
+            ];
             $assets = 0;
             $liabilities = 0;
-            $entryLineItems = [];
-
-            foreach ($lineItemDefinitions as $category => $amount) {
-                if ($amount >= 0) {
-                    $scaledAmount = $this->scaleAmountForDate($amount, $date, $now);
-                    $assets += $scaledAmount;
-                    $entryLineItems[] = [
-                        'type' => 'asset',
-                        'category' => $category,
-                        'amount' => $scaledAmount,
-                    ];
-                } else {
-                    $scaledAmount = $this->scaleAmountForDate(abs($amount), $date, $now);
-                    $liabilities += $scaledAmount;
-                    $entryLineItems[] = [
-                        'type' => 'liability',
-                        'category' => $category,
-                        'amount' => $scaledAmount,
-                    ];
-                }
+            foreach ($lineItemDefinitions['asset'] as $amount) {
+                $assets += $amount;
             }
-
-            $netWorth = $assets - $liabilities;
+            foreach ($lineItemDefinitions['liability'] as $amount) {
+                $liabilities += $amount;
+            }
 
             $entry = NetWorthEntry::updateOrCreate(
                 [
@@ -74,32 +68,23 @@ class NetWorthSeeder extends Seeder
                 [
                     'assets' => $assets,
                     'liabilities' => $liabilities,
-                    'net_worth' => $netWorth,
+                    'net_worth' => $assets - $liabilities,
                 ],
             );
 
-            foreach ($entryLineItems as $lineItem) {
-                NetWorthLineItem::updateOrCreate(
-                    [
-                        'net_worth_entry_id' => $entry->id,
-                        'user_id' => $user->id,
-                        'type' => $lineItem['type'],
-                        'category' => $lineItem['category'],
-                    ],
-                    [
-                        'amount' => $lineItem['amount'],
-                    ],
-                );
+            foreach ($lineItemDefinitions as $type => $lineItems) {
+                foreach ($lineItems as $category => $amount) {
+                    NetWorthLineItem::updateOrCreate(
+                        [
+                            'net_worth_entry_id' => $entry->id,
+                            'user_id' => $user->id,
+                            'type' => $type,
+                            'category' => $category,
+                        ],
+                        ['amount' => $amount],
+                    );
+                }
             }
         }
-    }
-
-    private function scaleAmountForDate(float $amount, Carbon $date, Carbon $baseline): float
-    {
-        // Apply a light deterministic drift so each month captures different balances.
-        $monthsDifference = $baseline->diffInMonths($date, false);
-        $adjustment = $monthsDifference * 0.01; // +/-1% per month drift
-
-        return round($amount * (1 + $adjustment), 2);
     }
 }
