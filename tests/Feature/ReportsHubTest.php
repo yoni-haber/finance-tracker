@@ -139,7 +139,7 @@ final class ReportsHubTest extends TestCase
             }
         });
 
-        $data = ReportInsights::budgets($user->id, collect(), CarbonImmutable::create(2024, 6, 1), 3);
+        $data = ReportInsights::budgets($user->id, collect(), new CarbonImmutable('2024-06-01'), 3);
 
         $this->assertSame([[$user->id, 24292, 24294]], $budgetQueries);
         $this->assertSame(['labels', 'planned', 'spent', 'hasBudgets'], array_keys($data));
