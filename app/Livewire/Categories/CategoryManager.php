@@ -167,9 +167,9 @@ class CategoryManager extends Component
 
             if (
                 $category->hasBudgets()
-                && ($data['type'] !== Category::TYPE_EXPENSE || $data['expense_treatment'] !== Category::TREATMENT_SPENDING)
+                && ($data['type'] !== Category::TYPE_EXPENSE || $data['expense_treatment'] !== $category->expense_treatment)
             ) {
-                $this->addError('save', 'Remove this category’s budgets before changing it from Spending.');
+                $this->addError('save', 'Remove this category’s budgets before changing its reporting treatment.');
 
                 return;
             }

@@ -25,7 +25,7 @@ User
  │    └── Budget
  ├── Transaction (one-off or recurring)
  │    └── TransactionException (skipped dates for recurring transactions)
- ├── Budget (monthly spending limit per expense category)
+ ├── Budget (monthly spending limit or investment goal per expense category)
  ├── NetWorthEntry
  │    └── NetWorthLineItem (individual asset/liability)
  ├── BankProfile (CSV column mapping for a bank/provider)
@@ -203,3 +203,5 @@ rewrite existing records; incompatible data must be corrected before migration.
 ### Dashboard Rollup
 
 `Dashboard::categoryTotals()` maps every transaction to its parent category before grouping, so subcategory totals appear under their parent in charts and budget comparisons.
+
+`MonthlyFlow::totals()` calculates savings as income minus spending and investing. Saving-category transactions remain in activity history and do not reduce that remainder. Dashboard and cash flow reports share this calculation; current-month dashboard savings includes projected recurring occurrences. Budget progress counts transactions through today, treats Spending budgets as limits and Investment budgets as goals, and keeps the Reports budget chart limited to spending budgets.

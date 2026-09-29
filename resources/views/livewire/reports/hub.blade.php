@@ -24,22 +24,22 @@
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="app-card p-4"><p class="app-eyebrow">Income</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#126e51] dark:text-[#75ddb2]">£{{ \App\Support\Money::formatPennies($insights['income']) }}</p></div>
             <div class="app-card p-4"><p class="app-eyebrow">Spending</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#bd5b52] dark:text-[#f19b91]">£{{ \App\Support\Money::formatPennies($insights['spending']) }}</p></div>
-            <div class="app-card p-4"><p class="app-eyebrow">Saved &amp; invested</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#4d6f96] dark:text-[#a7c9ec]">£{{ \App\Support\Money::formatPennies($insights['savedAndInvested']) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['savingsRate'] === null ? 'No income for a rate' : $insights['savingsRate'] . '% of income' }}</p></div>
-            <div class="app-card p-4"><p class="app-eyebrow">Net cash flow</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $insights['netCashFlow'] < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ $insights['netCashFlow'] < 0 ? '−' : '' }}£{{ \App\Support\Money::formatPennies(abs($insights['netCashFlow'])) }}</p><p class="mt-1 text-xs app-muted">Income less spending and saved &amp; invested</p></div>
+            <div class="app-card p-4"><p class="app-eyebrow">Invested</p><p class="mt-2 text-2xl font-semibold tabular-nums text-[#4d6f96] dark:text-[#a7c9ec]">£{{ \App\Support\Money::formatPennies($insights['invested']) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['investmentRate'] === null ? 'No income for a rate' : $insights['investmentRate'] . '% of income' }}</p></div>
+            <div class="app-card p-4"><p class="app-eyebrow">Savings</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $insights['savings'] < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ $insights['savings'] < 0 ? '−' : '' }}£{{ \App\Support\Money::formatPennies(abs($insights['savings'])) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['savingsRate'] === null ? 'No income for a rate' : $insights['savingsRate'] . '% of income' }} · Income less spending and investing</p></div>
         </div>
     </section>
 
     <section class="app-card p-4 sm:p-6" aria-labelledby="cash-flow-heading">
         <div class="flex flex-wrap items-start justify-between gap-4">
-            <div><h2 id="cash-flow-heading" class="text-lg font-semibold">Cash flow over time</h2><p class="mt-1 text-sm app-muted">Income, spending, and saving for each month in your range.</p></div>
-            @if (count($chartData['labels']) > 1)<div class="rounded-xl bg-zinc-50 px-4 py-2 text-sm dark:bg-zinc-800"><span class="block text-xs app-muted">Net change from previous month</span><strong class="tabular-nums {{ $insights['monthChange'] < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400' }}">{{ $insights['monthChange'] > 0 ? '+' : ($insights['monthChange'] < 0 ? '−' : '') }}£{{ \App\Support\Money::formatPennies(abs($insights['monthChange'])) }}</strong></div>@endif
+            <div><h2 id="cash-flow-heading" class="text-lg font-semibold">Cash flow over time</h2><p class="mt-1 text-sm app-muted">Income, spending, investing, and calculated savings for each month.</p></div>
+            @if (count($chartData['labels']) > 1)<div class="rounded-xl bg-zinc-50 px-4 py-2 text-sm dark:bg-zinc-800"><span class="block text-xs app-muted">Change in savings from previous month</span><strong class="tabular-nums {{ $insights['monthChange'] < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400' }}">{{ $insights['monthChange'] > 0 ? '+' : ($insights['monthChange'] < 0 ? '−' : '') }}£{{ \App\Support\Money::formatPennies(abs($insights['monthChange'])) }}</strong></div>@endif
         </div>
-        @if ($insights['income'] !== 0 || $insights['spending'] !== 0 || $insights['savedAndInvested'] !== 0)
-            <div class="mt-6 h-72 sm:h-80"><canvas id="incomeVsExpensesChart" wire:ignore data-chart-data='@json($chartData)' role="img" aria-label="Monthly income, spending, and saving chart" aria-describedby="cash-flow-data"></canvas></div>
+        @if ($insights['income'] !== 0 || $insights['spending'] !== 0 || $insights['invested'] !== 0 || $insights['savings'] !== 0)
+            <div class="mt-6 h-72 sm:h-80"><canvas id="incomeVsExpensesChart" wire:ignore data-chart-data='@json($chartData)' role="img" aria-label="Monthly income, spending, investing, and savings chart" aria-describedby="cash-flow-data"></canvas></div>
         @else
             <div class="app-empty mt-6">No transactions in this range. <a href="{{ route('transactions') }}" class="app-link">Add a transaction</a> to start your reports.</div>
         @endif
-        <details id="cash-flow-data" class="mt-4 text-sm"><summary class="cursor-pointer font-medium">View monthly cash flow data</summary><div class="mt-2 overflow-x-auto"><table class="min-w-full divide-y divide-app-border"><thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Income</th><th class="py-2 text-right">Spending</th><th class="py-2 text-right">Saved &amp; invested</th></tr></thead><tbody class="divide-y divide-app-border">@foreach ($chartData['labels'] as $index => $label)<tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['income'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['spending'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['savedAndInvested'][$index]) }}</td></tr>@endforeach</tbody></table></div></details>
+        <details id="cash-flow-data" class="mt-4 text-sm"><summary class="cursor-pointer font-medium">View monthly cash flow data</summary><div class="mt-2 overflow-x-auto"><table class="min-w-full divide-y divide-app-border"><thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Income</th><th class="py-2 text-right">Spending</th><th class="py-2 text-right">Invested</th><th class="py-2 text-right">Savings</th></tr></thead><tbody class="divide-y divide-app-border">@foreach ($chartData['labels'] as $index => $label)<tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['income'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['spending'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['invested'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($chartData['savings'][$index]) }}</td></tr>@endforeach</tbody></table></div></details>
     </section>
 
     <div class="grid gap-5 xl:grid-cols-2">
@@ -58,13 +58,13 @@
         </section>
 
         <section class="app-card min-w-0 p-4 sm:p-6" aria-labelledby="budgets-heading">
-            <h2 id="budgets-heading" class="text-lg font-semibold">Budget performance</h2>
-            <p class="mt-1 text-sm app-muted">Planned limits and spending in budgeted categories. Current month spending is through today.</p>
+            <h2 id="budgets-heading" class="text-lg font-semibold">Spending budget performance</h2>
+            <p class="mt-1 text-sm app-muted">Planned limits and actuals for spending categories. Current month spending is through today.</p>
             @if ($budgetData['hasBudgets'])
                 <div class="mt-5 h-64"><canvas id="budgetPerformanceChart" wire:ignore data-chart-data='@json($budgetData)' role="img" aria-label="Monthly planned budget and spending chart" aria-describedby="budget-data"></canvas></div>
                 <details id="budget-data" class="mt-4 text-sm"><summary class="cursor-pointer font-medium">View monthly budget data</summary><div class="mt-2 overflow-x-auto"><table class="min-w-full divide-y divide-app-border"><thead><tr><th class="py-2 text-left">Month</th><th class="py-2 text-right">Planned</th><th class="py-2 text-right">Spent</th></tr></thead><tbody class="divide-y divide-app-border">@foreach ($budgetData['labels'] as $index => $label)<tr><td class="py-2">{{ $label }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($budgetData['planned'][$index]) }}</td><td class="py-2 text-right tabular-nums">{{ \App\Support\Money::format($budgetData['spent'][$index]) }}</td></tr>@endforeach</tbody></table></div></details>
             @else
-                <div class="app-empty mt-4">No budgets in this range. <a href="{{ route('budgets') }}" class="app-link">Set a budget</a> to compare plans with spending.</div>
+                <div class="app-empty mt-4">No spending budgets in this range. <a href="{{ route('budgets') }}" class="app-link">Set a budget</a> to compare plans with spending.</div>
             @endif
         </section>
     </div>

@@ -41,7 +41,8 @@ const renderDashboardTrend = (chartData = parseData(document.getElementById('das
             datasets: [
                 { label: 'Income', data: chartData.income, borderColor: '#46ad80', backgroundColor: '#46ad80', tension: 0.35 },
                 { label: 'Spending', data: chartData.spending, borderColor: '#d5746a', backgroundColor: '#d5746a', tension: 0.35 },
-                { label: 'Saved & invested', data: chartData.savedAndInvested, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.35 },
+                { label: 'Invested', data: chartData.invested, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.35 },
+                { label: 'Savings', data: chartData.savings, borderColor: '#ac8fcb', backgroundColor: '#ac8fcb', tension: 0.35 },
             ],
         },
         options: {
@@ -50,7 +51,7 @@ const renderDashboardTrend = (chartData = parseData(document.getElementById('das
             interaction: { intersect: false, mode: 'index' },
             scales: {
                 x: { ticks: { color: axisColour }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { color: gridColour } },
+                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => value < 0 ? `−£${Math.abs(value)}` : `£${value}` }, grid: { color: gridColour } },
             },
             plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true, boxWidth: 8 } } },
         },
@@ -74,7 +75,8 @@ const renderReportsChart = (chartData = parseData(document.getElementById('incom
             datasets: [
                 { label: 'Income', data: chartData.income, borderColor: '#46ad80', backgroundColor: '#46ad80', tension: 0.3 },
                 { label: 'Spending', data: chartData.spending, borderColor: '#d5746a', backgroundColor: '#d5746a', tension: 0.3 },
-                { label: 'Saved & invested', data: chartData.savedAndInvested, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.3 },
+                { label: 'Invested', data: chartData.invested, borderColor: '#729aca', backgroundColor: '#729aca', tension: 0.3 },
+                { label: 'Savings', data: chartData.savings, borderColor: '#ac8fcb', backgroundColor: '#ac8fcb', tension: 0.3 },
             ],
         },
         options: {
@@ -83,7 +85,7 @@ const renderReportsChart = (chartData = parseData(document.getElementById('incom
             maintainAspectRatio: false,
             scales: {
                 x: { ticks: { color: axisColour }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { color: gridColour } },
+                y: { beginAtZero: true, ticks: { color: axisColour, callback: (value) => value < 0 ? `−£${Math.abs(value)}` : `£${value}` }, grid: { color: gridColour } },
             },
             plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true } } },
         },

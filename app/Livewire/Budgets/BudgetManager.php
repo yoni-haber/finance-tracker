@@ -74,22 +74,30 @@ class BudgetManager extends Component
             $aSummary = $a['summary'];
             $bSummary = $b['summary'];
 
-            return ($bSummary['overspent'] <=> $aSummary['overspent'])
+            return ($aSummary['isInvestment'] <=> $bSummary['isInvestment'])
+                ?: ($bSummary['overspent'] <=> $aSummary['overspent'])
                 ?: (($bSummary['percent'] === null) <=> ($aSummary['percent'] === null))
                 ?: ($bSummary['percent'] <=> $aSummary['percent'])
                 ?: strcmp($aSummary['category'], $bSummary['category']);
         })->values();
+        $spendingSummaries = $budgetSummaries->reject(fn (array $summary): bool => $summary['isInvestment']);
+        $investmentSummaries = $budgetSummaries->filter(fn (array $summary): bool => $summary['isInvestment']);
         $budgetTotals = [
-            'planned' => $budgetSummaries->sum(fn (array $summary): int => Money::normalize($summary['budget'])),
-            'spent' => $budgetSummaries->sum(fn (array $summary): int => Money::normalize($summary['actual'])),
+            'planned' => $spendingSummaries->sum(fn (array $summary): int => Money::normalize($summary['budget'])),
+            'spent' => $spendingSummaries->sum(fn (array $summary): int => Money::normalize($summary['actual'])),
         ];
         $budgetTotals['remaining'] = $budgetTotals['planned'] - $budgetTotals['spent'];
+        $investmentTotals = [
+            'target' => $investmentSummaries->sum(fn (array $summary): int => Money::normalize($summary['budget'])),
+            'invested' => $investmentSummaries->sum(fn (array $summary): int => Money::normalize($summary['actual'])),
+        ];
+        $investmentTotals['toGoal'] = max(0, $investmentTotals['target'] - $investmentTotals['invested']);
 
-        // Budgets may only be set on expense parent categories.
+        // Spending limits and investment goals use expense parent categories.
         $categories = Category::forUser($userId)
             ->expense()
             ->parents()
-            ->where('expense_treatment', Category::TREATMENT_SPENDING)
+            ->whereIn('expense_treatment', [Category::TREATMENT_SPENDING, Category::TREATMENT_INVESTMENT])
             ->orderBy('name')
             ->get();
 
@@ -102,6 +110,7 @@ class BudgetManager extends Component
             'budgetSummaries' => $budgetSummaries,
             'budgetRows' => $budgetRows,
             'budgetTotals' => $budgetTotals,
+            'investmentTotals' => $investmentTotals,
             'editingBudgetSummary' => $editingBudgetRow['summary'] ?? null,
             'editingBudgetCategoryId' => $editingBudgetRow['budget']->category_id ?? null,
             'categories' => $categories,
@@ -293,15 +302,26 @@ class BudgetManager extends Component
                 function ($attribute, $value, $fail): void {
                     if ($value && !Category::forUser((int) Auth::id())
                         ->whereKey($value)
-                        ->where('expense_treatment', Category::TREATMENT_SPENDING)
+                        ->whereIn('expense_treatment', [Category::TREATMENT_SPENDING, Category::TREATMENT_INVESTMENT])
                         ->exists()) {
-                        $fail('Budgets can only be created for Spending categories.');
+                        $fail('Budgets can only be created for Spending or Investment categories.');
                     }
                 },
             ],
             'month' => ['required', 'integer', 'min:1', 'max:12'],
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => [
+                'required', 'numeric', 'min:0',
+                function ($attribute, $value, $fail): void {
+                    $category = $this->category_id
+                        ? Category::forUser((int) Auth::id())->find($this->category_id)
+                        : null;
+                    if ($category?->effectiveExpenseTreatment() === Category::TREATMENT_INVESTMENT
+                        && is_numeric($value) && Money::normalize($value) <= 0) {
+                        $fail('Investment goals must be greater than zero.');
+                    }
+                },
+            ],
         ];
     }
 }

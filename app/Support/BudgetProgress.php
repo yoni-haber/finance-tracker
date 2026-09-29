@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\Budget;
+use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Support\Collection;
 
@@ -13,7 +14,7 @@ class BudgetProgress
     /**
      * @param Collection<int, Budget> $budgets
      * @param Collection<int, Transaction> $transactions Projected occurrences for the selected month.
-     * @return Collection<int, array{category: string, category_id: int, budget: string, actual: string, remaining: string, over: string, overspent: bool, percent: int|null, barPercent: int}>
+     * @return Collection<int, array{category: string, category_id: int, budget: string, actual: string, remaining: string, over: string, overspent: bool, percent: int|null, barPercent: int, isInvestment: bool, goalMet: bool}>
      */
     public static function forPeriod(Collection $budgets, Collection $transactions, int $month, int $year): Collection
     {
@@ -29,6 +30,7 @@ class BudgetProgress
 
         return $budgets->map(function (Budget $budget) use ($expenses): array {
             $limitPennies = Money::normalize($budget->amount);
+            $isInvestment = $budget->category->effectiveExpenseTreatment() === Category::TREATMENT_INVESTMENT;
             $categoryIds = collect([$budget->category_id])
                 ->merge($budget->category->children->pluck('id'))
                 ->all();
@@ -47,10 +49,12 @@ class BudgetProgress
                 'budget' => Money::fromPennies($limitPennies),
                 'actual' => Money::fromPennies($spentPennies),
                 'remaining' => Money::fromPennies(max(0, $limitPennies - $spentPennies)),
-                'over' => Money::fromPennies(max(0, $spentPennies - $limitPennies)),
-                'overspent' => $spentPennies > $limitPennies,
+                'over' => Money::fromPennies($isInvestment ? 0 : max(0, $spentPennies - $limitPennies)),
+                'overspent' => !$isInvestment && $spentPennies > $limitPennies,
                 'percent' => $percent,
                 'barPercent' => $percent === null ? 100 : min(100, max(0, $percent)),
+                'isInvestment' => $isInvestment,
+                'goalMet' => $isInvestment && $spentPennies >= $limitPennies,
             ];
         });
     }

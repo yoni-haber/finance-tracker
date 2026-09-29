@@ -110,7 +110,7 @@ final class StatementImportReviewTest extends TestCase
         Livewire::actingAs($user)->test(\App\Livewire\Dashboard::class)
             ->assertViewHas('income', '1983.02')
             ->assertViewHas('spending', '100.00')
-            ->assertViewHas('netCashFlow', '1883.02')
+            ->assertViewHas('savings', '1883.02')
             ->assertViewHas('budgetSummaries', fn ($rows): bool => $rows->sole()['actual'] === '100.00');
         Livewire::actingAs($user)->test(\App\Livewire\Reports\ReportsHub::class)
             ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 198302 && $insights['spending'] === 10000);

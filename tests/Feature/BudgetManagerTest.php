@@ -40,17 +40,25 @@ final class BudgetManagerTest extends TestCase
         $otherUser = User::factory()->create();
         $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
         $housing = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        $investment = Category::factory()->for($user)->expense()->create([
+            'name' => 'A Investments',
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
         $private = Category::factory()->for($otherUser)->expense()->create(['name' => 'Private']);
 
         Budget::factory()->for($user)->for($food, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '100.00']);
         Budget::factory()->for($user)->for($housing, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '200.00']);
+        Budget::factory()->for($user)->for($investment, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '20.00']);
         Budget::factory()->for($otherUser)->for($private, 'category')->create(['month' => 9, 'year' => 2026, 'amount' => '900.00']);
         $user->transactions()->create(['category_id' => $food->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '30.00', 'date' => '2026-09-03']);
         $user->transactions()->create(['category_id' => $housing->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '250.00', 'date' => '2026-09-04']);
+        $user->transactions()->create(['category_id' => $investment->id, 'type' => Transaction::TYPE_EXPENSE, 'amount' => '30.00', 'date' => '2026-09-05']);
 
         Livewire::actingAs($user)->test(BudgetManager::class)
             ->assertViewHas('budgetTotals', ['planned' => 30000, 'spent' => 28000, 'remaining' => 2000])
-            ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Housing', 'Food'])
+            ->assertViewHas('investmentTotals', ['target' => 2000, 'invested' => 3000, 'toGoal' => 0])
+            ->assertViewHas('budgetSummaries', fn ($rows): bool => $rows->firstWhere('category_id', $investment->id)['over'] === '0.00')
+            ->assertViewHas('budgetRows', fn ($rows): bool => $rows->pluck('summary.category')->all() === ['Housing', 'Food', 'A Investments'])
             ->assertSee('£300.00')
             ->assertDontSee('Private');
     }
@@ -494,12 +502,12 @@ final class BudgetManagerTest extends TestCase
         $expected = [
             'category' => 'Food', 'category_id' => $parent->id, 'budget' => '100.00', 'actual' => '70.30',
             'remaining' => '29.70', 'over' => '0.00', 'overspent' => false,
-            'percent' => 70, 'barPercent' => 70,
+            'percent' => 70, 'barPercent' => 70, 'isInvestment' => false, 'goalMet' => false,
         ];
 
         Livewire::actingAs($user)->test(BudgetManager::class)
             ->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole() === $expected)
-            ->assertSee('plans for May 2024')
+            ->assertSee('investment goals for May 2024')
             ->assertSee('£70.30')
             ->assertSee('£29.70 remaining')
             ->assertSee('70% used')
@@ -610,7 +618,7 @@ final class BudgetManagerTest extends TestCase
         $testable->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '40.00');
         $testable->set('periodMonth', 6)
             ->assertViewHas('budgetSummaries', fn ($summaries): bool => $summaries->sole()['actual'] === '0.00')
-            ->assertSee('plans for June 2024')
+            ->assertSee('investment goals for June 2024')
             ->assertSee('£100.00 remaining');
     }
 
@@ -865,7 +873,7 @@ final class BudgetManagerTest extends TestCase
             ->assertHasErrors('category_id');
     }
 
-    public function test_render_categories_shows_only_spending_expense_parents(): void
+    public function test_render_categories_shows_spending_and_investment_expense_parents(): void
     {
         $user = User::factory()->create();
         $expenseParent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
@@ -873,18 +881,23 @@ final class BudgetManagerTest extends TestCase
             'name' => 'Savings',
             'expense_treatment' => Category::TREATMENT_SAVING,
         ]);
+        $investmentParent = Category::factory()->for($user)->expense()->create([
+            'name' => 'Investments',
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
         $incomeParent = Category::factory()->for($user)->income()->create(['name' => 'Employment']);
         $sub = Category::factory()->subcategoryOf($expenseParent)->create(['name' => 'Groceries']);
 
         Livewire::actingAs($user)
             ->test(BudgetManager::class)
             ->assertViewHas('categories', fn ($cats) => $cats->contains('id', $expenseParent->id))
+            ->assertViewHas('categories', fn ($cats) => $cats->contains('id', $investmentParent->id))
             ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $savingParent->id))
             ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $incomeParent->id))
             ->assertViewHas('categories', fn ($cats) => $cats->doesntContain('id', $sub->id));
     }
 
-    public function test_save_rejects_saving_and_investment_categories(): void
+    public function test_save_rejects_saving_categories(): void
     {
         $user = User::factory()->create();
         $category = Category::factory()->for($user)->expense()->create([
@@ -899,5 +912,85 @@ final class BudgetManagerTest extends TestCase
             ->set('amount', '200.00')
             ->call('save')
             ->assertHasErrors('category_id');
+    }
+
+    public function test_investment_goal_requires_positive_amount_and_can_be_saved(): void
+    {
+        $user = User::factory()->create();
+        $investment = Category::factory()->for($user)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->set('category_id', $investment->id)
+            ->set('month', 5)->set('year', 2024)
+            ->set('amount', '0.00')->call('save')->assertHasErrors('amount')
+            ->set('amount', '100.00')->call('save')->assertHasNoErrors();
+
+        $this->assertDatabaseHas('budgets', [
+            'user_id' => $user->id, 'category_id' => $investment->id,
+            'month' => 5, 'year' => 2024, 'amount' => '100.00',
+        ]);
+    }
+
+    public function test_budget_amount_is_required_and_spending_limits_can_be_zero(): void
+    {
+        $user = User::factory()->create();
+        $spending = Category::factory()->for($user)->expense()->create();
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->set('category_id', $spending->id)
+            ->set('month', 5)->set('year', 2024)
+            ->set('amount', '')->call('save')->assertHasErrors(['amount' => 'required'])
+            ->set('amount', '0.00')->call('save')->assertHasNoErrors();
+
+        $this->assertDatabaseHas('budgets', [
+            'user_id' => $user->id, 'category_id' => $spending->id,
+            'month' => 5, 'year' => 2024, 'amount' => '0.00',
+        ]);
+    }
+
+    public function test_investment_goal_rolls_up_children_and_keeps_totals_separate(): void
+    {
+        Carbon::setTestNow('2024-05-15');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $other = User::factory()->create();
+        $investment = Category::factory()->for($user)->expense()->create([
+            'name' => 'Investments', 'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+        $child = Category::factory()->subcategoryOf($investment)->create();
+        $spending = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $otherInvestment = Category::factory()->for($other)->expense()->create([
+            'expense_treatment' => Category::TREATMENT_INVESTMENT,
+        ]);
+        Budget::factory()->for($user)->for($investment, 'category')->create([
+            'month' => 5, 'year' => 2024, 'amount' => '100.00',
+        ]);
+        Budget::factory()->for($user)->for($spending, 'category')->create([
+            'month' => 5, 'year' => 2024, 'amount' => '80.00',
+        ]);
+        Budget::factory()->for($other)->for($otherInvestment, 'category')->create([
+            'month' => 5, 'year' => 2024, 'amount' => '999.00',
+        ]);
+        $user->transactions()->createMany([
+            ['type' => 'expense', 'category_id' => $investment->id, 'amount' => '20.00', 'date' => '2024-05-02'],
+            ['type' => 'expense', 'category_id' => $child->id, 'amount' => '30.00', 'date' => '2024-05-03'],
+            ['type' => 'expense', 'category_id' => $child->id, 'amount' => '50.00', 'date' => '2024-05-20'],
+            ['type' => 'expense', 'category_id' => $spending->id, 'amount' => '30.00', 'date' => '2024-05-02'],
+        ]);
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->assertViewHas('budgetTotals', ['planned' => 8000, 'spent' => 3000, 'remaining' => 5000])
+            ->assertViewHas('investmentTotals', ['target' => 10000, 'invested' => 5000, 'toGoal' => 5000])
+            ->assertViewHas('budgetSummaries', fn ($rows): bool => $rows->firstWhere('category_id', $investment->id)['actual'] === '50.00'
+                && $rows->firstWhere('category_id', $investment->id)['remaining'] === '50.00'
+                && !$rows->firstWhere('category_id', $investment->id)['goalMet'])
+            ->assertSee('£50.00 to goal')
+            ->assertSee('50% of goal');
+
+        Carbon::setTestNow('2024-06-01');
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->assertViewHas('investmentTotals', ['target' => 10000, 'invested' => 10000, 'toGoal' => 0])
+            ->assertSee('Goal met');
     }
 }
