@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
                 NetWorthSeeder::class,
                 SupportTablesSeeder::class,
                 BankProfileSeeder::class,
+                SampleStatementImportSeeder::class,
             ]);
         });
     }

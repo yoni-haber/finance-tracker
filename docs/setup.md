@@ -92,12 +92,15 @@ Run `make help` for the full list with descriptions.
 ```bash
 make migrate                                    # run pending migrations
 make fresh                                      # drop all tables, re-migrate + seed
+make artisan cmd="db:seed"                      # add or refresh the local demo data
 make artisan cmd="migrate:rollback"             # roll back last batch
 make artisan cmd="migrate:rollback --step=2"    # roll back N batches
 make artisan cmd="migrate:status"               # show migration status
 ```
 
 Tests use a separate `finance_tracker_testing` database on the same MySQL container, created automatically by `docker/mysql/create-testing-db.sql`.
+
+The seeders create a local demo account (`alex@example.com`, password `password`) with six months of transactions, monthly budgets, and net worth snapshots through the current month. The sample includes recurring transactions, skipped occurrences, savings and investment activity, a committed bank import, and a parsed import ready for review. Run `db:seed` only on a development database: reseeding refreshes the demo account's sample records.
 
 ## Queue
 
