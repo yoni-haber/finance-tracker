@@ -351,7 +351,7 @@ class BillManager extends Component
             ->where('is_recurring', false)
             ->whereNotIn('id', PlannedBillPayment::where('user_id', Auth::id())->select('transaction_id'))
             ->when($search !== '', fn (Builder $builder): Builder => $builder->where(function (Builder $query) use ($search): void {
-                $builder->where('description', 'like', '%' . $search . '%')
+                $query->where('description', 'like', '%' . $search . '%')
                     ->orWhereHas('category', fn (Builder $builder): Builder => $builder->where('name', 'like', '%' . $search . '%'));
             }))
             ->orderByDesc('date')

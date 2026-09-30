@@ -150,20 +150,23 @@ final class PlannedBillTest extends TestCase
         $this->expense($user, '2026-10-09', 'Fuel station', '60.00');
         $transaction = $this->expense(User::factory()->create(), '2026-10-11', 'Insurance private', '80.00');
 
-        Livewire::actingAs($user)->test(BillManager::class)
+        $component = Livewire::actingAs($user)->test(BillManager::class)
             ->call('openPaymentModal', $bill->id)
-            ->set('paymentSearch', 'Insurance')
-            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->pluck('id')->all() === [$expense->id])
-            ->assertDontSeeHtml('id="bill-payment-transaction"')
+            ->set('paymentSearch', 'Insurance');
+        $component->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->pluck('id')->all() === [$expense->id]);
+
+        $component->assertDontSeeHtml('id="bill-payment-transaction"')
             ->call('selectPayment', $expense->id)
             ->assertSet('paymentTransactionId', $expense->id)
             ->assertSee('Selected:')
             ->set('paymentSearch', 'Fuel')
-            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->description === 'Fuel station')
-            ->assertSet('paymentTransactionId', $expense->id)
+            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->description === 'Fuel station');
+
+        $component->assertSet('paymentTransactionId', $expense->id)
             ->set('paymentSearch', 'No matching expense')
-            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->isEmpty())
-            ->assertSee('No available recorded expenses found.')
+            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->isEmpty());
+
+        $component->assertSee('No available recorded expenses found.')
             ->assertSet('paymentTransactionId', $expense->id)
             ->call('linkPayment')->assertHasNoErrors();
 
@@ -217,13 +220,14 @@ final class PlannedBillTest extends TestCase
             'transaction_id' => $transaction->id,
         ]);
 
-        Livewire::actingAs($owner)->test(BillManager::class)
+        $component = Livewire::actingAs($owner)->test(BillManager::class)
             ->assertSee('(Transport)')
             ->call('openHistory', $bill->id)
             ->assertSet('historyBillId', $bill->id)
-            ->assertDispatched('open-bill-history-modal')
-            ->assertViewHas('historyBill', fn ($history): bool => $history->id === $bill->id)
-            ->assertSee('11 Oct 2026')
+            ->assertDispatched('open-bill-history-modal');
+        $component->assertViewHas('historyBill', fn ($history): bool => $history->id === $bill->id);
+
+        $component->assertSee('11 Oct 2026')
             ->assertSee('£610.25')
             ->assertSeeHtml(route('transactions', ['transaction' => $transaction->id]))
             ->assertDontSee('Receipt details not needed in history')
@@ -240,13 +244,14 @@ final class PlannedBillTest extends TestCase
     {
         $owner = User::factory()->create();
         $this->expense($owner, '2026-10-11', 'Insurance receipt', '610.25');
-        Livewire::actingAs($owner)->test(BillManager::class)
+        $component = Livewire::actingAs($owner)->test(BillManager::class)
             ->call('openModal')
             ->set('name', 'Home renewal')
             ->set('note', 'Reference ABC123')
-            ->set('sourceSearch', 'No matching expense')
-            ->assertViewHas('sourceTransactions', fn ($rows): bool => $rows->isEmpty())
-            ->assertSee('No available recorded expenses found.')
+            ->set('sourceSearch', 'No matching expense');
+        $component->assertViewHas('sourceTransactions', fn ($rows): bool => $rows->isEmpty());
+
+        $component->assertSee('No available recorded expenses found.')
             ->assertSee('Save bill')
             ->assertSet('name', 'Home renewal')
             ->assertSet('note', 'Reference ABC123');
@@ -406,16 +411,17 @@ final class PlannedBillTest extends TestCase
             $this->bill($user, '2027-02-02', name: 'February MOT');
             $this->bill($user, '2027-03-02', name: 'March service');
 
-            Livewire::actingAs($user)->test(Dashboard::class)
+            $component = Livewire::actingAs($user)->test(Dashboard::class)
                 ->assertSee('December 2026')
                 ->assertSee('January 2027')
                 ->assertSee('December car insurance')
                 ->assertSee('January home insurance')
                 ->assertSee('February 2027')
                 ->assertSee('February MOT')
-                ->assertDontSee('March service')
-                ->assertSeeInOrder(['Cash flow trend', 'Where spending went', 'Planned bills', 'December car insurance', 'January home insurance', 'February MOT'])
-                ->dispatch('period-changed', month: 1, year: 2027)
+                ->assertDontSee('March service');
+            $component->assertSeeInOrder(['Cash flow trend', 'Where spending went', 'Planned bills', 'December car insurance', 'January home insurance', 'February MOT']);
+
+            $component->dispatch('period-changed', month: 1, year: 2027)
                 ->assertSee('January home insurance')
                 ->assertSee('February MOT')
                 ->assertSee('March service')
@@ -442,9 +448,16 @@ final class PlannedBillTest extends TestCase
             $paid->update(['next_due_date' => '2027-10-12']);
 
             $rows = PlannedBillReport::forRange($user->id, Carbon::parse('2026-10-01'), Carbon::parse('2026-10-31'));
-            $this->assertNull($rows->firstWhere('bill.id', $overdue->id)['payment']);
-            $this->assertNull($rows->firstWhere('bill.name', 'Expected tax')['payment']);
-            $this->assertSame($transaction->id, $rows->firstWhere('bill.name', 'Paid service')['payment']->transaction_id);
+            $overdueRow = $rows->firstWhere('bill.id', $overdue->id);
+            $expectedRow = $rows->firstWhere('bill.name', 'Expected tax');
+            $paidRow = $rows->firstWhere('bill.name', 'Paid service');
+            $this->assertNotNull($overdueRow);
+            $this->assertNotNull($expectedRow);
+            $this->assertNotNull($paidRow);
+            $this->assertNull($overdueRow['payment']);
+            $this->assertNull($expectedRow['payment']);
+            $this->assertInstanceOf(PlannedBillPayment::class, $paidRow['payment']);
+            $this->assertSame($transaction->id, $paidRow['payment']->transaction_id);
             $this->assertCount(1, TransactionReport::projectedForMonth($user->id, 10, 2026));
 
             Livewire::actingAs($user)->test(Dashboard::class)
