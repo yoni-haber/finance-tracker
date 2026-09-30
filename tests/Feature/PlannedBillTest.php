@@ -150,23 +150,23 @@ final class PlannedBillTest extends TestCase
         $this->expense($user, '2026-10-09', 'Fuel station', '60.00');
         $transaction = $this->expense(User::factory()->create(), '2026-10-11', 'Insurance private', '80.00');
 
-        $component = Livewire::actingAs($user)->test(BillManager::class)
+        $testable = Livewire::actingAs($user)->test(BillManager::class)
             ->call('openPaymentModal', $bill->id)
             ->set('paymentSearch', 'Insurance');
-        $component->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->pluck('id')->all() === [$expense->id]);
+        $testable->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->pluck('id')->all() === [$expense->id]);
 
-        $component->assertDontSeeHtml('id="bill-payment-transaction"')
+        $testable->assertDontSeeHtml('id="bill-payment-transaction"')
             ->call('selectPayment', $expense->id)
             ->assertSet('paymentTransactionId', $expense->id)
             ->assertSee('Selected:')
             ->set('paymentSearch', 'Fuel')
             ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->description === 'Fuel station');
 
-        $component->assertSet('paymentTransactionId', $expense->id)
+        $testable->assertSet('paymentTransactionId', $expense->id)
             ->set('paymentSearch', 'No matching expense')
             ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->isEmpty());
 
-        $component->assertSee('No available recorded expenses found.')
+        $testable->assertSee('No available recorded expenses found.')
             ->assertSet('paymentTransactionId', $expense->id)
             ->call('linkPayment')->assertHasNoErrors();
 
@@ -244,14 +244,14 @@ final class PlannedBillTest extends TestCase
     {
         $owner = User::factory()->create();
         $this->expense($owner, '2026-10-11', 'Insurance receipt', '610.25');
-        $component = Livewire::actingAs($owner)->test(BillManager::class)
+        $testable = Livewire::actingAs($owner)->test(BillManager::class)
             ->call('openModal')
             ->set('name', 'Home renewal')
             ->set('note', 'Reference ABC123')
             ->set('sourceSearch', 'No matching expense');
-        $component->assertViewHas('sourceTransactions', fn ($rows): bool => $rows->isEmpty());
+        $testable->assertViewHas('sourceTransactions', fn ($rows): bool => $rows->isEmpty());
 
-        $component->assertSee('No available recorded expenses found.')
+        $testable->assertSee('No available recorded expenses found.')
             ->assertSee('Save bill')
             ->assertSet('name', 'Home renewal')
             ->assertSet('note', 'Reference ABC123');

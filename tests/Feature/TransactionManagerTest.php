@@ -49,11 +49,11 @@ final class TransactionManagerTest extends TestCase
         $this->get(route('transactions', ['transaction' => $foreign->id]))->assertNotFound();
 
         Livewire::actingAs($owner);
-        $component = Livewire::withQueryParams(['transaction' => $receipt->id])->test(TransactionManager::class)
+        $testable = Livewire::withQueryParams(['transaction' => $receipt->id])->test(TransactionManager::class)
             ->assertSet('scope', 'all');
-        $component->assertViewHas('transactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->id === $receipt->id);
+        $testable->assertViewHas('transactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->id === $receipt->id);
 
-        $component->call('showSelectedMonth')->assertSet('filterTransactionId', null)
+        $testable->call('showSelectedMonth')->assertSet('filterTransactionId', null)
             ->assertSee('Current month activity')->assertDontSee('Linked insurance receipt')
             ->set('filterTransactionId', $receipt->id)->call('clearFilters')->assertSet('filterTransactionId', null);
     }
