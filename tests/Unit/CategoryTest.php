@@ -330,7 +330,7 @@ final class CategoryTest extends TestCase
                 $this->fail('Expected a structural edit to be rejected.');
             } catch (DomainException $exception) {
                 $this->assertSame(
-                    'A category with subcategories, transactions, or budgets cannot change type or parent.',
+                    'A category with subcategories, transactions, budgets, or planned bills cannot change type or parent.',
                     $exception->getMessage(),
                 );
             }

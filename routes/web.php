@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Bills\BillManager;
 use App\Livewire\Budgets\BudgetManager;
 use App\Livewire\Categories\CategoryManager;
 use App\Livewire\Dashboard;
@@ -22,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('transactions', TransactionManager::class)->name('transactions');
     Route::get('categories', CategoryManager::class)->name('categories');
     Route::get('budgets', BudgetManager::class)->name('budgets');
+    Route::get('bills', BillManager::class)->name('bills');
     Route::get('net-worth', NetWorthTracker::class)->name('net-worth');
     Route::get('reports', ReportsHub::class)->name('reports');
 

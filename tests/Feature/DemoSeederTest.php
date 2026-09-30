@@ -9,6 +9,8 @@ use App\Models\Budget;
 use App\Models\ImportedTransaction;
 use App\Models\NetWorthEntry;
 use App\Models\NetWorthLineItem;
+use App\Models\PlannedBill;
+use App\Models\PlannedBillPayment;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Support\BankStatementConfig;
@@ -33,6 +35,11 @@ final class DemoSeederTest extends TestCase
             $this->assertSame(36, Budget::where('user_id', $user->id)->count());
             $this->assertSame(6, NetWorthEntry::where('user_id', $user->id)->count());
             $this->assertSame(36, NetWorthLineItem::where('user_id', $user->id)->count());
+            $this->assertSame(2, PlannedBill::forUser($user->id)->count());
+            $this->assertSame(1, PlannedBillPayment::where('user_id', $user->id)->count());
+            $this->assertDatabaseHas('planned_bills', ['user_id' => $user->id, 'name' => 'Car insurance', 'frequency' => 'yearly']);
+            $this->assertDatabaseHas('planned_bills', ['user_id' => $user->id, 'name' => 'Quarterly water rates', 'frequency' => 'quarterly']);
+            $this->assertSame('Compare renewal quotes before the policy ends.', PlannedBill::forUser($user->id)->where('name', 'Car insurance')->sole()->note);
 
             for ($monthsAgo = 5; $monthsAgo >= 0; $monthsAgo--) {
                 $month = Carbon::now()->startOfMonth()->subMonths($monthsAgo);
@@ -76,6 +83,8 @@ final class DemoSeederTest extends TestCase
                 Budget::where('user_id', $user->id)->count(),
                 NetWorthEntry::where('user_id', $user->id)->count(),
                 ImportedTransaction::count(),
+                PlannedBill::forUser($user->id)->count(),
+                PlannedBillPayment::where('user_id', $user->id)->count(),
             ];
             $this->seed(DatabaseSeeder::class);
             $this->assertSame($counts, [
@@ -83,6 +92,8 @@ final class DemoSeederTest extends TestCase
                 Budget::where('user_id', $user->id)->count(),
                 NetWorthEntry::where('user_id', $user->id)->count(),
                 ImportedTransaction::count(),
+                PlannedBill::forUser($user->id)->count(),
+                PlannedBillPayment::where('user_id', $user->id)->count(),
             ]);
 
             Carbon::setTestNow('2026-01-25 12:00:00');

@@ -144,5 +144,33 @@
         </section>
     </div>
 
-
+    <section class="app-card w-full max-w-xl self-start p-4 sm:p-5" aria-labelledby="dashboard-bills-heading">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 id="dashboard-bills-heading" class="text-lg font-semibold tracking-tight">Planned bills</h2>
+                <p class="mt-1 text-xs app-muted">Selected month and next two months. Estimates only.</p>
+            </div>
+            <a class="app-link shrink-0 text-sm" href="{{ route('bills') }}" wire:navigate>Manage bills</a>
+        </div>
+        <div class="mt-4 space-y-3">
+            @foreach ($billMonths as $month)
+                <div>
+                    <h3 class="border-b border-app-border pb-2 text-xs font-semibold">{{ $month['label'] }}</h3>
+                    <ul class="divide-y divide-app-border">
+                        @forelse ($month['rows'] as $row)
+                            <li class="flex items-start justify-between gap-3 py-2 text-sm">
+                                <div class="min-w-0">
+                                    <p class="break-words font-medium">{{ $row['bill']->name }}</p>
+                                    <p class="mt-0.5 text-xs app-muted">{{ $row['date']->format('j M') }}@if ($row['payment']) · Paid {{ $row['payment']->transaction->date->format('j M') }}@endif</p>
+                                </div>
+                                <span class="shrink-0 font-semibold tabular-nums">{{ \App\Support\Money::format($row['payment']?->transaction->amount ?? $row['bill']->estimated_amount) }}</span>
+                            </li>
+                        @empty
+                            <li class="py-2 text-xs app-muted">No bills this month.</li>
+                        @endforelse
+                    </ul>
+                </div>
+            @endforeach
+        </div>
+    </section>
 </div>

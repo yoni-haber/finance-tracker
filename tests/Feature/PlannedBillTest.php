@@ -1,0 +1,504 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Livewire\Bills\BillManager;
+use App\Livewire\Dashboard;
+use App\Livewire\Transactions\TransactionManager;
+use App\Models\Category;
+use App\Models\PlannedBill;
+use App\Models\PlannedBillPayment;
+use App\Models\Transaction;
+use App\Models\User;
+use App\Support\PlannedBillReport;
+use App\Support\TransactionReport;
+use Carbon\Carbon;
+use DomainException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+final class PlannedBillTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_bill_crud_and_expense_category_validation(): void
+    {
+        $user = User::factory()->create();
+        $expense = Category::factory()->for($user)->create(['type' => Category::TYPE_EXPENSE]);
+        $income = Category::factory()->for($user)->create(['type' => Category::TYPE_INCOME]);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->set('name', 'Car insurance')
+            ->set('categoryId', $income->id)
+            ->set('estimatedAmount', '620.00')
+            ->set('nextDueDate', '2026-10-12')
+            ->set('frequency', 'yearly')
+            ->call('save')->assertHasErrors(['categoryId'])
+            ->set('categoryId', $expense->id)
+            ->call('save')->assertHasNoErrors();
+
+        $plannedBill = PlannedBill::forUser($user->id)->sole();
+        $this->assertSame(12, $plannedBill->anchor_day);
+        $this->assertSame('620.00', $plannedBill->estimated_amount);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('edit', $plannedBill->id)
+            ->set('estimatedAmount', '680.00')
+            ->set('nextDueDate', '2026-10-14')
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertSame(14, $plannedBill->refresh()->anchor_day);
+        $this->assertSame('680.00', $plannedBill->estimated_amount);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('confirmDelete', $plannedBill->id)
+            ->call('delete');
+        $this->assertDatabaseMissing('planned_bills', ['id' => $plannedBill->id]);
+    }
+
+    public function test_editing_preserves_parent_subcategory_and_uncategorised_selections(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->create(['type' => Category::TYPE_EXPENSE, 'name' => 'Transport']);
+        $child = Category::factory()->for($user)->create(['type' => Category::TYPE_EXPENSE, 'parent_id' => $parent->id, 'name' => 'Fuel']);
+        $bill = $this->bill($user, '2026-10-12');
+        $testable = Livewire::actingAs($user)->test(BillManager::class)
+            ->assertSeeHtml('<option value="' . $parent->id . '">Transport</option>')
+            ->assertSeeHtml('<option value="' . $child->id . '">Fuel</option>');
+
+        foreach ([$parent->id, $child->id, null] as $categoryId) {
+            $bill->update(['category_id' => $categoryId]);
+            $testable->call('edit', $bill->id)
+                ->assertSet('categoryId', $categoryId)
+                ->call('save')->assertHasNoErrors();
+            $this->assertSame($categoryId, $bill->refresh()->category_id);
+        }
+    }
+
+    public function test_transaction_prefill_includes_its_parent_category_even_when_it_has_children(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->create(['type' => Category::TYPE_EXPENSE, 'name' => 'Transport']);
+        Category::factory()->for($user)->create(['type' => Category::TYPE_EXPENSE, 'parent_id' => $parent->id, 'name' => 'Fuel']);
+        $transaction = $this->expense($user, '2025-10-12', 'Insurance renewal', '640.00');
+        $transaction->update(['category_id' => $parent->id]);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('useTransaction', $transaction->id)
+            ->assertSet('categoryId', $parent->id)
+            ->assertSeeHtml('<option value="' . $parent->id . '">Transport</option>')
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertSame($parent->id, PlannedBill::forUser($user->id)->sole()->category_id);
+    }
+
+    public function test_bill_can_start_from_a_previous_expense_and_keep_its_anchor_day(): void
+    {
+        $user = User::factory()->create();
+        $transaction = $this->expense($user, '2024-02-29', 'Car tax', '175.00');
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('useTransaction', $transaction->id)
+            ->assertSet('name', 'Car tax')
+            ->assertSet('estimatedAmount', '175.00')
+            ->assertSet('nextDueDate', '2025-02-28')
+            ->call('save')->assertHasNoErrors();
+
+        $plannedBill = PlannedBill::forUser($user->id)->sole();
+        $this->assertSame(29, $plannedBill->anchor_day);
+        $this->assertSame('2028-02-29', $plannedBill->dateAfter(Carbon::parse('2027-02-28'))->toDateString());
+        $this->assertDatabaseHas('planned_bill_payments', [
+            'planned_bill_id' => $plannedBill->id,
+            'transaction_id' => $transaction->id,
+            'expected_date' => '2024-02-29',
+        ]);
+    }
+
+    public function test_optional_notes_can_be_saved_edited_cleared_and_reset(): void
+    {
+        $user = User::factory()->create();
+        $bill = $this->bill($user, '2026-10-12');
+        $component = Livewire::actingAs($user)->test(BillManager::class)
+            ->call('edit', $bill->id)
+            ->assertSet('note', '')
+            ->set('note', "  Renewal reference ABC123\nCompare quotes  ")
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertSame("Renewal reference ABC123\nCompare quotes", $bill->refresh()->note);
+        $component->assertSee('Renewal reference ABC123')
+            ->call('edit', $bill->id)
+            ->assertSet('note', "Renewal reference ABC123\nCompare quotes")
+            ->set('note', str_repeat('n', 2001))
+            ->call('save')->assertHasErrors(['note'])
+            ->set('note', '0')
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame('0', $bill->refresh()->note);
+
+        $component->call('edit', $bill->id)->set('note', '   ')->call('save')->assertHasNoErrors();
+        $this->assertNull($bill->refresh()->note);
+        $component->set('note', 'Unsaved note')->call('openModal')->assertSet('note', '');
+    }
+
+    public function test_payment_search_shows_selectable_expenses_and_keeps_the_selection_when_search_changes(): void
+    {
+        $user = User::factory()->create();
+        $bill = $this->bill($user, '2026-10-12');
+        $expense = $this->expense($user, '2026-10-11', 'Insurance renewal', '95.00');
+        $this->expense($user, '2026-10-09', 'Fuel station', '60.00');
+        $transaction = $this->expense(User::factory()->create(), '2026-10-11', 'Insurance private', '80.00');
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('openPaymentModal', $bill->id)
+            ->set('paymentSearch', 'Insurance')
+            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->pluck('id')->all() === [$expense->id])
+            ->assertDontSeeHtml('id="bill-payment-transaction"')
+            ->call('selectPayment', $expense->id)
+            ->assertSet('paymentTransactionId', $expense->id)
+            ->assertSee('Selected:')
+            ->set('paymentSearch', 'Fuel')
+            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->description === 'Fuel station')
+            ->assertSet('paymentTransactionId', $expense->id)
+            ->set('paymentSearch', 'No matching expense')
+            ->assertViewHas('paymentTransactions', fn ($rows): bool => $rows->isEmpty())
+            ->assertSee('No available recorded expenses found.')
+            ->assertSet('paymentTransactionId', $expense->id)
+            ->call('linkPayment')->assertHasNoErrors();
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('selectPayment', $expense->id)->assertHasErrors(['paymentTransactionId']);
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('selectPayment', $transaction->id)->assertNotFound();
+    }
+
+    public function test_unlink_requires_a_confirmation_and_is_scoped_to_the_latest_own_payment(): void
+    {
+        $owner = User::factory()->create();
+        $bill = $this->bill($owner, '2027-10-12');
+        $plannedBillPayment = $bill->payments()->create([
+            'user_id' => $owner->id,
+            'expected_date' => '2025-10-12',
+            'transaction_id' => $this->expense($owner, '2025-10-12', 'Prior insurance', '600.00')->id,
+        ]);
+        $latest = $bill->payments()->create([
+            'user_id' => $owner->id,
+            'expected_date' => '2026-10-12',
+            'transaction_id' => $this->expense($owner, '2026-10-12', 'Latest insurance', '600.00')->id,
+        ]);
+        Livewire::actingAs(User::factory()->create())->test(BillManager::class)
+            ->call('confirmUnlinkPayment', $latest->id)->assertNotFound();
+        Livewire::actingAs($owner)->test(BillManager::class)->call('unlinkPayment');
+        $this->assertDatabaseHas('planned_bill_payments', ['id' => $latest->id]);
+        Livewire::actingAs($owner)->test(BillManager::class)
+            ->call('confirmUnlinkPayment', $plannedBillPayment->id)->call('unlinkPayment');
+        $this->assertDatabaseHas('planned_bill_payments', ['id' => $plannedBillPayment->id]);
+        $this->assertSame('2027-10-12', $bill->refresh()->next_due_date->toDateString());
+
+        Livewire::actingAs($owner)->test(BillManager::class)
+            ->assertSeeHtml('aria-label="Planned bills"')
+            ->assertDontSee('Correct link')
+            ->assertDontSeeHtml('wire:confirm=')
+            ->assertDontSeeHtml('placeholder="Car insurance"');
+    }
+
+    public function test_payment_history_is_a_scoped_dialog_with_date_amount_and_transaction_links(): void
+    {
+        $owner = User::factory()->create();
+        $category = Category::factory()->for($owner)->create(['type' => Category::TYPE_EXPENSE, 'name' => 'Transport']);
+        $bill = $this->bill($owner, '2027-10-12', name: 'Insurance');
+        $bill->update(['category_id' => $category->id]);
+
+        $transaction = $this->expense($owner, '2026-10-11', 'Receipt details not needed in history', '610.25');
+        $bill->payments()->create([
+            'user_id' => $owner->id,
+            'expected_date' => '2026-10-12',
+            'transaction_id' => $transaction->id,
+        ]);
+
+        Livewire::actingAs($owner)->test(BillManager::class)
+            ->assertSee('(Transport)')
+            ->call('openHistory', $bill->id)
+            ->assertSet('historyBillId', $bill->id)
+            ->assertDispatched('open-bill-history-modal')
+            ->assertViewHas('historyBill', fn ($history): bool => $history->id === $bill->id)
+            ->assertSee('11 Oct 2026')
+            ->assertSee('£610.25')
+            ->assertSeeHtml(route('transactions', ['transaction' => $transaction->id]))
+            ->assertDontSee('Receipt details not needed in history')
+            ->assertDontSee('Bill date')
+            ->assertSee('Unlink payment')
+            ->call('confirmUnlinkPayment', $bill->payments()->sole()->id)
+            ->assertDispatched('close-bill-history-modal');
+
+        Livewire::actingAs(User::factory()->create())->test(BillManager::class)
+            ->call('openHistory', $bill->id)->assertNotFound();
+    }
+
+    public function test_an_empty_source_search_preserves_the_new_bill_form(): void
+    {
+        $owner = User::factory()->create();
+        $this->expense($owner, '2026-10-11', 'Insurance receipt', '610.25');
+        Livewire::actingAs($owner)->test(BillManager::class)
+            ->call('openModal')
+            ->set('name', 'Home renewal')
+            ->set('note', 'Reference ABC123')
+            ->set('sourceSearch', 'No matching expense')
+            ->assertViewHas('sourceTransactions', fn ($rows): bool => $rows->isEmpty())
+            ->assertSee('No available recorded expenses found.')
+            ->assertSee('Save bill')
+            ->assertSet('name', 'Home renewal')
+            ->assertSet('note', 'Reference ABC123');
+    }
+
+    public function test_manually_changing_the_prefilled_due_date_uses_the_new_day_as_anchor(): void
+    {
+        $user = User::factory()->create();
+        $transaction = $this->expense($user, '2024-02-29', 'Car tax', '175.00');
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('useTransaction', $transaction->id)
+            ->set('nextDueDate', '2025-03-15')
+            ->call('save')->assertHasNoErrors();
+
+        $plannedBill = PlannedBill::forUser($user->id)->sole();
+        $this->assertSame(15, $plannedBill->anchor_day);
+        $this->assertSame('2026-03-15', $plannedBill->dateAfter($plannedBill->next_due_date)->toDateString());
+    }
+
+    public function test_blank_names_and_reusing_a_linked_source_are_rejected(): void
+    {
+        $user = User::factory()->create();
+        $transaction = $this->expense($user, '2025-06-10', 'Home insurance', '310.00');
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->set('name', '   ')
+            ->set('estimatedAmount', '310.00')
+            ->set('nextDueDate', '2026-06-10')
+            ->call('save')->assertHasErrors(['name']);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('useTransaction', $transaction->id)
+            ->call('save')->assertHasNoErrors();
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('useTransaction', $transaction->id)
+            ->assertHasErrors(['sourceTransactionId']);
+        $this->assertSame(1, PlannedBill::forUser($user->id)->count());
+    }
+
+    public function test_linking_and_correcting_a_payment_advances_and_restores_the_due_date(): void
+    {
+        $user = User::factory()->create();
+        $bill = $this->bill($user, '2026-11-30', 'quarterly', 30);
+        $transaction = $this->expense($user, '2026-11-27', 'Water rates', '151.25');
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('openPaymentModal', $bill->id)
+            ->set('paymentTransactionId', $transaction->id)
+            ->call('linkPayment')->assertHasNoErrors();
+
+        $this->assertSame('2027-02-28', $bill->refresh()->next_due_date->toDateString());
+        $this->assertSame('151.25', $bill->estimated_amount);
+        $link = PlannedBillPayment::where('transaction_id', $transaction->id)->sole();
+        $this->assertSame('2026-11-30', $link->expected_date->toDateString());
+        $this->assertSame('600.00', $link->previous_estimated_amount);
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('confirmUnlinkPayment', $link->id)
+            ->assertSet('unlinkingDescription', 'Water rates')
+            ->assertDispatched('open-unlink-bill-payment-modal')
+            ->call('unlinkPayment')
+            ->assertSet('unlinkingPaymentId', null)
+            ->assertDispatched('close-unlink-bill-payment-modal');
+        $this->assertSame('2026-11-30', $bill->refresh()->next_due_date->toDateString());
+        $this->assertSame('600.00', $bill->estimated_amount);
+        $this->assertDatabaseMissing('planned_bill_payments', ['id' => $link->id]);
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+
+        $replacement = $this->expense($user, '2026-11-29', 'Water rates corrected', '154.00');
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('openPaymentModal', $bill->id)
+            ->set('paymentTransactionId', $replacement->id)
+            ->call('linkPayment')->assertHasNoErrors();
+        $this->assertSame('154.00', $bill->refresh()->estimated_amount);
+    }
+
+    public function test_payment_cannot_be_reused_and_removing_a_bill_keeps_the_transaction(): void
+    {
+        $user = User::factory()->create();
+        $plannedBill = $this->bill($user, '2026-10-10', name: 'Insurance');
+        $second = $this->bill($user, '2026-10-15', name: 'Tax');
+        $transaction = $this->expense($user, '2026-10-09', 'Insurance payment', '480.00');
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('openPaymentModal', $plannedBill->id)
+            ->set('paymentTransactionId', $transaction->id)
+            ->call('linkPayment')->assertHasNoErrors();
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('openPaymentModal', $second->id)
+            ->set('paymentTransactionId', $transaction->id)
+            ->call('linkPayment')->assertHasErrors(['paymentTransactionId']);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('confirmDelete', $plannedBill->id)
+            ->call('delete');
+        $this->assertDatabaseMissing('planned_bills', ['id' => $plannedBill->id]);
+        $this->assertDatabaseMissing('planned_bill_payments', ['transaction_id' => $transaction->id]);
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
+    }
+
+    public function test_due_date_cannot_move_before_the_last_linked_payment(): void
+    {
+        $user = User::factory()->create();
+        $bill = $this->bill($user, '2027-10-10');
+        $transaction = $this->expense($user, '2026-10-09', 'Insurance payment', '480.00');
+        $bill->payments()->create([
+            'user_id' => $user->id,
+            'expected_date' => '2026-10-10',
+            'transaction_id' => $transaction->id,
+        ]);
+
+        Livewire::actingAs($user)->test(BillManager::class)
+            ->call('edit', $bill->id)
+            ->set('nextDueDate', '2026-10-10')
+            ->call('save')->assertHasErrors(['nextDueDate']);
+        $this->assertSame('2027-10-10', $bill->refresh()->next_due_date->toDateString());
+    }
+
+    public function test_category_used_by_a_bill_cannot_be_changed_to_income(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->create(['type' => Category::TYPE_EXPENSE]);
+        $bill = $this->bill($user, '2026-10-10');
+        $bill->update(['category_id' => $category->id]);
+
+        $this->expectException(DomainException::class);
+        $category->update(['type' => Category::TYPE_INCOME]);
+    }
+
+    public function test_user_cannot_access_other_users_bills_or_link_their_transactions(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $bill = $this->bill($owner, '2026-10-10');
+        $transaction = $this->expense($other, '2026-10-10', 'Other payment', '50.00');
+
+        Livewire::actingAs($other)->test(BillManager::class)
+            ->call('edit', $bill->id)->assertNotFound();
+
+        Livewire::actingAs($owner)->test(BillManager::class)
+            ->call('openPaymentModal', $bill->id)
+            ->set('paymentTransactionId', $transaction->id)
+            ->call('linkPayment')->assertNotFound();
+
+        $this->assertDatabaseCount('planned_bill_payments', 0);
+    }
+
+    public function test_dashboard_lists_three_months_from_the_selected_period_at_the_bottom(): void
+    {
+        Carbon::setTestNow('2026-09-30');
+        try {
+            $user = User::factory()->create(['selected_month' => 12, 'selected_year' => 2026]);
+            $this->bill($user, '2026-12-12', name: 'December car insurance');
+            $this->bill($user, '2027-01-08', name: 'January home insurance');
+            $this->bill($user, '2027-02-02', name: 'February MOT');
+            $this->bill($user, '2027-03-02', name: 'March service');
+
+            Livewire::actingAs($user)->test(Dashboard::class)
+                ->assertSee('December 2026')
+                ->assertSee('January 2027')
+                ->assertSee('December car insurance')
+                ->assertSee('January home insurance')
+                ->assertSee('February 2027')
+                ->assertSee('February MOT')
+                ->assertDontSee('March service')
+                ->assertSeeInOrder(['Cash flow trend', 'Where spending went', 'Planned bills', 'December car insurance', 'January home insurance', 'February MOT'])
+                ->dispatch('period-changed', month: 1, year: 2027)
+                ->assertSee('January home insurance')
+                ->assertSee('February MOT')
+                ->assertSee('March service')
+                ->assertDontSee('December car insurance');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_bill_dates_and_paid_history_do_not_change_financial_totals_or_show_due_statuses(): void
+    {
+        Carbon::setTestNow('2026-10-15');
+        try {
+            $user = User::factory()->create(['selected_month' => 10, 'selected_year' => 2026]);
+            $overdue = $this->bill($user, '2026-10-10', name: 'Overdue insurance');
+            $this->bill($user, '2026-10-20', name: 'Expected tax');
+            $paid = $this->bill($user, '2026-10-12', name: 'Paid service');
+            $transaction = $this->expense($user, '2026-10-11', 'Service payment', '95.00');
+            $paid->payments()->create([
+                'user_id' => $user->id,
+                'expected_date' => '2026-10-12',
+                'transaction_id' => $transaction->id,
+            ]);
+            $paid->update(['next_due_date' => '2027-10-12']);
+
+            $rows = PlannedBillReport::forRange($user->id, Carbon::parse('2026-10-01'), Carbon::parse('2026-10-31'));
+            $this->assertNull($rows->firstWhere('bill.id', $overdue->id)['payment']);
+            $this->assertNull($rows->firstWhere('bill.name', 'Expected tax')['payment']);
+            $this->assertSame($transaction->id, $rows->firstWhere('bill.name', 'Paid service')['payment']->transaction_id);
+            $this->assertCount(1, TransactionReport::projectedForMonth($user->id, 10, 2026));
+
+            Livewire::actingAs($user)->test(Dashboard::class)
+                ->assertSee('Overdue insurance')
+                ->assertSee('Expected tax')
+                ->assertSee('Paid 11 Oct')
+                ->assertDontSeeHtml('>Overdue</')
+                ->assertDontSeeHtml('>Expected</');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_linked_expense_cannot_be_deleted_or_made_recurring_until_unlinked(): void
+    {
+        $user = User::factory()->create();
+        $bill = $this->bill($user, '2026-10-10');
+        $expense = $this->expense($user, '2026-10-10', 'Car insurance', '600.00');
+        $bill->payments()->create(['user_id' => $user->id, 'expected_date' => '2025-10-10', 'transaction_id' => $expense->id]);
+
+        Livewire::actingAs($user)->test(TransactionManager::class)
+            ->call('confirmDelete', $expense->id)
+            ->call('delete')->assertHasErrors(['delete']);
+        Livewire::actingAs($user)->test(TransactionManager::class)
+            ->call('edit', $expense->id)
+            ->set('is_recurring', true)
+            ->set('frequency', 'yearly')
+            ->call('save')->assertHasErrors(['save']);
+
+        $this->assertDatabaseHas('transactions', ['id' => $expense->id]);
+    }
+
+    private function bill(User $user, string $date, string $frequency = 'yearly', ?int $anchorDay = null, string $name = 'Planned bill'): PlannedBill
+    {
+        return PlannedBill::create([
+            'user_id' => $user->id,
+            'name' => $name,
+            'estimated_amount' => '600.00',
+            'next_due_date' => $date,
+            'anchor_day' => $anchorDay ?? Carbon::parse($date)->day,
+            'frequency' => $frequency,
+        ]);
+    }
+
+    private function expense(User $user, string $date, string $description, string $amount): Transaction
+    {
+        return Transaction::factory()->for($user)->create([
+            'category_id' => null,
+            'type' => Transaction::TYPE_EXPENSE,
+            'is_recurring' => false,
+            'frequency' => null,
+            'date' => $date,
+            'description' => $description,
+            'amount' => $amount,
+        ]);
+    }
+}

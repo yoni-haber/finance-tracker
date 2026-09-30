@@ -12,6 +12,7 @@ use App\Support\BudgetProgress;
 use App\Support\CashFlowSeries;
 use App\Support\Money;
 use App\Support\MonthlyFlow;
+use App\Support\PlannedBillReport;
 use App\Support\SelectedPeriod;
 use App\Support\TransactionImpact;
 use App\Support\TransactionReport;
@@ -92,6 +93,11 @@ class Dashboard extends Component
             ->limit(5)
             ->get();
 
+        $selectedMonth = $this->selectedPeriod()->startOfMonth();
+        $followingMonth = $selectedMonth->addMonth();
+        $thirdMonth = $selectedMonth->addMonths(2);
+        $billRows = PlannedBillReport::forRange($userId, $selectedMonth, $thirdMonth->endOfMonth());
+
         $this->dispatch('dashboard-trend-updated', chartData: $trend);
 
         return view('livewire.dashboard', [
@@ -107,6 +113,11 @@ class Dashboard extends Component
             'hasBudgets' => $budgets->isNotEmpty(),
             'spendingCategoryBreakdown' => $enumerable,
             'recentTransactions' => $recentTransactions,
+            'billMonths' => [
+                ['label' => $selectedMonth->format('F Y'), 'rows' => $billRows->filter(fn (array $row): bool => $row['date']->format('Y-m') === $selectedMonth->format('Y-m'))],
+                ['label' => $followingMonth->format('F Y'), 'rows' => $billRows->filter(fn (array $row): bool => $row['date']->format('Y-m') === $followingMonth->format('Y-m'))],
+                ['label' => $thirdMonth->format('F Y'), 'rows' => $billRows->filter(fn (array $row): bool => $row['date']->format('Y-m') === $thirdMonth->format('Y-m'))],
+            ],
         ]);
     }
 

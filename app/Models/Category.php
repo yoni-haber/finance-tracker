@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Budget> $budgets
  * @property-read int|null $budgets_count
+ * @property-read Collection<int, PlannedBill> $plannedBills
  * @property-read Collection<int, Category> $children
  * @property-read int|null $children_count
  * @property-read Category|null $parent
@@ -99,7 +100,7 @@ class Category extends Model
             }
 
             if ($category->exists && $category->isDirty(['parent_id', 'type']) && $category->hasStructuralDependencies()) {
-                throw new DomainException('A category with subcategories, transactions, or budgets cannot change type or parent.');
+                throw new DomainException('A category with subcategories, transactions, budgets, or planned bills cannot change type or parent.');
             }
 
             if ($category->type !== self::TYPE_EXPENSE || $category->parent_id !== null) {
@@ -161,6 +162,12 @@ class Category extends Model
     public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class);
+    }
+
+    /** @return HasMany<PlannedBill, $this> */
+    public function plannedBills(): HasMany
+    {
+        return $this->hasMany(PlannedBill::class);
     }
 
     /** @param Builder<self> $builder */
@@ -231,6 +238,7 @@ class Category extends Model
     {
         return $this->children()->exists()
             || $this->transactions()->exists()
-            || $this->budgets()->exists();
+            || $this->budgets()->exists()
+            || $this->plannedBills()->exists();
     }
 }

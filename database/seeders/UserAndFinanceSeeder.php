@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\PlannedBill;
 use App\Models\Transaction;
 use App\Models\TransactionException;
 use App\Models\User;
@@ -27,6 +28,7 @@ class UserAndFinanceSeeder extends Seeder
             $categories = $this->seedCategories($user);
             $this->seedBudgets($user, $categories);
             $this->seedTransactions($user, $categories);
+            $this->seedPlannedBills($user, $categories);
         });
     }
 
@@ -255,6 +257,44 @@ class UserAndFinanceSeeder extends Seeder
                 'is_recurring' => $frequency !== null,
                 'frequency' => $frequency,
                 'recurring_until' => $recurringUntil?->toDateString(),
+            ],
+        );
+    }
+
+    /** @param array<string, Category> $categories */
+    private function seedPlannedBills(User $user, array $categories): void
+    {
+        $priorRenewalDate = Carbon::now()->startOfMonth()->addMonth()->day(12)->subYear();
+        $priorRenewal = $this->storeTransaction(
+            $user, $categories, 'Transport', Transaction::TYPE_EXPENSE, 640,
+            $priorRenewalDate, 'Car insurance renewal',
+        );
+
+        $annual = PlannedBill::updateOrCreate(
+            ['user_id' => $user->id, 'name' => 'Car insurance'],
+            [
+                'category_id' => $categories['Transport']->id,
+                'estimated_amount' => '640.00',
+                'note' => 'Compare renewal quotes before the policy ends.',
+                'next_due_date' => $priorRenewalDate->copy()->addYear()->toDateString(),
+                'anchor_day' => 12,
+                'frequency' => 'yearly',
+            ],
+        );
+        $annual->payments()->firstOrCreate(
+            ['expected_date' => $priorRenewalDate->toDateString()],
+            ['user_id' => $user->id, 'transaction_id' => $priorRenewal->id],
+        );
+
+        PlannedBill::updateOrCreate(
+            ['user_id' => $user->id, 'name' => 'Quarterly water rates'],
+            [
+                'category_id' => $categories['Bills']->id,
+                'estimated_amount' => '135.00',
+                'note' => 'Estimate based on the previous quarterly statement.',
+                'next_due_date' => Carbon::now()->startOfMonth()->day(25)->toDateString(),
+                'anchor_day' => 25,
+                'frequency' => 'quarterly',
             ],
         );
     }

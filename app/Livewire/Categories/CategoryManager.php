@@ -160,7 +160,7 @@ class CategoryManager extends Component
                 ($category->type !== $data['type'] || $category->parent_id !== $data['parent_id'])
                 && $category->hasStructuralDependencies()
             ) {
-                $this->addError('save', 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.');
+                $this->addError('save', 'A category with subcategories, transactions, budgets, or planned bills cannot change type or parent. Rename it instead.');
 
                 return;
             }

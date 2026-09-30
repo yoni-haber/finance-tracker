@@ -32,6 +32,31 @@ final class TransactionManagerTest extends TestCase
             ->assertSet('amount', '');
     }
 
+    public function test_a_payment_history_link_shows_only_its_own_recorded_transaction(): void
+    {
+        $owner = User::factory()->create(['selected_month' => 9, 'selected_year' => 2026]);
+        $receipt = Transaction::factory()->for($owner)->create([
+            'description' => 'Linked insurance receipt', 'date' => '2025-10-11', 'is_recurring' => false,
+        ]);
+        Transaction::factory()->for($owner)->create([
+            'description' => 'Current month activity', 'date' => '2026-09-11', 'is_recurring' => false,
+        ]);
+        $foreign = Transaction::factory()->for(User::factory())->create(['description' => 'Private other receipt']);
+
+        $this->actingAs($owner)->get(route('transactions', ['transaction' => $receipt->id]))
+            ->assertOk()->assertSee('Selected transaction')->assertSee('Linked insurance receipt')
+            ->assertDontSee('Current month activity')->assertDontSee('Private other receipt');
+        $this->get(route('transactions', ['transaction' => $foreign->id]))->assertNotFound();
+
+        Livewire::actingAs($owner);
+        Livewire::withQueryParams(['transaction' => $receipt->id])->test(TransactionManager::class)
+            ->assertSet('scope', 'all')
+            ->assertViewHas('transactions', fn ($rows): bool => $rows->count() === 1 && $rows->first()->id === $receipt->id)
+            ->call('showSelectedMonth')->assertSet('filterTransactionId', null)
+            ->assertSee('Current month activity')->assertDontSee('Linked insurance receipt')
+            ->set('filterTransactionId', $receipt->id)->call('clearFilters')->assertSet('filterTransactionId', null);
+    }
+
     public function test_import_filter_shows_only_transactions_from_own_statement(): void
     {
         $user = User::factory()->create();

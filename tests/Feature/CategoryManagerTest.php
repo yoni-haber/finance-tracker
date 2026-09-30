@@ -295,12 +295,12 @@ final class CategoryManagerTest extends TestCase
             ->set('type', Category::TYPE_INCOME)
             ->call('save')
             ->assertHasErrors([
-                'save' => 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.',
+                'save' => 'A category with subcategories, transactions, budgets, or planned bills cannot change type or parent. Rename it instead.',
             ]);
 
         $this->assertSame(Category::TYPE_EXPENSE, $parent->fresh()?->type);
         $this->assertSame(
-            ['A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.'],
+            ['A category with subcategories, transactions, budgets, or planned bills cannot change type or parent. Rename it instead.'],
             $component->instance()->getErrorBag()->get('save'),
         );
     }
@@ -318,12 +318,12 @@ final class CategoryManagerTest extends TestCase
             ->set('parentId', $newParent->id)
             ->call('save')
             ->assertHasErrors([
-                'save' => 'A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.',
+                'save' => 'A category with subcategories, transactions, budgets, or planned bills cannot change type or parent. Rename it instead.',
             ]);
 
         $this->assertNull($parent->fresh()?->parent_id);
         $this->assertSame(
-            ['A category with subcategories, transactions, or budgets cannot change type or parent. Rename it instead.'],
+            ['A category with subcategories, transactions, budgets, or planned bills cannot change type or parent. Rename it instead.'],
             $component->instance()->getErrorBag()->get('save'),
         );
     }

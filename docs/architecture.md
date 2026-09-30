@@ -26,6 +26,8 @@ User
  ├── Transaction (one-off or recurring)
  │    └── TransactionException (skipped dates for recurring transactions)
  ├── Budget (monthly spending limit or investment goal per expense category)
+ ├── PlannedBill (quarterly or yearly estimate)
+ │    └── PlannedBillPayment (link to a recorded expense)
  ├── NetWorthEntry
  │    └── NetWorthLineItem (individual asset/liability)
  ├── BankProfile (CSV column mapping for a bank/provider)
@@ -43,6 +45,7 @@ User
 | **Transaction** | `occurrenceExceptions()` | `TransactionException` | Dates to skip when projecting recurring occurrences.                                                                         |
 | **Budget** | `category()` | `Category` | Must be an expense parent category.                                                                                          |
 | **Budget** | `transactions()` | `Transaction` | Non-standard `HasMany` joining on `category_id` + `user_id` + `month` + `year` - a computed relationship for budget actuals. |
+| **PlannedBill** | `payments()` | `PlannedBillPayment` | Payment links retain the expected date and refer to one recorded expense. |
 | **NetWorthEntry** | `lineItems()` | `NetWorthLineItem` | Itemised assets and liabilities that roll up into totals.                                                                    |
 | **BankStatementImport** | `importedTransactions()` | `ImportedTransaction` | Staged CSV rows; committed rows become real `Transaction` records.                                                           |
 
@@ -126,6 +129,31 @@ Transaction::find($id);                              // never — unscoped
 ```
 
 Always set `$data['user_id'] = Auth::id()` before creating records.
+
+## Planned Bills
+
+Planned bills use separate tables and `PlannedBillReport`; they are deliberately
+excluded from `TransactionReport`, budgets, cash flow, and savings. Each bill stores
+its next unpaid due date and intended day of month. Quarterly and yearly steps
+clamp to short months without losing that intended day. A payment link records the
+expected occurrence date and its actual `Transaction`; the next estimate adopts
+the actual amount and the due date advances from the expected date. The link also
+retains the previous estimate so removing the latest link restores both the due
+date and estimate without deleting the transaction.
+
+The Bills page uses a table on desktop and compact rows on mobile, with optional
+personal notes, secondary category labels, and payment history in a separate
+dialog to keep the table stable. The category picker includes both expense parent
+categories and their subcategories, preserving either selection when editing or
+starting from a transaction.
+History shows each payment's date and amount with a link to that recorded
+transaction (`transactions?transaction=<id>`). Both bill creation and payment
+linking offer searchable expense lists with fixed result heights. Unlinking the latest payment uses the
+standard Flux confirmation modal. The dashboard ends with a compact, width-limited list covering the
+globally selected month plus the next two months, grouped by month. Paid links
+are shown from history and unpaid dates are projected from the next due date;
+there are no expected or overdue status labels. All bill and linked transaction
+lookups are scoped to the user.
 
 ## Recurring Transactions
 

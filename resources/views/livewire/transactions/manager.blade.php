@@ -51,7 +51,7 @@
                     <option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Money in</option>
                     <option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Money out</option>
                 </select>
-                @if ($search || $scope === 'all' || $filterParentCategory || $filterSubCategory || $filterType || $filterImportId)
+                @if ($search || $scope === 'all' || $filterParentCategory || $filterSubCategory || $filterType || $filterImportId || $filterTransactionId !== null)
                     <button type="button" wire:click="clearFilters" class="app-link text-sm">Clear filters</button>
                 @endif
             </div>
@@ -60,7 +60,7 @@
 
         @if ($showingRecorded)
             <div class="flex flex-wrap items-center gap-3 border-b border-zinc-200 px-4 py-2 text-sm dark:border-zinc-700">
-                <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ $searching ? 'Searching all dates' : 'All recorded dates' }}</span>
+                <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ $filterTransactionId !== null ? 'Selected transaction' : ($searching ? 'Searching all dates' : 'All recorded dates') }}</span>
                 <span class="text-zinc-500 dark:text-zinc-400">{{ $transactions->total() }} {{ \Illuminate\Support\Str::plural('result', $transactions->total()) }}</span>
                 @unless ($searching)
                     <span class="app-muted">Recorded entries only; projected occurrences are excluded.</span>

@@ -100,7 +100,7 @@ make artisan cmd="migrate:status"               # show migration status
 
 Tests use a separate `finance_tracker_testing` database on the same MySQL container, created automatically by `docker/mysql/create-testing-db.sql`.
 
-The seeders create a local demo account (`alex@example.com`, password `password`) with six months of transactions, monthly budgets, and net worth snapshots through the current month. The sample includes recurring transactions, skipped occurrences, savings and investment activity, a committed bank import, and a parsed import ready for review. Run `db:seed` only on a development database: reseeding refreshes the demo account's sample records.
+The seeders create a local demo account (`alex@example.com`, password `password`) with six months of transactions, monthly budgets, and net worth snapshots through the current month. The sample includes recurring transactions, skipped occurrences, a yearly car insurance bill linked to a previous expense, a quarterly water bill, savings and investment activity, a committed bank import, and a parsed import ready for review. Run `db:seed` only on a development database: reseeding refreshes the demo account's sample records.
 
 ## Queue
 

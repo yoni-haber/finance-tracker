@@ -7,6 +7,7 @@ namespace App\Livewire\Transactions;
 use App\Livewire\Concerns\InteractsWithSelectedPeriod;
 use App\Models\BankStatementImport;
 use App\Models\Category;
+use App\Models\PlannedBillPayment;
 use App\Models\Transaction;
 use App\Support\Money;
 use App\Support\TransactionReport;
@@ -77,6 +78,9 @@ class TransactionManager extends Component
     #[Url(as: 'import')]
     public ?int $filterImportId = null;
 
+    #[Url(as: 'transaction')]
+    public ?int $filterTransactionId = null;
+
     public function mount(): void
     {
         $this->date = $this->defaultTransactionDate();
@@ -85,7 +89,11 @@ class TransactionManager extends Component
             $this->filterImportId = null;
         }
 
-        if ($this->filterImportId) {
+        if ($this->filterTransactionId !== null) {
+            Transaction::forUser((int) Auth::id())->findOrFail($this->filterTransactionId);
+        }
+
+        if ($this->filterImportId || $this->filterTransactionId !== null) {
             $this->scope = 'all';
         }
 
@@ -133,7 +141,7 @@ class TransactionManager extends Component
 
         $search = trim($this->search);
         $searching = $search !== '';
-        $showingRecorded = $searching || $this->scope === 'all';
+        $showingRecorded = $searching || $this->scope === 'all' || $this->filterTransactionId !== null;
 
         if ($showingRecorded) {
             $pattern = '%' . $search . '%';
@@ -142,6 +150,7 @@ class TransactionManager extends Component
             $transactions = Transaction::forUser($userId)
                 ->forCategory($effectiveCategoryFilter)
                 ->with('category.parent')
+                ->when($this->filterTransactionId !== null, fn (Builder $builder) => $builder->whereKey($this->filterTransactionId))
                 ->when($this->filterImportId, fn (Builder $builder) => $builder->where('source_import_id', $this->filterImportId))
                 ->when($this->filterType, fn (Builder $builder): Builder => $this->applyTypeFilter($builder))
                 ->when($searching, function (Builder $query) use ($pattern, $amount): void {
@@ -186,6 +195,13 @@ class TransactionManager extends Component
 
             if (!$transaction) {
                 $this->addError('save', 'Transaction not found.');
+
+                return;
+            }
+
+            if (PlannedBillPayment::where('transaction_id', $transaction->id)->exists()
+                && ($data['type'] !== Transaction::TYPE_EXPENSE || $data['is_recurring'])) {
+                $this->addError('save', 'Unlink this expense from its planned bill before changing its direction or making it recurring.');
 
                 return;
             }
@@ -242,6 +258,12 @@ class TransactionManager extends Component
         }
 
         $transaction = Transaction::forUser((int) Auth::id())->findOrFail($this->deletingTransactionId);
+
+        if (PlannedBillPayment::where('transaction_id', $transaction->id)->exists()) {
+            $this->addError('delete', 'Unlink this expense from its planned bill before deleting it.');
+
+            return;
+        }
 
         if ($transaction->is_recurring) {
             if ($entireSeries) {
@@ -332,6 +354,7 @@ class TransactionManager extends Component
         $this->filterSubCategory = null;
         $this->filterType = null;
         $this->filterImportId = null;
+        $this->filterTransactionId = null;
         $this->resetPage();
     }
 
@@ -339,6 +362,7 @@ class TransactionManager extends Component
     {
         $this->scope = 'month';
         $this->search = '';
+        $this->filterTransactionId = null;
         $this->resetPage();
     }
 
