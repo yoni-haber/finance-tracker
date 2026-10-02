@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\PlannedBill;
 use App\Models\Transaction;
 use App\Models\User;
 use DomainException;
@@ -16,6 +17,25 @@ use Tests\TestCase;
 final class CategoryTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_planned_bills_relationship_can_be_queried_for_a_category(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        $bill = PlannedBill::create([
+            'user_id' => $user->id, 'category_id' => $category->id, 'name' => 'Insurance',
+            'estimated_amount' => '600.00', 'next_due_date' => '2026-10-12',
+            'anchor_day' => 12, 'frequency' => 'yearly',
+        ]);
+        $uncategorised = PlannedBill::create([
+            'user_id' => $user->id, 'name' => 'Car tax',
+            'estimated_amount' => '175.00', 'next_due_date' => '2026-11-12',
+            'anchor_day' => 12, 'frequency' => 'yearly',
+        ]);
+
+        $this->assertTrue($category->plannedBills()->sole()->is($bill));
+        $this->assertFalse($category->plannedBills()->whereKey($uncategorised->id)->exists());
+    }
 
     public function test_category_belongs_to_a_user(): void
     {
