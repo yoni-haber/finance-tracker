@@ -1,4 +1,4 @@
-@props(['eyebrow' => null, 'title', 'description' => null])
+@props(['eyebrow' => null, 'title', 'description' => null, 'descriptionClass' => 'max-w-2xl'])
 
 <header class="app-page-header">
     <div class="min-w-0">
@@ -7,7 +7,7 @@
         @endif
         <h1 class="app-page-title">{{ $title }}</h1>
         @if ($description)
-            <p class="mt-2 max-w-2xl text-sm app-muted">{{ $description }}</p>
+            <p class="mt-2 text-sm app-muted {{ $descriptionClass }}">{{ $description }}</p>
         @endif
     </div>
     @if ($slot->isNotEmpty())

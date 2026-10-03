@@ -185,15 +185,16 @@
     {{-- Transaction form modal --}}
     <flux:modal
         name="transaction-form"
-        x-on:open-transaction-modal.window="$flux.modal('transaction-form').show()"
+        @close="resetForm"
+        x-on:open-transaction-modal.window="$flux.modal('transaction-form').show(); $nextTick(() => { $el.querySelector('[data-transaction-heading]').focus({ preventScroll: true }); $el.querySelector('dialog').scrollTop = 0 })"
         x-on:close-transaction-modal.window="$flux.modal('transaction-form').close()"
         focusable
         class="min-w-0 w-[calc(100vw-2rem)] max-w-2xl"
     >
         <div class="space-y-5">
             <div>
-                <flux:heading size="lg">{{ $transactionId ? ($is_recurring ? 'Edit recurring series' : 'Edit transaction') : 'New transaction' }}</flux:heading>
-                <p class="mt-1 text-sm app-muted">{{ $transactionId ? 'Review the details below before saving your changes.' : 'The date starts in your selected month. Change it if this entry belongs elsewhere.' }}</p>
+                <flux:heading size="lg" level="2" tabindex="-1" autofocus data-transaction-heading class="focus:outline-none">{{ $transactionId ? ($is_recurring ? 'Edit recurring series' : 'Edit transaction') : ($scheduled ? 'Add scheduled payment' : 'New transaction') }}</flux:heading>
+                <p class="mt-1 text-sm app-muted">{{ $transactionId ? 'Review the details below before saving your changes.' : ($scheduled ? 'Enter the expected amount and first payment date. No previous payment is needed. Choose Yearly or Quarterly to repeat it.' : 'The date starts in your selected month. Change it if this entry belongs elsewhere.') }}</p>
             </div>
             @if ($transactionId && $is_recurring)
                 <p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">Changes to this series affect its generated occurrences. To preserve historical amounts, end this series and create a new one.</p>
@@ -202,7 +203,7 @@
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div><label for="transaction-amount" class="app-form-label">Amount (£)</label><input id="transaction-amount" type="number" min="0" step="0.01" inputmode="decimal" wire:model="amount" placeholder="0.00" class="app-field mt-1.5 w-full" />@error('amount') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                     <div><label for="transaction-direction" class="app-form-label">Direction</label><select id="transaction-direction" wire:model.live="type" class="app-field mt-1.5 w-full"><option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Money in</option><option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Money out</option></select>@error('type') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
-                    <div><label for="transaction-date" class="app-form-label">Date</label><input id="transaction-date" type="date" wire:model.live="date" class="app-field mt-1.5 w-full" />@error('date') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                    <div><label for="transaction-date" class="app-form-label">{{ $scheduled ? 'First expected payment date' : ($is_recurring ? 'First scheduled date' : 'Date') }}</label><input id="transaction-date" type="date" wire:model.live="date" class="app-field mt-1.5 w-full" />@error('date') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                     <div><label for="transaction-category" class="app-form-label">Category</label><select id="transaction-category" wire:model="category_id" class="app-field mt-1.5 w-full"><option value="">Uncategorised</option>@foreach ($formCategories as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}">{{ $parent->name }}</option>@endif @endforeach</select>@error('category_id') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                 </div>
                 <div><label for="transaction-description" class="app-form-label">Description <span class="normal-case font-normal app-muted">(optional)</span></label><textarea id="transaction-description" wire:model="description" rows="2" placeholder="What was this for?" class="app-field mt-1.5 w-full"></textarea>@error('description') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
@@ -211,8 +212,18 @@
                     <p class="mt-1 pl-7 text-xs app-muted">Use this for regular income or payments. The schedule contributes to projected totals.</p>
                     @if ($is_recurring)
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                            <div><label for="transaction-frequency" class="app-form-label">Frequency</label><select id="transaction-frequency" wire:model.live="frequency" class="app-field mt-1.5 w-full"><option value="">Select frequency</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>@error('frequency') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
-                            <div><label for="transaction-recurrence-end" class="app-form-label">Repeat until <span class="normal-case font-normal app-muted">(optional)</span></label><input id="transaction-recurrence-end" type="date" wire:model.live="recurring_until" class="app-field mt-1.5 w-full" />@error('recurring_until') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                            <div><label for="transaction-frequency" class="app-form-label">Frequency</label><select id="transaction-frequency" wire:model.live="frequency" class="app-field mt-1.5 w-full"><option value="">Select frequency</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select>@error('frequency') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                            <div>
+                                <label class="flex min-h-11 cursor-pointer items-center gap-2.5"><input type="checkbox" wire:model.live="hasEndDate" class="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500" /><span class="text-sm font-medium">Set an end date</span></label>
+                                @if ($hasEndDate)
+                                    <label for="transaction-recurrence-end" class="app-form-label">Repeat until</label>
+                                    <input id="transaction-recurrence-end" type="date" wire:model.live="recurring_until" required aria-describedby="transaction-recurrence-end-help" class="app-field mt-1.5 w-full" />
+                                    <p id="transaction-recurrence-end-help" class="mt-1.5 text-xs app-muted">Choose the last date payments can occur, including that date.</p>
+                                    @error('recurring_until') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
+                                @else
+                                    <p class="text-sm app-muted">No end date · Repeats indefinitely.</p>
+                                @endif
+                            </div>
                         </div>
                         @if ($this->recurringPreview())
                             <div class="mt-4 rounded-lg bg-app-surface p-3 text-sm"><p class="font-semibold">Expected dates</p><p class="mt-1 app-muted">{{ implode(' · ', $this->recurringPreview()) }}</p><p class="mt-1 text-xs app-muted">Preview of the first three scheduled dates, subject to skipped occurrences.</p></div>

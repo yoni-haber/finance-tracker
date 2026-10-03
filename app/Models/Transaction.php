@@ -205,7 +205,7 @@ class Transaction extends Model
             ? Carbon::parse($this->recurring_until)->endOfDay()
             : null;
 
-        if (!in_array($this->frequency, ['weekly', 'monthly', 'yearly'], true)) {
+        if (!in_array($this->frequency, ['weekly', 'monthly', 'quarterly', 'yearly'], true)) {
             return collect();
         }
 
@@ -263,11 +263,12 @@ class Transaction extends Model
             return 0;
         }
 
-        /** @var 'weekly'|'monthly'|'yearly' $frequency */
+        /** @var 'weekly'|'monthly'|'quarterly'|'yearly' $frequency */
         $frequency = $this->frequency;
         $step = match ($frequency) {
             'weekly' => intdiv((int) $anchor->diffInDays($rangeStart), 7),
             'monthly' => ($rangeStart->year - $anchor->year) * 12 + $rangeStart->month - $anchor->month,
+            'quarterly' => intdiv(($rangeStart->year - $anchor->year) * 12 + $rangeStart->month - $anchor->month, 3),
             'yearly' => $rangeStart->year - $anchor->year,
         };
 
@@ -282,8 +283,8 @@ class Transaction extends Model
             return $anchor->addWeeks($step);
         }
 
-        if ($this->frequency === 'monthly') {
-            $month = $anchor->copy()->startOfMonth()->addMonthsNoOverflow($step);
+        if (in_array($this->frequency, ['monthly', 'quarterly'], true)) {
+            $month = $anchor->copy()->startOfMonth()->addMonthsNoOverflow($step * ($this->frequency === 'quarterly' ? 3 : 1));
 
             return $month->day(min($anchor->day, $month->daysInMonth));
         }

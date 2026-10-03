@@ -22,7 +22,7 @@ class UserAndFinanceSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::transaction(function () {
+        DB::transaction(function (): void {
             $user = $this->seedUser();
             $categories = $this->seedCategories($user);
             $this->seedBudgets($user, $categories);
@@ -200,6 +200,31 @@ class UserAndFinanceSeeder extends Seeder
                     'date' => $date->copy()->addWeeks(3)->toDateString(),
                 ]);
             }
+        }
+
+        // Future first payments make the planning view useful before any payment history exists.
+        $insuranceDate = $today->copy()->startOfYear()->month(12)->day(15);
+        if ($insuranceDate->lt($today->copy()->startOfDay())) {
+            $insuranceDate->addYear();
+        }
+
+        $quarterlyDate = $today->copy()->startOfMonth()->addMonth()->day(15);
+        $planning = [
+            ['Transport.Travel', 650, $insuranceDate, 'Car insurance renewal', 'yearly'],
+            ['Bills.Utilities', 180, $quarterlyDate, 'Quarterly water bill', 'quarterly'],
+            ['Transport.Travel', 240, $quarterlyDate->copy()->day(25), 'Planned car service', null],
+        ];
+        foreach ($planning as [$category, $amount, $date, $description, $frequency]) {
+            // Update these demo schedules in place as the current month moves forward.
+            Transaction::updateOrCreate(['user_id' => $user->id, 'description' => $description], [
+                'category_id' => $categories[$category]->id,
+                'type' => Transaction::TYPE_EXPENSE,
+                'amount' => $amount,
+                'date' => $date->toDateString(),
+                'is_recurring' => $frequency !== null,
+                'frequency' => $frequency,
+                'recurring_until' => null,
+            ]);
         }
 
         // One-off activity changes the chart shapes and gives the budgets distinct outcomes.
