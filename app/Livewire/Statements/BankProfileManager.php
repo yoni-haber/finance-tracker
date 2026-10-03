@@ -97,6 +97,7 @@ class BankProfileManager extends Component
     public function edit(int $profileId): void
     {
         $profile = BankProfile::where('user_id', Auth::id())->findOrFail($profileId);
+        $this->resetValidation();
         $this->editingProfile = $profile;
 
         $config = $profile->config;

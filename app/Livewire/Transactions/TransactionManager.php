@@ -211,6 +211,8 @@ class TransactionManager extends Component
     {
         $transaction = Transaction::forUser((int) Auth::id())->findOrFail($transactionId);
 
+        $this->resetValidation();
+
         $this->transactionId = $transaction->id;
         $this->type = $transaction->type;
         $this->amount = (string) $transaction->amount;

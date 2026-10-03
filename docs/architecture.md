@@ -77,6 +77,28 @@ Every screen-level component follows this pattern:
 - CRUD lives directly in component methods - no service classes.
 - Modal state driven by Livewire events: `openModal()` resets the form, `save()` dispatches `close-*-modal`.
 
+### Action feedback and dialog layout
+
+`resources/js/ui-feedback.js` brings completed-action errors and success messages
+into view and focuses them for keyboard and screen-reader users. Page banners
+use `data-action-feedback` with `role="status"`; errors use `data-action-error`
+with `role="alert"`. Flux input errors are also recognised. An open dialog keeps
+focus inside it and scrolls to its first error. After closing or redirecting,
+the page message is revealed instead. Field updates and background polling do
+not interrupt the user's focus or scroll position.
+Opening a different edit form clears validation left over from the previous form.
+
+Standard Flux dialogs retain their initial layout height until closed. Dynamic
+fields, validation and added rows scroll inside that height; reopening measures
+the content afresh. Width follows the viewport and the dialog's existing maximum
+width, while height is capped to the viewport. Stable scrollbar gutters prevent
+the page and dialog content from shifting horizontally. These shared behaviours
+cover finance, statement and settings dialogs in both themes.
+
+Run `npm run test:ui` inside the app container for the targeted browser-interface
+tests. CI runs them with 100% line, branch and function coverage required for the
+shared UI module.
+
 ### Volt Pages (Settings)
 
 Settings pages use [Volt](https://livewire.laravel.com/docs/volt) single-file components in `resources/views/livewire/settings/`. Key differences from class-based components: no `#[Layout]`/`#[Title]` attributes (layout applied by `Volt::route()`), inline `$this->validate([...])`, and events via `$this->dispatch()`.

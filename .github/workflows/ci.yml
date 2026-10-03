@@ -53,6 +53,9 @@ jobs:
       - name: Build assets
         run: docker compose run --rm --no-deps app npm run build
 
+      - name: Test shared UI feedback with full coverage
+        run: docker compose run --rm --no-deps app npm run test:ui
+
       - name: Start MySQL
         run: docker compose up -d --wait --wait-timeout 120 mysql
 

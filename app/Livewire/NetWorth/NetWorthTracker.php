@@ -200,6 +200,8 @@ class NetWorthTracker extends Component
     {
         $entry = NetWorthEntry::where('user_id', Auth::id())->with('lineItems')->findOrFail($entryId);
 
+        $this->resetValidation();
+
         $this->copiedFromDate = null;
         $this->entryId = $entry->id;
         $this->date = $entry->date->toDateString();
