@@ -144,5 +144,26 @@
         </section>
     </div>
 
-
+    <div class="grid gap-5 lg:grid-cols-2">
+        <section class="app-card p-5 sm:p-6" aria-labelledby="dashboard-upcoming-heading">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h2 id="dashboard-upcoming-heading" class="text-lg font-semibold tracking-tight">Upcoming payments</h2>
+                    <p class="mt-1 text-sm app-muted">{{ $upcomingPayments['start']->format('j M Y') }}–{{ $upcomingPayments['end']->format('j M Y') }} · From today · Quarterly/yearly and one-off spending</p>
+                </div>
+                <a class="app-link text-sm" href="{{ route('upcoming-payments') }}" wire:navigate>View all upcoming payments</a>
+            </div>
+            @forelse ($upcomingPayments['payments']->take(5) as $payment)
+                <div class="mt-3 flex flex-wrap items-baseline justify-between gap-2 border-t border-app-border pt-3 text-sm">
+                    <div class="min-w-0 break-words">
+                        <a href="{{ route('transactions', ['edit' => $payment->id, 'scope' => 'all']) }}" wire:navigate class="app-link">{{ $payment->description ?: ($payment->category?->name ?? 'Payment') }}</a>
+                        <p class="mt-1 text-xs app-muted">{{ $payment->date->format('j M Y') }} · {{ $payment->is_recurring ? ucfirst($payment->frequency) : 'One-off' }}</p>
+                    </div>
+                    <span class="break-words font-semibold tabular-nums">{{ \App\Support\Money::format($payment->amount) }}</span>
+                </div>
+            @empty
+                <p class="app-empty mt-4">No scheduled spending payments in this date range. <a class="app-link" href="{{ route('transactions', ['new' => 1, 'scheduled' => 1, 'scope' => 'all']) }}" wire:navigate>Add scheduled payment</a>.</p>
+            @endforelse
+        </section>
+    </div>
 </div>

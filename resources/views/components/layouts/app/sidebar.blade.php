@@ -22,6 +22,7 @@
                     <flux:navlist.item icon="arrow-up-tray" :href="route('statements.import')" :current="request()->routeIs('statements.*')" wire:navigate>{{ __('Import Statements') }}</flux:navlist.item>
                 </flux:navlist.group>
                 <flux:navlist.group :heading="__('Insights')" class="grid">
+                    <flux:navlist.item icon="calendar-days" :href="route('upcoming-payments')" :current="request()->routeIs('upcoming-payments')" wire:navigate>{{ __('Upcoming Payments') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-line" :href="route('net-worth')" :current="request()->routeIs('net-worth')" wire:navigate>{{ __('Net Worth') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-bar" :href="route('reports')" :current="request()->routeIs('reports')" wire:navigate>{{ __('Reports') }}</flux:navlist.item>
                 </flux:navlist.group>

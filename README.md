@@ -4,12 +4,13 @@ A personal budgeting and finance dashboard. Record transactions, organise them i
 
 ## Features
 
-- **Transactions:** Log income and expenses with categories, dates, and descriptions; support for recurring transactions (weekly, monthly, yearly) with per-occurrence exceptions
+- **Transactions:** Log income and expenses with categories, dates, and descriptions; support for recurring transactions (weekly, monthly, quarterly, yearly) with per-occurrence exceptions
 - **Categories:** Organise transactions with a two-level hierarchy (parent → subcategory), split by income and expense types
 - **Budgets:** Set monthly spending limits and investment goals, with progress on the dashboard
 - **Net worth tracking:** Record periodic net worth snapshots with itemised assets and liabilities
 - **Reports:** Visualise income vs. expenses over time with category breakdowns and chart data
 - **Bank statement import:** Upload CSV files from any bank, configure column mappings per provider, review staged transactions with duplicate detection, then commit to your history
+- **Upcoming Payments:** Plan 3, 6 or 12 months ahead with expected quarterly/yearly and one-off spending, monthly totals, optional regular payments, and a minimum amount filter; add or edit a future schedule without previous payment history and return to the planning page after saving. A compact preview appears at the bottom of the dashboard
 - **Dashboard:** Monthly income, spending, investing, and calculated savings alongside budget progress and category charts
 
 ## Tech Stack

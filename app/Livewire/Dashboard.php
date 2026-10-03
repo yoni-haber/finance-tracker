@@ -15,6 +15,7 @@ use App\Support\MonthlyFlow;
 use App\Support\SelectedPeriod;
 use App\Support\TransactionImpact;
 use App\Support\TransactionReport;
+use App\Support\UpcomingPayments;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Enumerable;
@@ -107,6 +108,7 @@ class Dashboard extends Component
             'hasBudgets' => $budgets->isNotEmpty(),
             'spendingCategoryBreakdown' => $enumerable,
             'recentTransactions' => $recentTransactions,
+            'upcomingPayments' => UpcomingPayments::forecast($userId),
         ]);
     }
 

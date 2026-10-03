@@ -152,7 +152,7 @@ Always set `$data['user_id'] = Auth::id()` before creating records.
 ## Recurring Transactions
 
 `Transaction::projectOccurrencesForRange()` expands recurring rules (weekly /
-monthly / yearly) into in-memory clones via `replicateForDate()`;
+monthly / quarterly / yearly) into in-memory clones via `replicateForDate()`;
 `projectOccurrencesForMonth()` is its single-month convenience wrapper. Clones
 carry a `projected` attribute. Skipped dates are stored as
 `TransactionException` rows.
@@ -227,3 +227,51 @@ rewrite existing records; incompatible data must be corrected before migration.
 `Dashboard::categoryTotals()` maps every transaction to its parent category before grouping, so subcategory totals appear under their parent in charts and budget comparisons.
 
 `MonthlyFlow::totals()` calculates savings as income minus spending and investing. Saving-category transactions remain in activity history and do not reduce that remainder. Dashboard and cash flow reports share this calculation; current-month dashboard savings includes projected recurring occurrences. Budget progress counts transactions through today, treats Spending budgets as limits and Investment budgets as goals, and keeps the Reports budget chart limited to spending budgets.
+
+## Upcoming Payments
+
+`UpcomingPayments::forecast()` uses `TransactionReport::projectedForRange()` once
+for the full horizon, filters spending expenses (including uncategorised entries),
+and returns ordered occurrences, monthly totals and an overall total. Monetary
+arithmetic stays in integer pennies. The horizon is today through the end of the
+third, sixth or twelfth calendar month, counting the current month as month one.
+
+The Upcoming Payments page has URL-backed `months`, `regular` and `minimum`
+filters. It operates independently of the global selected period. Its default
+forecast includes quarterly/yearly schedules and dated one-offs. Weekly/monthly
+payments can be included explicitly; income, savings and investments are excluded.
+The dashboard shares the six-month default forecast and previews five payments
+in a card at the bottom of the page, half width on desktop and full width on
+mobile. Neither view displays an overall forecast total; the planning page
+retains monthly totals and individual amounts. The date range and payment count
+are integrated into the filters card. Months with payments use the existing green
+accent and coral spending totals; empty months are quieter. Frequency badges use
+the existing blue accent. Net worth summary values share the dashboard palette:
+assets and nonnegative net worth are green, liabilities and negative net worth
+are coral; missing snapshots remain muted.
+
+A future schedule starts on its first expected payment date and requires no
+historical payment. Add scheduled payment opens the standard transaction editor
+with `scheduled=1` and today's date, even when the global month is historical.
+`edit=<id>` opens an existing user-owned record; recurring edits affect the series.
+Links from Upcoming Payments include `upcoming=1`, so a successful create or edit
+returns to that page and brings its accessible success message into view. Filter
+errors use the shared error-feedback markers. Validation failures keep the editor open. Saving or closing
+the modal clears its URL action flags; regular transaction saves remain on
+Transactions. The editor focuses its heading and resets its scroll position on
+opening. Recurrences have no end date by default; selecting **Set an end date**
+reveals an initially empty required date field. Removing that selection clears
+the stored end date. Existing finite series load with the selection enabled.
+Generated occurrences remain in memory and are never persisted as additional transactions.
+
+Quarterly schedules advance by three months from the original date and preserve
+the same short-month clamping and anchor restoration as monthly schedules. Apply
+the quarterly-frequency migration before saving them. Its rollback refuses while
+quarterly rows exist: convert or remove these schedules before rollback.
+
+The coverage requirement for new/changed executable application PHP is 100%.
+CI runs the complete PHPUnit suite with coverage; local checks target the affected
+tests. Infection's configuration requires a 100% mutation score with no escaped
+mutants or timeouts. During feature work,
+run only relevant PHPUnit files/methods and changed-file static checks locally;
+leave full-suite and Infection runs to CI.
