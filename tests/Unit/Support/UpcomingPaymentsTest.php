@@ -121,6 +121,25 @@ final class UpcomingPaymentsTest extends TestCase
         $this->assertCount(5, UpcomingPayments::forecast($this->user->id, minimum: '0')['payments']);
     }
 
+    public function test_blank_minimum_matches_explicit_zero_at_the_penny_boundary_for_legacy_amounts(): void
+    {
+        // Existing data can contain zero or signed amounts even though the editor requires a positive amount.
+        $this->payment(['amount' => '-0.01']);
+        $transaction = $this->payment(['amount' => '0.00']);
+        $penny = $this->payment(['amount' => '0.01']);
+
+        foreach (['', '0', '0.00'] as $minimum) {
+            $forecast = UpcomingPayments::forecast($this->user->id, minimum: $minimum);
+            $this->assertSame([$transaction->id, $penny->id], $forecast['payments']->pluck('id')->all());
+            $this->assertSame('0.01', $forecast['total']);
+            $december = $forecast['months']->firstWhere('label', 'December 2026');
+            $this->assertIsArray($december);
+            $this->assertSame('0.01', $december['total']);
+        }
+
+        $this->assertDatabaseCount('transactions', 3);
+    }
+
     public function test_skipped_occurrences_and_ended_series_are_excluded_with_one_transaction_query(): void
     {
         $quarterly = $this->payment(['date' => '2026-09-30', 'is_recurring' => true, 'frequency' => 'quarterly', 'recurring_until' => '2027-03-30']);

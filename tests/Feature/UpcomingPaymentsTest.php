@@ -16,6 +16,31 @@ final class UpcomingPaymentsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_a_blank_minimum_is_optional_and_reset_restores_the_unfiltered_forecast(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2));
+        $user = User::factory()->create();
+        Transaction::factory()->for($user)->create([
+            'type' => 'expense', 'category_id' => null, 'date' => '2026-12-15',
+            'amount' => '0.01', 'description' => 'Small scheduled payment',
+        ]);
+
+        Livewire::actingAs($user)->withQueryParams(['minimum' => ''])->test(UpcomingPayments::class)
+            ->assertSet('minimum', '')->assertHasNoErrors()->assertSee('Small scheduled payment')
+            ->set('minimum', '0.02')->assertHasNoErrors()->assertDontSee('Small scheduled payment')
+            ->set('minimum', '')->assertHasNoErrors()->assertSee('Small scheduled payment')
+            ->set('minimum', '0.02')->call('resetFilters')
+            ->assertSet('minimum', '')->assertHasNoErrors()->assertSee('Small scheduled payment');
+    }
+
+    public function test_invalid_horizon_explains_the_available_choices_and_clears_after_correction(): void
+    {
+        Livewire::actingAs(User::factory()->create())->test(UpcomingPayments::class)
+            ->set('months', '4')->assertHasErrors('months')
+            ->assertSee('Choose 3, 6 or 12 months.')->assertViewHas('forecast', null)
+            ->set('months', '3')->assertHasNoErrors()->assertDontSee('Choose 3, 6 or 12 months.');
+    }
+
     public function test_guests_are_redirected_and_authenticated_users_see_navigation_but_no_period_selector(): void
     {
         $this->get(route('upcoming-payments'))->assertRedirect(route('login'));

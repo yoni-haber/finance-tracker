@@ -422,7 +422,7 @@ class TransactionManager extends Component
             $end = match ($this->frequency) {
                 'weekly' => $start->copy()->addWeeks(2),
                 'monthly' => $start->copy()->addMonths(2)->endOfMonth(),
-                'quarterly' => $start->copy()->startOfMonth()->addMonths(6)->endOfMonth(),
+                'quarterly' => $start->copy()->startOfMonth()->addQuarters(2)->endOfMonth(),
                 default => $start->copy()->addYears(2)->endOfYear(),
             };
             $transaction = new Transaction([

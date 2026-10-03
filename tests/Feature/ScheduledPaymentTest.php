@@ -11,12 +11,59 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Support\TransactionReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class ScheduledPaymentTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** @return iterable<string, array{bool, bool}> */
+    public static function newPaymentActions(): iterable
+    {
+        yield 'ordinary ledger visit' => [false, false];
+
+        yield 'new transaction' => [true, false];
+
+        yield 'scheduled payment' => [false, true];
+
+        yield 'new scheduled payment' => [true, true];
+    }
+
+    #[DataProvider('newPaymentActions')]
+    public function test_mount_opens_the_editor_only_for_an_explicit_new_or_scheduled_action(bool $new, bool $scheduled): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2));
+        $user = User::factory()->create(['selected_month' => 1, 'selected_year' => 2020]);
+
+        $testable = Livewire::actingAs($user)->withQueryParams(['new' => $new, 'scheduled' => $scheduled])
+            ->test(TransactionManager::class)
+            ->assertSet('new', $new)->assertSet('scheduled', $scheduled)
+            ->assertSet('date', $scheduled ? '2026-10-02' : '2020-01-01');
+
+        if ($new || $scheduled) {
+            $testable->assertDispatched('open-transaction-modal');
+        } else {
+            $testable->assertNotDispatched('open-transaction-modal');
+        }
+
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_livewire_field_validation_can_access_transaction_rules_without_explicit_rules(): void
+    {
+        $component = Livewire::actingAs(User::factory()->create())->test(TransactionManager::class)->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $component->amount = '0.01';
+        $this->assertSame(['amount' => '0.01'], $component->validateOnly('amount'));
+
+        $this->assertDatabaseCount('transactions', 0);
+        $component->amount = '0';
+        $this->expectException(ValidationException::class);
+        $component->validateOnly('amount');
+    }
 
     public function test_scheduled_add_uses_today_even_with_a_historical_period_and_creates_a_future_yearly_payment(): void
     {

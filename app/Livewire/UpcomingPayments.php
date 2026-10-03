@@ -35,7 +35,7 @@ class UpcomingPayments extends Component
     {
         $validator = Validator::make([
             'months' => $this->months,
-            'minimum' => $this->minimum,
+            'minimum' => $this->minimum === '' ? null : $this->minimum,
         ], [
             'months' => ['required', 'in:3,6,12'],
             'minimum' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'regex:/^\d+(?:\.\d{1,2})?$/'],

@@ -20,6 +20,27 @@ final class QuarterlyTransactionTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** @return iterable<string, array{string, list<string>}> */
+    public static function quarterlyPreviews(): iterable
+    {
+        yield 'leap February clamping' => ['2023-08-31', ['31 Aug 2023', '30 Nov 2023', '29 Feb 2024']];
+
+        yield 'non-leap February clamping' => ['2024-08-31', ['31 Aug 2024', '30 Nov 2024', '28 Feb 2025']];
+
+        yield 'anchor restored after April' => ['2026-01-31', ['31 Jan 2026', '30 Apr 2026', '31 Jul 2026']];
+    }
+
+    /** @param list<string> $expected */
+    #[DataProvider('quarterlyPreviews')]
+    public function test_quarterly_preview_contains_the_start_and_exactly_two_following_quarters(string $start, array $expected): void
+    {
+        $testable = Livewire::actingAs(User::factory()->create())->test(TransactionManager::class)
+            ->set('date', $start)->set('is_recurring', true)->set('frequency', 'quarterly');
+        $component = $testable->instance();
+        $this->assertInstanceOf(TransactionManager::class, $component);
+        $this->assertSame($expected, $component->recurringPreview());
+    }
+
     /** @return iterable<string, array{string, string, string, list<string>}> */
     public static function ranges(): iterable
     {
