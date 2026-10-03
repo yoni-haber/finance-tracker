@@ -4,7 +4,7 @@
     </x-page-header>
     {{-- Status message --}}
     @if (session()->has('status'))
-        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
+        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
         </div>
     @endif
@@ -200,19 +200,19 @@
             @endif
             <form wire:submit.prevent="save" class="space-y-5">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <div><label for="transaction-amount" class="app-form-label">Amount (£)</label><input id="transaction-amount" type="number" min="0" step="0.01" inputmode="decimal" wire:model="amount" placeholder="0.00" class="app-field mt-1.5 w-full" />@error('amount') <p class="app-form-error">{{ $message }}</p> @enderror</div>
-                    <div><label for="transaction-direction" class="app-form-label">Direction</label><select id="transaction-direction" wire:model.live="type" class="app-field mt-1.5 w-full"><option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Money in</option><option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Money out</option></select>@error('type') <p class="app-form-error">{{ $message }}</p> @enderror</div>
-                    <div><label for="transaction-date" class="app-form-label">Date</label><input id="transaction-date" type="date" wire:model.live="date" class="app-field mt-1.5 w-full" />@error('date') <p class="app-form-error">{{ $message }}</p> @enderror</div>
-                    <div><label for="transaction-category" class="app-form-label">Category</label><select id="transaction-category" wire:model="category_id" class="app-field mt-1.5 w-full"><option value="">Uncategorised</option>@foreach ($formCategories as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}">{{ $parent->name }}</option>@endif @endforeach</select>@error('category_id') <p class="app-form-error">{{ $message }}</p> @enderror</div>
+                    <div><label for="transaction-amount" class="app-form-label">Amount (£)</label><input id="transaction-amount" type="number" min="0" step="0.01" inputmode="decimal" wire:model="amount" placeholder="0.00" class="app-field mt-1.5 w-full" />@error('amount') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                    <div><label for="transaction-direction" class="app-form-label">Direction</label><select id="transaction-direction" wire:model.live="type" class="app-field mt-1.5 w-full"><option value="{{ \App\Models\Transaction::TYPE_INCOME }}">Money in</option><option value="{{ \App\Models\Transaction::TYPE_EXPENSE }}">Money out</option></select>@error('type') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                    <div><label for="transaction-date" class="app-form-label">Date</label><input id="transaction-date" type="date" wire:model.live="date" class="app-field mt-1.5 w-full" />@error('date') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                    <div><label for="transaction-category" class="app-form-label">Category</label><select id="transaction-category" wire:model="category_id" class="app-field mt-1.5 w-full"><option value="">Uncategorised</option>@foreach ($formCategories as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}">{{ $parent->name }}</option>@endif @endforeach</select>@error('category_id') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                 </div>
-                <div><label for="transaction-description" class="app-form-label">Description <span class="normal-case font-normal app-muted">(optional)</span></label><textarea id="transaction-description" wire:model="description" rows="2" placeholder="What was this for?" class="app-field mt-1.5 w-full"></textarea>@error('description') <p class="app-form-error">{{ $message }}</p> @enderror</div>
+                <div><label for="transaction-description" class="app-form-label">Description <span class="normal-case font-normal app-muted">(optional)</span></label><textarea id="transaction-description" wire:model="description" rows="2" placeholder="What was this for?" class="app-field mt-1.5 w-full"></textarea>@error('description') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                 <div class="rounded-xl border border-app-border bg-zinc-50/50 p-4 dark:bg-zinc-800/40">
                     <label class="flex cursor-pointer items-center gap-2.5"><input type="checkbox" wire:model.live="is_recurring" class="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500" /><span class="text-sm font-semibold">Repeat this transaction</span></label>
                     <p class="mt-1 pl-7 text-xs app-muted">Use this for regular income or payments. The schedule contributes to projected totals.</p>
                     @if ($is_recurring)
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                            <div><label for="transaction-frequency" class="app-form-label">Frequency</label><select id="transaction-frequency" wire:model.live="frequency" class="app-field mt-1.5 w-full"><option value="">Select frequency</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>@error('frequency') <p class="app-form-error">{{ $message }}</p> @enderror</div>
-                            <div><label for="transaction-recurrence-end" class="app-form-label">Repeat until <span class="normal-case font-normal app-muted">(optional)</span></label><input id="transaction-recurrence-end" type="date" wire:model.live="recurring_until" class="app-field mt-1.5 w-full" />@error('recurring_until') <p class="app-form-error">{{ $message }}</p> @enderror</div>
+                            <div><label for="transaction-frequency" class="app-form-label">Frequency</label><select id="transaction-frequency" wire:model.live="frequency" class="app-field mt-1.5 w-full"><option value="">Select frequency</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>@error('frequency') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                            <div><label for="transaction-recurrence-end" class="app-form-label">Repeat until <span class="normal-case font-normal app-muted">(optional)</span></label><input id="transaction-recurrence-end" type="date" wire:model.live="recurring_until" class="app-field mt-1.5 w-full" />@error('recurring_until') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                         </div>
                         @if ($this->recurringPreview())
                             <div class="mt-4 rounded-lg bg-app-surface p-3 text-sm"><p class="font-semibold">Expected dates</p><p class="mt-1 app-muted">{{ implode(' · ', $this->recurringPreview()) }}</p><p class="mt-1 text-xs app-muted">Preview of the first three scheduled dates, subject to skipped occurrences.</p></div>
@@ -221,7 +221,7 @@
                         @endif
                     @endif
                 </div>
-                @error('save') <p class="app-form-error" role="alert">{{ $message }}</p> @enderror
+                @error('save') <p class="app-form-error" role="alert" data-action-error>{{ $message }}</p> @enderror
                 <div class="app-form-actions"><flux:modal.close><button type="button" class="app-button-secondary">Cancel</button></flux:modal.close><button type="submit" wire:loading.attr="disabled" wire:target="save" class="app-button-primary"><span wire:loading.remove wire:target="save">{{ $transactionId ? 'Save changes' : 'Add transaction' }}</span><span wire:loading wire:target="save">Saving…</span></button></div>
             </form>
         </div>
@@ -250,7 +250,7 @@
                 </flux:subheading>
             </div>
 
-            @error('delete') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
+            @error('delete') <p class="text-sm text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
 
             <div class="flex flex-wrap justify-end gap-3">
                 <flux:modal.close><flux:button variant="ghost">Cancel</flux:button></flux:modal.close>

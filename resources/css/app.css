@@ -8,6 +8,24 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Keep the page and dialog content aligned when scrollbars appear or disappear. */
+html {
+    scrollbar-gutter: stable;
+}
+
+[data-flux-modal] > dialog:not([data-flux-flyout]):not([data-flux-modal-overflow]) {
+    width: calc(100vw - 2rem);
+    min-width: 0;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+[data-action-feedback], [data-action-error], [data-flux-error] {
+    scroll-margin-block: 1rem;
+}
+
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 

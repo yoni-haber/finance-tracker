@@ -160,6 +160,7 @@ class BudgetManager extends Component
     public function edit(int $budgetId): void
     {
         $budget = Budget::where('user_id', Auth::id())->findOrFail($budgetId);
+        $this->resetValidation();
         $this->budgetId = $budget->id;
         $this->category_id = $budget->category_id;
         $this->month = $budget->month;

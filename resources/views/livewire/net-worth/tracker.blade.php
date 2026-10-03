@@ -9,7 +9,7 @@
     </div>
     {{-- Status message --}}
     @if (session()->has('status'))
-        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
+        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
         </div>
     @endif
@@ -128,7 +128,7 @@
                         <label for="networth-snapshot-date" class="app-form-label">Snapshot date</label>
                         <input id="networth-snapshot-date" type="date" wire:model="date" max="{{ today()->toDateString() }}"
                                class="app-field mt-1.5 w-full"/>
-                        @error('date') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                        @error('date') <p class="mt-1 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                     </div>
                     @if (!$entryId)
                         <div class="flex flex-wrap items-center gap-3">
@@ -143,7 +143,7 @@
                                 </p>
                             @endif
                         </div>
-                        @error('copy') <p class="text-sm text-rose-600" role="alert">{{ $message }}</p> @enderror
+                        @error('copy') <p class="text-sm text-rose-600" role="alert" data-action-error>{{ $message }}</p> @enderror
                     @endif
                 </div>
 
@@ -171,7 +171,7 @@
                                                 @if ($editingAssetIndex === $index)
                                                     <input type="text" wire:model="assetLines.{{ $index }}.category" aria-label="Asset name {{ $index + 1 }}"
                                                            class="app-field w-full text-sm"/>
-                                                    @error('assetLines.' . $index . '.category') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                                    @error('assetLines.' . $index . '.category') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="text-zinc-800 dark:text-zinc-100">{{ $asset['category'] }}</span>
                                                 @endif
@@ -180,7 +180,7 @@
                                                 @if ($editingAssetIndex === $index)
                                                     <input type="number" min="0" step="0.01" wire:model="assetLines.{{ $index }}.amount" aria-label="Asset amount {{ $index + 1 }} in pounds"
                                                            class="app-field w-full text-sm"/>
-                                                    @error('assetLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                                    @error('assetLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="font-medium tabular-nums">{{ \App\Support\Money::format($asset['amount']) }}</span>
                                                 @endif
@@ -204,12 +204,12 @@
                                         <td class="px-3 py-2">
                                             <input type="text" wire:model="newAssetCategory" aria-label="New asset name" placeholder="e.g., Cash ISA"
                                                    class="app-field w-full text-sm"/>
-                                            @error('newAssetCategory') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                            @error('newAssetCategory') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="number" min="0" step="0.01" inputmode="decimal" wire:model="newAssetAmount" aria-label="New asset amount in pounds" placeholder="0.00"
                                                    class="app-field w-full text-sm"/>
-                                            @error('newAssetAmount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                            @error('newAssetAmount') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <button type="button" wire:click="addAssetLine"
@@ -242,7 +242,7 @@
                                                 @if ($editingLiabilityIndex === $index)
                                                     <input type="text" wire:model="liabilityLines.{{ $index }}.category" aria-label="Liability name {{ $index + 1 }}"
                                                            class="app-field w-full text-sm"/>
-                                                    @error('liabilityLines.' . $index . '.category') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                                    @error('liabilityLines.' . $index . '.category') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="text-zinc-800 dark:text-zinc-100">{{ $liability['category'] }}</span>
                                                 @endif
@@ -251,7 +251,7 @@
                                                 @if ($editingLiabilityIndex === $index)
                                                     <input type="number" min="0" step="0.01" wire:model="liabilityLines.{{ $index }}.amount" aria-label="Liability amount {{ $index + 1 }} in pounds"
                                                            class="app-field w-full text-sm"/>
-                                                    @error('liabilityLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                                    @error('liabilityLines.' . $index . '.amount') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                                 @else
                                                     <span class="font-medium tabular-nums">{{ \App\Support\Money::format($liability['amount']) }}</span>
                                                 @endif
@@ -275,12 +275,12 @@
                                         <td class="px-3 py-2">
                                             <input type="text" wire:model="newLiabilityCategory" aria-label="New liability name" placeholder="e.g., Mortgage"
                                                    class="app-field w-full text-sm"/>
-                                            @error('newLiabilityCategory') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                            @error('newLiabilityCategory') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="number" min="0" step="0.01" inputmode="decimal" wire:model="newLiabilityAmount" aria-label="New liability amount in pounds" placeholder="0.00"
                                                    class="app-field w-full text-sm"/>
-                                            @error('newLiabilityAmount') <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                            @error('newLiabilityAmount') <p class="mt-0.5 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <button type="button" wire:click="addLiabilityLine"
@@ -293,7 +293,7 @@
                     </div>
                 </div>
 
-                @error('save') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
+                @error('save') <p class="text-sm text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
 
                 <div class="app-form-actions">
                     <flux:modal.close>

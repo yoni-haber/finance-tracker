@@ -4,8 +4,14 @@
     </x-page-header>
     {{-- Status message --}}
     @if (session()->has('status'))
-        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
+        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-900/20" data-action-error role="alert">
+            <p class="text-sm font-medium text-rose-800 dark:text-rose-300">{{ session('error') }}</p>
         </div>
     @endif
 
@@ -86,23 +92,23 @@
         <div class="space-y-5">
             <div><flux:heading size="lg">{{ $categoryId ? 'Edit category' : 'New category' }}</flux:heading><p class="mt-1 text-sm app-muted">Categories organise transactions and control how expenses appear in reports.</p></div>
             <form wire:submit.prevent="save" class="space-y-5">
-                <div><label for="category-name" class="app-form-label">Name</label><input id="category-name" type="text" wire:model="name" placeholder="e.g., Groceries or Salary" class="app-field mt-1.5 w-full" autofocus />@error('name') <p class="app-form-error">{{ $message }}</p> @enderror</div>
+                <div><label for="category-name" class="app-form-label">Name</label><input id="category-name" type="text" wire:model="name" placeholder="e.g., Groceries or Salary" class="app-field mt-1.5 w-full" autofocus />@error('name') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <div><label for="category-type" class="app-form-label">Type</label><select id="category-type" wire:model.live="type" @disabled($editingStructureLocked) class="app-field mt-1.5 w-full disabled:opacity-60"><option value="expense">Money out</option><option value="income">Money in</option></select>@error('type') <p class="app-form-error">{{ $message }}</p> @enderror</div>
-                    <div><label for="category-parent" class="app-form-label">Parent <span class="normal-case font-normal app-muted">(optional)</span></label><select id="category-parent" wire:model.live="parentId" @disabled($editingStructureLocked) class="app-field mt-1.5 w-full disabled:opacity-60"><option value="">Top-level category</option>@foreach ($parentOptions as $option)<option value="{{ $option->id }}">{{ $option->name }}</option>@endforeach</select>@error('parentId') <p class="app-form-error">{{ $message }}</p> @enderror</div>
+                    <div><label for="category-type" class="app-form-label">Type</label><select id="category-type" wire:model.live="type" @disabled($editingStructureLocked) class="app-field mt-1.5 w-full disabled:opacity-60"><option value="expense">Money out</option><option value="income">Money in</option></select>@error('type') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
+                    <div><label for="category-parent" class="app-form-label">Parent <span class="normal-case font-normal app-muted">(optional)</span></label><select id="category-parent" wire:model.live="parentId" @disabled($editingStructureLocked) class="app-field mt-1.5 w-full disabled:opacity-60"><option value="">Top-level category</option>@foreach ($parentOptions as $option)<option value="{{ $option->id }}">{{ $option->name }}</option>@endforeach</select>@error('parentId') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                 </div>
                 @if ($editingStructureLocked)
                     <p class="rounded-xl bg-zinc-50 p-3 text-xs app-muted dark:bg-zinc-800">Type and parent are locked because this category is in use. You can still rename it.</p>
                 @endif
                 @if ($type === \App\Models\Category::TYPE_EXPENSE && $parentId === null)
-                    <div><label for="category-treatment" class="app-form-label">How to report this expense</label><select id="category-treatment" wire:model.live="expenseTreatment" class="app-field mt-1.5 w-full"><option value="spending">Spending</option><option value="saving">Saving</option><option value="investment">Investment</option></select><p class="mt-1.5 text-xs app-muted">Investment is tracked separately from spending. Saving transfers stay in activity; savings is calculated from what remains.</p>@error('expenseTreatment') <p class="app-form-error">{{ $message }}</p> @enderror</div>
+                    <div><label for="category-treatment" class="app-form-label">How to report this expense</label><select id="category-treatment" wire:model.live="expenseTreatment" class="app-field mt-1.5 w-full"><option value="spending">Spending</option><option value="saving">Saving</option><option value="investment">Investment</option></select><p class="mt-1.5 text-xs app-muted">Investment is tracked separately from spending. Saving transfers stay in activity; savings is calculated from what remains.</p>@error('expenseTreatment') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror</div>
                     @if ($editingCategoryImpact && $editingCategoryImpact['treatment'] !== $expenseTreatment && ($editingCategoryImpact['transactions'] > 0 || $editingCategoryImpact['budgets'] > 0))
                         <p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">This will reclassify {{ $editingCategoryImpact['transactions'] }} existing {{ \Illuminate\Support\Str::plural('transaction', $editingCategoryImpact['transactions']) }} in past and future reports.@if ($editingCategoryImpact['budgets'] > 0) Remove this category's budgets before making this change.@endif</p>
                     @endif
                 @elseif ($type === \App\Models\Category::TYPE_EXPENSE)
                     <p class="rounded-xl bg-zinc-50 p-3 text-xs app-muted dark:bg-zinc-800">Subcategories inherit their parent’s reporting treatment.</p>
                 @endif
-                @error('save') <p class="app-form-error" role="alert">{{ $message }}</p> @enderror
+                @error('save') <p class="app-form-error" role="alert" data-action-error>{{ $message }}</p> @enderror
                 <div class="app-form-actions"><flux:modal.close><button type="button" class="app-button-secondary">Cancel</button></flux:modal.close><button type="submit" wire:loading.attr="disabled" wire:target="save" class="app-button-primary">{{ $categoryId ? 'Save changes' : 'Add category' }}</button></div>
             </form>
         </div>

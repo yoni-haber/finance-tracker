@@ -337,7 +337,8 @@ final class CategoryManagerTest extends TestCase
             ->test(CategoryManager::class)
             ->call('confirmDelete', $category->id)
             ->call('delete')
-            ->assertSee('Category removed.');
+            ->assertSee('Category removed.')
+            ->assertSeeHtml('data-action-feedback role="status"');
 
         $this->assertDatabaseMissing('categories', ['id' => $category->id]);
     }
@@ -354,7 +355,8 @@ final class CategoryManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
             ->call('confirmDelete', $category->id)
-            ->assertSee('Cannot delete');
+            ->assertSee('Cannot delete')
+            ->assertSeeHtml('data-action-error role="alert"');
 
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
     }
@@ -369,7 +371,8 @@ final class CategoryManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
             ->call('confirmDelete', $parent->id)
-            ->assertSee('Cannot delete');
+            ->assertSee('Cannot delete')
+            ->assertSeeHtml('data-action-error role="alert"');
 
         $this->assertDatabaseHas('categories', ['id' => $parent->id]);
         $this->assertDatabaseHas('categories', ['id' => $sub->id]);
@@ -384,7 +387,8 @@ final class CategoryManagerTest extends TestCase
         Livewire::actingAs($user)
             ->test(CategoryManager::class)
             ->call('confirmDelete', $category->id)
-            ->assertSee('Cannot delete');
+            ->assertSee('Cannot delete')
+            ->assertSeeHtml('data-action-error role="alert"');
 
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
     }
@@ -625,6 +629,7 @@ final class CategoryManagerTest extends TestCase
             ->call('delete')
             ->assertDispatched('close-delete-category-modal')
             ->assertSee('Cannot delete — category has transactions. Rename it instead.')
+            ->assertSeeHtml('data-action-error role="alert"')
             ->assertDontSee('Category removed.');
 
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
@@ -643,6 +648,7 @@ final class CategoryManagerTest extends TestCase
             ->call('delete')
             ->assertDispatched('close-delete-category-modal')
             ->assertSee('Cannot delete — category has budgets. Remove the budgets first.')
+            ->assertSeeHtml('data-action-error role="alert"')
             ->assertDontSee('Category removed.');
 
         $this->assertDatabaseHas('categories', ['id' => $category->id]);
