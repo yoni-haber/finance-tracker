@@ -282,7 +282,7 @@ class extends \Livewire\Component {
                             autocomplete="one-time-code"
                         />
                         @error('code')
-                        <flux:text color="red">
+                        <flux:text color="red" data-action-error role="alert">
                             {{ $message }}
                         </flux:text>
                         @enderror
@@ -309,7 +309,7 @@ class extends \Livewire\Component {
                 </div>
             @else
                 @error('setupData')
-                <flux:callout variant="danger" icon="x-circle" heading="{{ $message }}"/>
+                <flux:callout variant="danger" icon="x-circle" heading="{{ $message }}" data-action-error role="alert"/>
                 @enderror
 
                 <div class="flex justify-center">

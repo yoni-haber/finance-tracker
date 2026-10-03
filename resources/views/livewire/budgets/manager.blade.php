@@ -28,12 +28,12 @@
     </div>
     {{-- Status messages --}}
     @if (session()->has('status'))
-        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800">
+        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
         </div>
     @endif
     @if (session()->has('copy_status'))
-        <div class="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800">
+        <div class="rounded-md bg-blue-50 border border-blue-200 px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800" data-action-feedback role="status">
             <p class="text-sm font-medium text-blue-800 dark:text-blue-300">{{ session('copy_status') }}</p>
         </div>
     @endif
@@ -153,7 +153,7 @@
                             <option value="{{ $category->id }}">{{ $category->name }}{{ $category->expense_treatment === \App\Models\Category::TREATMENT_INVESTMENT ? ' · Investment goal' : '' }}</option>
                         @endforeach
                     </select>
-                    @error('category_id') <p class="app-form-error">{{ $message }}</p> @enderror
+                    @error('category_id') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2">
@@ -165,13 +165,13 @@
                                 <option value="{{ $m }}">{{ now()->startOfYear()->month($m)->format('F') }}</option>
                             @endforeach
                         </select>
-                        @error('month') <p class="app-form-error">{{ $message }}</p> @enderror
+                        @error('month') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label for="budget-year" class="app-form-label">Year</label>
                         <input id="budget-year" type="number" wire:model.live="year" min="2000" max="2100"
                                class="app-field mt-1.5 w-full"/>
-                        @error('year') <p class="app-form-error">{{ $message }}</p> @enderror
+                        @error('year') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                     </div>
                 </div>
 
@@ -179,10 +179,10 @@
                     <label for="budget-amount" class="app-form-label">{{ $selectedBudgetIsInvestment ? 'Monthly target (£)' : 'Monthly limit (£)' }}</label>
                     <input id="budget-amount" type="number" min="{{ $selectedBudgetIsInvestment ? '0.01' : '0' }}" step="0.01" inputmode="decimal" wire:model.live="amount" placeholder="0.00"
                            class="app-field mt-1.5 w-full"/>
-                    @error('amount') <p class="app-form-error">{{ $message }}</p> @enderror
+                    @error('amount') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                 </div>
 
-                @error('save') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
+                @error('save') <p class="text-sm text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
 
                 <div class="app-form-actions">
                     <flux:modal.close>

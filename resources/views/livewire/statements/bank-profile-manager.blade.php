@@ -3,13 +3,13 @@
         <button type="button" wire:click="showCreate" class="app-button-primary">+ New profile</button>
     </x-page-header>
     @if (session('status'))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-900/20">
+        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-900/20" data-action-feedback role="status">
             <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
         </div>
     @endif
 
     @error('delete')
-        <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-900/20">
+        <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-900/20" data-action-error role="alert">
             <p class="text-sm font-medium text-rose-800 dark:text-rose-300">{{ $message }}</p>
         </div>
     @enderror
@@ -135,7 +135,7 @@
                         placeholder="e.g., Halifax or American Express"
                         class="app-field mt-1.5 w-full"
                     >
-                    @error('form.name') <p class="app-form-error">{{ $message }}</p> @enderror
+                    @error('form.name') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">A short name for this statement format.</p>
                 </div>
 
@@ -145,7 +145,7 @@
                         <option value="bank">Bank Statement</option>
                         <option value="credit_card">Credit Card Statement</option>
                     </select>
-                    @error('form.statement_type') <p class="app-form-error">{{ $message }}</p> @enderror
+                    @error('form.statement_type') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Choose how positive and negative amounts should be interpreted.</p>
                 </div>
 
@@ -159,7 +159,7 @@
                             min="1"
                             class="app-field mt-1.5 w-full"
                         >
-                        @error('form.date_column') <p class="app-form-error">{{ $message }}</p> @enderror
+                        @error('form.date_column') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for the transaction date.</p>
                     </div>
 
@@ -171,7 +171,7 @@
                             min="1"
                             class="app-field mt-1.5 w-full"
                         >
-                        @error('form.description_column') <p class="app-form-error">{{ $message }}</p> @enderror
+                        @error('form.description_column') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for the transaction description.</p>
                     </div>
                 </div>
@@ -187,7 +187,7 @@
                         <option value="m/d/Y">MM/DD/YYYY (e.g., 12/31/2025)</option>
                         <option value="d-m-Y">DD-MM-YYYY (e.g., 31-12-2025)</option>
                     </select>
-                    @error('form.date_format') <p class="app-form-error">{{ $message }}</p> @enderror
+                    @error('form.date_format') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Format of dates in the statement file.</p>
                 </div>
 
@@ -225,7 +225,7 @@
                                 min="1"
                                 class="app-field mt-1.5 w-full"
                             >
-                            @error('form.amount_column') <p class="app-form-error">{{ $message }}</p> @enderror
+                            @error('form.amount_column') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                             <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for signed +/- amounts.</p>
                         </div>
                     @else
@@ -238,7 +238,7 @@
                                     min="1"
                                     class="app-field mt-1.5 w-full"
                                 >
-                                @error('form.debit_column') <p class="app-form-error">{{ $message }}</p> @enderror
+                                @error('form.debit_column') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                                 <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for money out.</p>
                             </div>
 
@@ -250,7 +250,7 @@
                                     min="1"
                                     class="app-field mt-1.5 w-full"
                                 >
-                                @error('form.credit_column') <p class="app-form-error">{{ $message }}</p> @enderror
+                                @error('form.credit_column') <p class="app-form-error" data-action-error role="alert">{{ $message }}</p> @enderror
                                 <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Column number for money in.</p>
                             </div>
                         </div>
@@ -290,7 +290,7 @@
                 </div>
 
                 @error('delete')
-                    <div class="rounded-md border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-900/20">
+                    <div class="rounded-md border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-900/20" data-action-error role="alert">
                         <p class="text-sm text-rose-800 dark:text-rose-300">{{ $message }}</p>
                     </div>
                 @enderror

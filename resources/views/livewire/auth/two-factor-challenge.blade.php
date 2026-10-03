@@ -52,7 +52,7 @@
                         </div>
 
                         @error('code')
-                            <flux:text color="red">
+                            <flux:text color="red" data-action-error role="alert">
                                 {{ $message }}
                             </flux:text>
                         @enderror
@@ -71,7 +71,7 @@
                         </div>
 
                         @error('recovery_code')
-                            <flux:text color="red">
+                            <flux:text color="red" data-action-error role="alert">
                                 {{ $message }}
                             </flux:text>
                         @enderror

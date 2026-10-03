@@ -214,6 +214,8 @@ class CategoryManager extends Component
     {
         $category = Category::forUser((int) Auth::id())->findOrFail($categoryId);
 
+        $this->resetValidation();
+
         $this->categoryId = $category->id;
         $this->name = $category->name;
         $this->type = $category->type;
@@ -235,13 +237,13 @@ class CategoryManager extends Component
         }
 
         if ($category->hasTransactions()) {
-            session()->flash('status', 'Cannot delete — category has transactions. Rename it instead.');
+            session()->flash('error', 'Cannot delete — category has transactions. Rename it instead.');
 
             return;
         }
 
         if ($category->hasBudgets()) {
-            session()->flash('status', 'Cannot delete — category has budgets. Remove the budgets first.');
+            session()->flash('error', 'Cannot delete — category has budgets. Remove the budgets first.');
 
             return;
         }
@@ -273,14 +275,14 @@ class CategoryManager extends Component
 
         // Re-check guards in case state changed since the confirmation was shown.
         if ($category->hasTransactions()) {
-            session()->flash('status', 'Cannot delete — category has transactions. Rename it instead.');
+            session()->flash('error', 'Cannot delete — category has transactions. Rename it instead.');
             $this->dispatch('close-delete-category-modal');
 
             return;
         }
 
         if ($category->hasBudgets()) {
-            session()->flash('status', 'Cannot delete — category has budgets. Remove the budgets first.');
+            session()->flash('error', 'Cannot delete — category has budgets. Remove the budgets first.');
             $this->dispatch('close-delete-category-modal');
 
             return;

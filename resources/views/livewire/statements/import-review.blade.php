@@ -2,7 +2,7 @@
 <div class="space-y-5">
     <x-page-header eyebrow="Import" title="Review statement" description="Check possible matches, choose which transactions to keep, and assign categories before importing." />
     @if (session('status'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20" role="status">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20" role="status" data-action-feedback>
             <div class="flex">
                 <div class="ml-3">
                     <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">{{ session('status') }}</p>
@@ -133,7 +133,7 @@
             </div>
 
             @error('bulk_assign')
-            <p class="mt-2 text-sm text-red-700 dark:text-red-400">{{ $message }}</p>
+            <p class="mt-2 text-sm text-red-700 dark:text-red-400" data-action-error role="alert">{{ $message }}</p>
             @enderror
         </div>
     @endif
@@ -166,7 +166,7 @@
                             <label class="block text-sm">Description<textarea wire:model="editForm.description" rows="2" class="app-field mt-1 w-full"></textarea></label>
                             <div class="grid grid-cols-2 gap-2"><label class="block text-sm">Amount<input type="number" step="0.01" min="0.01" wire:model="editForm.amount" class="app-field mt-1 w-full"></label><label class="block text-sm">Direction<select wire:model.live="editForm.type" class="app-field mt-1 w-full"><option value="expense">Money out</option><option value="income">Money in</option></select></label></div>
                             <label class="block text-sm">Category<select wire:model="editForm.category_id" class="app-field mt-1 w-full"><option value="">Uncategorised</option>@foreach ($categories->where('type', $editForm['type'] ?? '') as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}">{{ $parent->name }}</option>@endif @endforeach</select></label>
-                            @foreach (['date', 'description', 'amount', 'type', 'category_id'] as $field) @error('editForm.' . $field)<p class="text-xs text-rose-700">{{ $message }}</p>@enderror @endforeach
+                            @foreach (['date', 'description', 'amount', 'type', 'category_id'] as $field) @error('editForm.' . $field)<p class="text-xs text-rose-700" data-action-error role="alert">{{ $message }}</p>@enderror @endforeach
                             <div class="flex flex-wrap gap-2 border-t border-app-border pt-3"><button type="button" wire:click="cancelEdit" class="app-button-secondary">Cancel</button><button type="button" wire:click="updateTransaction" class="app-button-primary">Save changes</button></div>
                         </div>
                     @else
@@ -213,7 +213,7 @@
             </div>
 
             @error('commit')
-            <div class="rounded-md bg-red-50 border border-red-200 p-4">
+            <div class="rounded-md bg-red-50 border border-red-200 p-4" data-action-error role="alert">
                 <p class="text-sm text-red-800">{{ $message }}</p>
             </div>
             @enderror

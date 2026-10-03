@@ -107,7 +107,7 @@ new class extends \Livewire\Component {
         >
             <div class="mt-3 space-y-3">
                 @error('recoveryCodes')
-                    <flux:callout variant="danger" icon="x-circle" heading="{{$message}}"/>
+                    <flux:callout variant="danger" icon="x-circle" heading="{{$message}}" data-action-error role="alert"/>
                 @enderror
 
                 @if (filled($recoveryCodes))

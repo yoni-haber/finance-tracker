@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:ui": "node --test --experimental-test-coverage --test-coverage-include=resources/js/ui-feedback.js --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 tests/JavaScript/ui-feedback.test.js"
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.3.3",
