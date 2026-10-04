@@ -152,7 +152,7 @@ Always set `$data['user_id'] = Auth::id()` before creating records.
 ## Recurring Transactions
 
 `Transaction::projectOccurrencesForRange()` expands recurring rules (weekly /
-monthly / yearly) into in-memory clones via `replicateForDate()`;
+monthly / quarterly / yearly) into in-memory clones via `replicateForDate()`;
 `projectOccurrencesForMonth()` is its single-month convenience wrapper. Clones
 carry a `projected` attribute. Skipped dates are stored as
 `TransactionException` rows.
@@ -227,3 +227,40 @@ rewrite existing records; incompatible data must be corrected before migration.
 `Dashboard::categoryTotals()` maps every transaction to its parent category before grouping, so subcategory totals appear under their parent in charts and budget comparisons.
 
 `MonthlyFlow::totals()` calculates savings as income minus spending and investing. Saving-category transactions remain in activity history and do not reduce that remainder. Dashboard and cash flow reports share this calculation; current-month dashboard savings includes projected recurring occurrences. Budget progress counts transactions through today, treats Spending budgets as limits and Investment budgets as goals, and keeps the Reports budget chart limited to spending budgets.
+
+## Upcoming Payments
+
+`PlannedPayment` stores a user-owned name, optional note, positive expected amount,
+original due date, one-off/quarterly/yearly repeat choice and completion count. The next
+outstanding date is calculated from the original anchor and completion count;
+month ends and leap years clamp for each occurrence without drifting. The list
+shows every future occurrence within the next 12 months, plus each plan's
+earliest overdue or later date. Only the earliest outstanding occurrence can
+be marked done. Edit and Delete are available from every occurrence, and both
+apply to the whole plan. A completed one-off leaves the list and can be undone
+from the completion banner; a repeating plan advances exactly one cycle and
+can undo its last completion from that banner. Deletion requires confirmation.
+
+`PlannedPayments::outstanding()` sorts all outstanding plans by due date, including
+overdue plans. Upcoming Payments has a compact desktop table, mobile list and an add/edit modal on the
+same page. Editing a name, note or amount preserves the schedule; changing the next
+due date or repeat choice starts a new schedule. The dashboard shows the next
+three occurrences at the bottom of the page, regardless of the selected
+reporting period. Plans never create transactions or contribute to transaction,
+report or budget actuals. Users record actual payments separately in Transactions.
+
+The Transactions editor continues to support quarterly recurring recorded
+transactions, including optional end dates and generated occurrence previews.
+Generated occurrences remain in memory and are never persisted as additional transactions.
+
+Quarterly schedules advance by three months from the original date and preserve
+the same short-month clamping and anchor restoration as monthly schedules. Apply
+the quarterly-frequency migration before saving them. Its rollback refuses while
+quarterly rows exist: convert or remove these schedules before rollback.
+
+The coverage requirement for new/changed executable application PHP is 100%.
+CI runs the complete PHPUnit suite with coverage; local checks target the affected
+tests. Infection's configuration requires a 100% mutation score with no escaped
+mutants or timeouts. During feature work,
+run only relevant PHPUnit files/methods and changed-file static checks locally;
+leave full-suite and Infection runs to CI.

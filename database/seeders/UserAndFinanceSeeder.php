@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\PlannedPayment;
 use App\Models\Transaction;
 use App\Models\TransactionException;
 use App\Models\User;
@@ -22,12 +23,29 @@ class UserAndFinanceSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::transaction(function () {
+        DB::transaction(function (): void {
             $user = $this->seedUser();
             $categories = $this->seedCategories($user);
             $this->seedBudgets($user, $categories);
             $this->seedTransactions($user, $categories);
+            $this->seedPlannedPayments($user);
         });
+    }
+
+    private function seedPlannedPayments(User $user): void
+    {
+        $nextMonth = today()->startOfMonth()->addMonth();
+        foreach ([
+            ['Car insurance renewal', '650.00', today()->addWeeks(6)->toDateString(), 'yearly'],
+            ['Quarterly water bill', '180.00', $nextMonth->copy()->day(15)->toDateString(), 'quarterly'],
+            ['Planned car service', '240.00', $nextMonth->copy()->day(25)->toDateString(), 'once'],
+        ] as [$name, $amount, $due, $frequency]) {
+            PlannedPayment::firstOrCreate(['user_id' => $user->id, 'name' => $name], [
+                'amount' => $amount,
+                'first_due_on' => $due,
+                'frequency' => $frequency,
+            ]);
+        }
     }
 
     private function seedUser(): User

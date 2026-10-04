@@ -35,6 +35,8 @@ final class ActionFeedbackTest extends TestCase
 
         yield 'transactions' => ['transactions'];
 
+        yield 'upcoming payments' => ['upcoming-payments'];
+
         yield 'budgets' => ['budgets'];
 
         yield 'net worth' => ['net-worth'];

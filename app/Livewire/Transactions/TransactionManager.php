@@ -16,7 +16,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Exists;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -54,6 +53,8 @@ class TransactionManager extends Component
     public ?string $frequency = null;
 
     public ?string $recurring_until = null;
+
+    public bool $hasEndDate = false;
 
     public ?int $transactionId = null;
 
@@ -199,6 +200,7 @@ class TransactionManager extends Component
         $this->resetPage();
         session()->flash('status', 'Transaction saved successfully.');
         $this->dispatch('close-transaction-modal');
+
     }
 
     public function openModal(): void
@@ -222,6 +224,7 @@ class TransactionManager extends Component
         $this->is_recurring = $transaction->is_recurring;
         $this->frequency = $transaction->frequency;
         $this->recurring_until = $transaction->recurring_until?->toDateString();
+        $this->hasEndDate = $this->recurring_until !== null;
 
         $this->dispatch('open-transaction-modal');
     }
@@ -349,6 +352,7 @@ class TransactionManager extends Component
         if (!$value) {
             $this->frequency = null;
             $this->recurring_until = null;
+            $this->hasEndDate = false;
 
             return;
         }
@@ -358,8 +362,17 @@ class TransactionManager extends Component
         }
     }
 
+    public function updatedHasEndDate(bool $value): void
+    {
+        if (!$value) {
+            $this->recurring_until = null;
+            $this->resetValidation('recurring_until');
+        }
+    }
+
     public function resetForm(): void
     {
+        $this->new = false;
         $this->transactionId = null;
         $this->type = Transaction::TYPE_EXPENSE;
         $this->amount = '';
@@ -369,6 +382,7 @@ class TransactionManager extends Component
         $this->is_recurring = false;
         $this->frequency = null;
         $this->recurring_until = null;
+        $this->hasEndDate = false;
 
         $this->resetValidation();
         $this->resetErrorBag();
@@ -377,7 +391,7 @@ class TransactionManager extends Component
     /** @return list<string> */
     public function recurringPreview(): array
     {
-        if (!$this->is_recurring || trim($this->date) === '' || !in_array($this->frequency, ['weekly', 'monthly', 'yearly'], true)) {
+        if (!$this->is_recurring || trim($this->date) === '' || !in_array($this->frequency, ['weekly', 'monthly', 'quarterly', 'yearly'], true)) {
             return [];
         }
 
@@ -386,6 +400,7 @@ class TransactionManager extends Component
             $end = match ($this->frequency) {
                 'weekly' => $start->copy()->addWeeks(2),
                 'monthly' => $start->copy()->addMonths(2)->endOfMonth(),
+                'quarterly' => $start->copy()->startOfMonth()->addQuarters(2)->endOfMonth(),
                 default => $start->copy()->addYears(2)->endOfYear(),
             };
             $transaction = new Transaction([
@@ -454,7 +469,7 @@ class TransactionManager extends Component
     }
 
     /**
-     * @return array<string, string[]|Exists[]|string[]>
+     * @return array<string, list<mixed>>
      */
     protected function rules(): array
     {
@@ -470,8 +485,8 @@ class TransactionManager extends Component
                     ->where('type', $this->type),
             ],
             'is_recurring' => ['boolean'],
-            'frequency' => ['nullable', 'required_if:is_recurring,true', 'in:weekly,monthly,yearly'],
-            'recurring_until' => ['nullable', 'date', 'after_or_equal:date'],
+            'frequency' => ['nullable', 'required_if:is_recurring,true', 'in:weekly,monthly,quarterly,yearly'],
+            'recurring_until' => ['nullable', Rule::requiredIf($this->is_recurring && $this->hasEndDate), 'date', 'after_or_equal:date'],
         ];
     }
 }

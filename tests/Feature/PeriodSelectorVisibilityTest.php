@@ -26,7 +26,7 @@ final class PeriodSelectorVisibilityTest extends TestCase
             'Your money at a glance',
         ]);
 
-        foreach (['categories', 'net-worth', 'reports', 'statements.import'] as $route) {
+        foreach (['categories', 'net-worth', 'reports', 'statements.import', 'upcoming-payments'] as $route) {
             $this->get(route($route))->assertOk()->assertDontSeeHtml('aria-label="Previous month"');
         }
     }

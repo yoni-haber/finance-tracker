@@ -53,6 +53,7 @@ use Override;
  * @property-read int|null $notifications_count
  * @property-read Collection<int, Transaction> $transactions
  * @property-read int|null $transactions_count
+ * @property-read Collection<int, PlannedPayment> $plannedPayments
  *
  * @method static UserFactory factory($count = null, $state = [])
  * @method static Builder<static>|User newModelQuery()
@@ -161,6 +162,12 @@ class User extends Authenticatable
     public function bankProfiles(): HasMany
     {
         return $this->hasMany(BankProfile::class);
+    }
+
+    /** @return HasMany<PlannedPayment, $this> */
+    public function plannedPayments(): HasMany
+    {
+        return $this->hasMany(PlannedPayment::class);
     }
 
     /**

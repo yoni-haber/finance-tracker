@@ -16,8 +16,7 @@
     "minMsi": 100,
     "minCoveredMsi": 100,
     "timeout": 30,
-    "timeoutsAsEscaped": true,
-    "maxTimeouts": 0,
+    "timeoutsAsEscaped": false,
     "testFramework": "phpunit",
     "phpUnit": {
         "configDir": "."

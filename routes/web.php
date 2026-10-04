@@ -11,6 +11,7 @@ use App\Livewire\Statements\BankProfileManager;
 use App\Livewire\Statements\StatementImportManager;
 use App\Livewire\Statements\StatementImportReview;
 use App\Livewire\Transactions\TransactionManager;
+use App\Livewire\UpcomingPayments;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
@@ -24,6 +25,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('budgets', BudgetManager::class)->name('budgets');
     Route::get('net-worth', NetWorthTracker::class)->name('net-worth');
     Route::get('reports', ReportsHub::class)->name('reports');
+    Route::get('upcoming-payments', UpcomingPayments::class)->name('upcoming-payments');
 
     Route::get('statements/import', StatementImportManager::class)->name('statements.import');
     Route::get('statements/review/{importId}', StatementImportReview::class)->name('statements.review');

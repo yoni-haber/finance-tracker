@@ -9,11 +9,44 @@ use App\Models\NetWorthEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class NetWorthTrackerTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** @return iterable<string, array{string, string, string, string}> */
+    public static function summaryColours(): iterable
+    {
+        yield 'positive' => ['500.00', '100.00', '400.00', 'text-[#126e51] dark:text-[#75ddb2]'];
+
+        yield 'zero' => ['500.00', '500.00', '0.00', 'text-[#126e51] dark:text-[#75ddb2]'];
+
+        yield 'negative' => ['100.00', '200.00', '-100.00', 'text-[#bd5b52] dark:text-[#f19b91]'];
+    }
+
+    #[DataProvider('summaryColours')]
+    public function test_headline_figures_use_the_dashboard_colours_for_assets_liabilities_and_net_worth(string $assets, string $liabilities, string $netWorth, string $colour): void
+    {
+        $user = User::factory()->create();
+        NetWorthEntry::factory()->for($user)->create(['date' => today(), 'assets' => $assets, 'liabilities' => $liabilities, 'net_worth' => $netWorth]);
+        Livewire::actingAs($user)->test(NetWorthTracker::class)
+            ->assertSeeHtml('tabular-nums ' . $colour . '">' . \App\Support\Money::format($netWorth))
+            ->assertSeeHtml('tabular-nums text-[#126e51] dark:text-[#75ddb2]">' . \App\Support\Money::format($assets))
+            ->assertSeeHtml('tabular-nums text-[#bd5b52] dark:text-[#f19b91]">' . \App\Support\Money::format($liabilities));
+    }
+
+    public function test_missing_current_snapshot_keeps_headline_placeholders_neutral(): void
+    {
+        $user = User::factory()->create();
+        NetWorthEntry::factory()->create(['date' => today()]);
+        NetWorthEntry::factory()->for($user)->create(['date' => today()->addDay()]);
+        $testable = Livewire::actingAs($user)->test(NetWorthTracker::class)
+            ->assertSeeHtml('tabular-nums app-muted">—')->assertSee('No snapshot through today')
+            ->assertDontSeeHtml('tabular-nums text-[#126e51]')->assertDontSeeHtml('tabular-nums text-[#bd5b52]');
+        $this->assertNull($testable->viewData('latestEntry'));
+    }
 
     public function test_future_snapshot_is_visible_in_history_but_not_headline(): void
     {
