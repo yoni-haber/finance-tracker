@@ -230,38 +230,27 @@ rewrite existing records; incompatible data must be corrected before migration.
 
 ## Upcoming Payments
 
-`UpcomingPayments::forecast()` uses `TransactionReport::projectedForRange()` once
-for the full horizon, filters spending expenses (including uncategorised entries),
-and returns ordered occurrences, monthly totals and an overall total. Monetary
-arithmetic stays in integer pennies. The horizon is today through the end of the
-third, sixth or twelfth calendar month, counting the current month as month one.
+`PlannedPayment` stores a user-owned name, optional note, positive expected amount,
+original due date, one-off/quarterly/yearly repeat choice and completion count. The next
+outstanding date is calculated from the original anchor and completion count;
+month ends and leap years clamp for each occurrence without drifting. The list
+shows every future occurrence within the next 12 months, plus each plan's
+earliest overdue or later date. Only the earliest outstanding occurrence can
+be marked done. Edit and Delete are available from every occurrence, and both
+apply to the whole plan. A completed one-off leaves the list and can be undone
+from the completion banner; a repeating plan advances exactly one cycle and
+can undo its last completion from that banner. Deletion requires confirmation.
 
-The Upcoming Payments page has URL-backed `months`, `regular` and `minimum`
-filters. It operates independently of the global selected period. Its default
-forecast includes quarterly/yearly schedules and dated one-offs. Weekly/monthly
-payments can be included explicitly; income, savings and investments are excluded.
-The dashboard shares the six-month default forecast and previews five payments
-in a card at the bottom of the page, half width on desktop and full width on
-mobile. Neither view displays an overall forecast total; the planning page
-retains monthly totals and individual amounts. The date range and payment count
-are integrated into the filters card. Months with payments use the existing green
-accent and coral spending totals; empty months are quieter. Frequency badges use
-the existing blue accent. Net worth summary values share the dashboard palette:
-assets and nonnegative net worth are green, liabilities and negative net worth
-are coral; missing snapshots remain muted.
+`PlannedPayments::outstanding()` sorts all outstanding plans by due date, including
+overdue plans. Upcoming Payments has a compact desktop table, mobile list and an add/edit modal on the
+same page. Editing a name, note or amount preserves the schedule; changing the next
+due date or repeat choice starts a new schedule. The dashboard shows the next
+three occurrences at the bottom of the page, regardless of the selected
+reporting period. Plans never create transactions or contribute to transaction,
+report or budget actuals. Users record actual payments separately in Transactions.
 
-A future schedule starts on its first expected payment date and requires no
-historical payment. Add scheduled payment opens the standard transaction editor
-with `scheduled=1` and today's date, even when the global month is historical.
-`edit=<id>` opens an existing user-owned record; recurring edits affect the series.
-Links from Upcoming Payments include `upcoming=1`, so a successful create or edit
-returns to that page and brings its accessible success message into view. Filter
-errors use the shared error-feedback markers. Validation failures keep the editor open. Saving or closing
-the modal clears its URL action flags; regular transaction saves remain on
-Transactions. The editor focuses its heading and resets its scroll position on
-opening. Recurrences have no end date by default; selecting **Set an end date**
-reveals an initially empty required date field. Removing that selection clears
-the stored end date. Existing finite series load with the selection enabled.
+The Transactions editor continues to support quarterly recurring recorded
+transactions, including optional end dates and generated occurrence previews.
 Generated occurrences remain in memory and are never persisted as additional transactions.
 
 Quarterly schedules advance by three months from the original date and preserve

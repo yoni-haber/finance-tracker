@@ -10,7 +10,7 @@ A personal budgeting and finance dashboard. Record transactions, organise them i
 - **Net worth tracking:** Record periodic net worth snapshots with itemised assets and liabilities
 - **Reports:** Visualise income vs. expenses over time with category breakdowns and chart data
 - **Bank statement import:** Upload CSV files from any bank, configure column mappings per provider, review staged transactions with duplicate detection, then commit to your history
-- **Upcoming Payments:** Plan 3, 6 or 12 months ahead with expected quarterly/yearly and one-off spending, monthly totals, optional regular payments, and a minimum amount filter; add or edit a future schedule without previous payment history and return to the planning page after saving. A compact preview appears at the bottom of the dashboard
+- **Upcoming Payments:** Keep independent one-off, quarterly and yearly payment plans with an optional note. See every occurrence due in the next 12 months, plus the next date for overdue and later plans. Mark the earliest occurrence done or undo it without changing transactions, reports or budget actuals. Add and edit on the planning page; the next three occurrences appear at the bottom of the dashboard
 - **Dashboard:** Monthly income, spending, investing, and calculated savings alongside budget progress and category charts
 
 ## Tech Stack

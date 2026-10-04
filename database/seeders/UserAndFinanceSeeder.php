@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\PlannedPayment;
 use App\Models\Transaction;
 use App\Models\TransactionException;
 use App\Models\User;
@@ -27,7 +28,24 @@ class UserAndFinanceSeeder extends Seeder
             $categories = $this->seedCategories($user);
             $this->seedBudgets($user, $categories);
             $this->seedTransactions($user, $categories);
+            $this->seedPlannedPayments($user);
         });
+    }
+
+    private function seedPlannedPayments(User $user): void
+    {
+        $nextMonth = today()->startOfMonth()->addMonth();
+        foreach ([
+            ['Car insurance renewal', '650.00', today()->addWeeks(6)->toDateString(), 'yearly'],
+            ['Quarterly water bill', '180.00', $nextMonth->copy()->day(15)->toDateString(), 'quarterly'],
+            ['Planned car service', '240.00', $nextMonth->copy()->day(25)->toDateString(), 'once'],
+        ] as [$name, $amount, $due, $frequency]) {
+            PlannedPayment::firstOrCreate(['user_id' => $user->id, 'name' => $name], [
+                'amount' => $amount,
+                'first_due_on' => $due,
+                'frequency' => $frequency,
+            ]);
+        }
     }
 
     private function seedUser(): User
@@ -200,31 +218,6 @@ class UserAndFinanceSeeder extends Seeder
                     'date' => $date->copy()->addWeeks(3)->toDateString(),
                 ]);
             }
-        }
-
-        // Future first payments make the planning view useful before any payment history exists.
-        $insuranceDate = $today->copy()->startOfYear()->month(12)->day(15);
-        if ($insuranceDate->lt($today->copy()->startOfDay())) {
-            $insuranceDate->addYear();
-        }
-
-        $quarterlyDate = $today->copy()->startOfMonth()->addMonth()->day(15);
-        $planning = [
-            ['Transport.Travel', 650, $insuranceDate, 'Car insurance renewal', 'yearly'],
-            ['Bills.Utilities', 180, $quarterlyDate, 'Quarterly water bill', 'quarterly'],
-            ['Transport.Travel', 240, $quarterlyDate->copy()->day(25), 'Planned car service', null],
-        ];
-        foreach ($planning as [$category, $amount, $date, $description, $frequency]) {
-            // Update these demo schedules in place as the current month moves forward.
-            Transaction::updateOrCreate(['user_id' => $user->id, 'description' => $description], [
-                'category_id' => $categories[$category]->id,
-                'type' => Transaction::TYPE_EXPENSE,
-                'amount' => $amount,
-                'date' => $date->toDateString(),
-                'is_recurring' => $frequency !== null,
-                'frequency' => $frequency,
-                'recurring_until' => null,
-            ]);
         }
 
         // One-off activity changes the chart shapes and gives the budgets distinct outcomes.

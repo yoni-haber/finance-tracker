@@ -38,15 +38,6 @@ class TransactionManager extends Component
     #[Url(as: 'new', except: false)]
     public bool $new = false;
 
-    #[Url(as: 'scheduled', except: false)]
-    public bool $scheduled = false;
-
-    #[Url(as: 'upcoming', except: false)]
-    public bool $returnToUpcoming = false;
-
-    #[Url(as: 'edit')]
-    public ?int $editId = null;
-
     public string $type = Transaction::TYPE_EXPENSE;
 
     public string $amount = '';
@@ -99,13 +90,7 @@ class TransactionManager extends Component
             $this->scope = 'all';
         }
 
-        if ($this->editId !== null) {
-            $this->edit($this->editId);
-        } elseif ($this->new || $this->scheduled) {
-            if ($this->scheduled) {
-                $this->date = today()->toDateString();
-            }
-
+        if ($this->new) {
             $this->dispatch('open-transaction-modal');
         }
     }
@@ -211,15 +196,11 @@ class TransactionManager extends Component
             Transaction::create($data);
         }
 
-        $returnToUpcoming = $this->returnToUpcoming;
         $this->resetForm();
         $this->resetPage();
         session()->flash('status', 'Transaction saved successfully.');
         $this->dispatch('close-transaction-modal');
 
-        if ($returnToUpcoming) {
-            $this->redirectRoute('upcoming-payments', navigate: true);
-        }
     }
 
     public function openModal(): void
@@ -391,10 +372,7 @@ class TransactionManager extends Component
 
     public function resetForm(): void
     {
-        $this->editId = null;
         $this->new = false;
-        $this->scheduled = false;
-        $this->returnToUpcoming = false;
         $this->transactionId = null;
         $this->type = Transaction::TYPE_EXPENSE;
         $this->amount = '';

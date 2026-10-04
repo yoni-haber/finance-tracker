@@ -4,141 +4,193 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Livewire\Dashboard;
+use App\Livewire\Reports\ReportsHub;
 use App\Livewire\UpcomingPayments;
+use App\Models\Budget;
+use App\Models\Category;
+use App\Models\PlannedPayment;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\BudgetProgress;
+use App\Support\PlannedPayments;
+use App\Support\TransactionReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class UpcomingPaymentsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_blank_minimum_is_optional_and_reset_restores_the_unfiltered_forecast(): void
+    public function test_add_edit_and_cancel_stay_on_planning_page_and_never_create_a_transaction(): void
     {
-        $this->travelTo(now()->setDate(2026, 10, 2));
         $user = User::factory()->create();
-        Transaction::factory()->for($user)->create([
-            'type' => 'expense', 'category_id' => null, 'date' => '2026-12-15',
-            'amount' => '0.01', 'description' => 'Small scheduled payment',
-        ]);
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('openCreate')->assertDispatched('open-planned-payment-modal')
+            ->set('name', 'Unsaved')->set('note', 'Unsaved note')->set('amount', '30')->call('resetForm')
+            ->assertSet('name', '')->assertSet('note', null)->assertNoRedirect()
+            ->call('openCreate')->set('name', 'Car insurance')->set('amount', '650.00')
+            ->set('due_on', '2026-11-15')->set('frequency', 'yearly')->set('note', '  Check renewal quote  ')
+            ->call('save')->assertHasNoErrors()->assertNoRedirect()->assertSee('Payment plan added.')
+            ->assertDispatched('close-planned-payment-modal')->assertSee('Car insurance')
+            ->assertSee('£650.00')->assertSee('Yearly')->assertSee('Check renewal quote');
 
-        Livewire::actingAs($user)->withQueryParams(['minimum' => ''])->test(UpcomingPayments::class)
-            ->assertSet('minimum', '')->assertHasNoErrors()->assertSee('Small scheduled payment')
-            ->set('minimum', '0.02')->assertHasNoErrors()->assertDontSee('Small scheduled payment')
-            ->set('minimum', '')->assertHasNoErrors()->assertSee('Small scheduled payment')
-            ->set('minimum', '0.02')->call('resetFilters')
-            ->assertSet('minimum', '')->assertHasNoErrors()->assertSee('Small scheduled payment');
+        $plan = PlannedPayment::sole();
+        $this->assertSame($user->id, $plan->user_id);
+        $this->assertSame('Check renewal quote', $plan->note);
+        $this->assertDatabaseCount('transactions', 0);
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('edit', $plan->id)->assertSet('due_on', '2026-11-15')
+            ->assertSet('note', 'Check renewal quote')
+            ->set('name', 'Annual car insurance')->set('amount', '675.00')->set('note', 'New quote requested')
+            ->call('save')->assertHasNoErrors()->assertNoRedirect()->assertSee('Annual car insurance')->assertSee('Payment plan updated.');
+        $this->assertSame('675.00', $plan->refresh()->amount);
+        $this->assertSame('New quote requested', $plan->note);
+        $this->assertSame('2026-11-15', $plan->nextDueDate()?->toDateString());
+        $this->assertDatabaseCount('transactions', 0);
     }
 
-    public function test_invalid_horizon_explains_the_available_choices_and_clears_after_correction(): void
+    public function test_overdue_completion_advances_one_occurrence_and_undo_restores_it(): void
     {
-        Livewire::actingAs(User::factory()->create())->test(UpcomingPayments::class)
-            ->set('months', '4')->assertHasErrors('months')
-            ->assertSee('Choose 3, 6 or 12 months.')->assertViewHas('forecast', null)
-            ->set('months', '3')->assertHasNoErrors()->assertDontSee('Choose 3, 6 or 12 months.');
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Water', 'amount' => '180.00', 'first_due_on' => '2026-03-31', 'frequency' => 'quarterly']);
+        $testable = Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->assertSee('Overdue by')->assertSee('31 Mar 2026')
+            ->call('markDone', $plan->id, '2026-03-31')->assertSee('30 Jun 2026');
+        $this->assertSame(1, $plan->refresh()->completed_occurrences);
+        $testable->call('markDone', $plan->id, '2026-03-31');
+        $this->assertDatabaseHas('planned_payments', ['id' => $plan->id, 'completed_occurrences' => 1]);
+        $testable->call('undo', $plan->id)->assertSee('31 Mar 2026');
+        $this->assertSame(0, $plan->refresh()->completed_occurrences);
     }
 
-    public function test_guests_are_redirected_and_authenticated_users_see_navigation_but_no_period_selector(): void
+    public function test_one_off_can_be_restored_and_delete_requires_confirmed_action(): void
+    {
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Service', 'amount' => '240.00', 'first_due_on' => '2026-11-25', 'frequency' => 'once']);
+        $testable = Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('markDone', $plan->id, '2026-11-25')
+            ->assertDontSee('Completed one-off plans')->assertSee('No upcoming payments yet')
+            ->assertSee('Payment marked done.')->assertSee('Undo');
+        $this->assertSame(1, $plan->refresh()->completed_occurrences);
+        $testable->call('undo', $plan->id)->assertSee('25 Nov 2026');
+        $testable->call('confirmDelete', $plan->id)->assertDispatched('open-delete-planned-payment-modal');
+        $testable->call('resetDelete')->assertSet('deletingId', null);
+        $this->assertDatabaseCount('planned_payments', 1);
+        $testable->call('confirmDelete', $plan->id);
+        $testable->call('delete')->assertDispatched('close-delete-planned-payment-modal');
+        $this->assertDatabaseCount('planned_payments', 0);
+    }
+
+    public function test_repeating_dates_show_for_the_next_year_but_only_the_earliest_can_be_completed(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Water', 'amount' => '180.00', 'first_due_on' => '2026-10-15', 'frequency' => 'quarterly']);
+
+        $testable = Livewire::actingAs($user)->test(UpcomingPayments::class);
+        $testable->assertSeeInOrder(['15 Oct 2026', '15 Jan 2027', '15 Apr 2027', '15 Jul 2027'])
+            ->assertDontSee('15 Oct 2027');
+        $this->assertSame(2, substr_count($testable->html(), 'wire:click="markDone(' . $plan->id . ', \'2026-10-15\')"'));
+        $this->assertStringNotContainsString('wire:click="markDone(' . $plan->id . ', \'2027-01-15\')"', $testable->html());
+        $this->assertSame(8, substr_count($testable->html(), 'wire:click="edit(' . $plan->id . ')"'));
+        $this->assertSame(8, substr_count($testable->html(), 'wire:click="confirmDelete(' . $plan->id . ')"'));
+
+        $testable->call('markDone', $plan->id, '2026-10-15')
+            ->assertSee('15 Jan 2027')->assertSee('Undo');
+        $this->assertSame(1, $plan->refresh()->completed_occurrences);
+        $this->assertSame(2, substr_count($testable->html(), 'wire:click="markDone(' . $plan->id . ', \'2027-01-15\')"'));
+        $this->assertSame(1, substr_count($testable->html(), 'wire:click="undo(' . $plan->id . ')"'));
+    }
+
+    public function test_validation_ownership_and_schedule_editing_rules(): void
+    {
+        $user = User::factory()->create();
+        $foreign = PlannedPayment::create(['user_id' => User::factory()->create()->id, 'name' => 'Private', 'amount' => '10', 'first_due_on' => '2026-11-01', 'frequency' => 'once']);
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->set('name', ' ')->set('amount', '0')->set('due_on', 'bad')->set('frequency', 'weekly')->set('note', str_repeat('a', 501))
+            ->call('save')->assertHasErrors(['name', 'note', 'amount', 'due_on', 'frequency']);
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('edit', $foreign->id)->assertNotFound();
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('markDone', $foreign->id, '2026-11-01')->assertNotFound();
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('undo', $foreign->id)->assertNotFound();
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('confirmDelete', $foreign->id)->assertNotFound();
+
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Insurance', 'amount' => '650', 'first_due_on' => '2025-01-31', 'frequency' => 'quarterly', 'completed_occurrences' => 2]);
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('edit', $plan->id)
+            ->set('amount', '700')->call('save')->assertHasNoErrors();
+        $this->assertSame(2, $plan->refresh()->completed_occurrences);
+        $this->assertSame('2025-07-31', $plan->nextDueDate()?->toDateString());
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('edit', $plan->id)
+            ->set('due_on', '2026-11-30')->set('frequency', 'yearly')->call('save')->assertHasNoErrors();
+        $this->assertSame(0, $plan->refresh()->completed_occurrences);
+        $this->assertSame('2026-11-30', $plan->nextDueDate()?->toDateString());
+    }
+
+    public function test_dashboard_shows_first_three_plans_below_summary_without_changing_actuals(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $user = User::factory()->create(['selected_month' => 10, 'selected_year' => 2026]);
+        foreach ([['Last', '2026-12-01'], ['Overdue', '2026-09-01'], ['Third', '2026-11-01'], ['Second', '2026-10-20']] as [$name, $date]) {
+            PlannedPayment::create(['user_id' => $user->id, 'name' => $name, 'amount' => '100', 'first_due_on' => $date, 'frequency' => 'once']);
+        }
+
+        Transaction::factory()->for($user)->create(['type' => 'expense', 'date' => '2026-10-01', 'amount' => '12.00']);
+        $before = TransactionReport::projectedForMonth($user->id, 10, 2026)->pluck('amount')->all();
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertSeeInOrder(['Monthly summary', 'Budgets needing attention', 'Cash flow trend', 'Where spending went', 'dashboard-upcoming-heading', 'Overdue', 'Second', 'Third'])
+            ->assertDontSee('Last')->assertSee('£12.00');
+        $this->assertSame($before, TransactionReport::projectedForMonth($user->id, 10, 2026)->pluck('amount')->all());
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertSame(['Overdue', 'Second', 'Third', 'Last'], PlannedPayments::outstanding($user->id)->pluck('name')->all());
+    }
+
+    public function test_dashboard_preview_orders_repeated_occurrences_with_other_plans(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $user = User::factory()->create(['selected_month' => 10, 'selected_year' => 2026]);
+        PlannedPayment::create(['user_id' => $user->id, 'name' => 'Water', 'amount' => '180.00', 'first_due_on' => '2026-10-15', 'frequency' => 'quarterly']);
+        PlannedPayment::create(['user_id' => $user->id, 'name' => 'Insurance', 'amount' => '650.00', 'first_due_on' => '2026-12-01', 'frequency' => 'once']);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertSeeInOrder(['15 Oct 2026', '1 Dec 2026', '15 Jan 2027'])
+            ->assertDontSee('15 Apr 2027');
+    }
+
+    public function test_creating_and_completing_plan_leaves_reports_and_budget_actuals_unchanged(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $user = User::factory()->create();
+        $category = Category::factory()->for($user)->expense()->create();
+        $budget = Budget::factory()->for($user)->for($category, 'category')->create(['month' => 10, 'year' => 2026, 'amount' => '500.00']);
+        Transaction::factory()->for($user)->for($category, 'category')->create(['type' => 'expense', 'date' => '2026-10-01', 'amount' => '50.00']);
+        $actuals = TransactionReport::projectedForMonth($user->id, 10, 2026);
+        $budgetActual = BudgetProgress::forPeriod(collect([$budget->load('category.children')]), $actuals, 10, 2026)->sole()['actual'];
+        $testable = Livewire::actingAs($user)->test(ReportsHub::class);
+        $chartData = $testable->get('chartData');
+        $reportBudgets = $testable->get('budgetData');
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->set('name', 'Insurance')->set('amount', '650')->set('due_on', '2026-11-15')
+            ->set('frequency', 'yearly')->call('save')->assertHasNoErrors();
+        $plan = PlannedPayment::where('user_id', $user->id)->sole();
+        Livewire::actingAs($user)->test(UpcomingPayments::class)->call('markDone', $plan->id, '2026-11-15');
+
+        $this->assertSame('50.00', $budgetActual);
+        $this->assertSame($actuals->pluck('id')->all(), TransactionReport::projectedForMonth($user->id, 10, 2026)->pluck('id')->all());
+        $this->assertSame($budgetActual, BudgetProgress::forPeriod(collect([$budget]), TransactionReport::projectedForMonth($user->id, 10, 2026), 10, 2026)->sole()['actual']);
+        $afterReport = Livewire::actingAs($user)->test(ReportsHub::class);
+        $this->assertSame($chartData, $afterReport->get('chartData'));
+        $this->assertSame($reportBudgets, $afterReport->get('budgetData'));
+        $this->assertDatabaseCount('transactions', 1);
+    }
+
+    public function test_guest_is_redirected_and_page_has_no_reporting_period_controls(): void
     {
         $this->get(route('upcoming-payments'))->assertRedirect(route('login'));
         $this->actingAs(User::factory()->create())->get(route('upcoming-payments'))
-            ->assertOk()->assertSee('Planning ahead')->assertSee('Upcoming Payments')
-            ->assertSee('Add scheduled payment')->assertDontSeeHtml('aria-label="Previous month"')
-            ->assertSeeHtml('dark:')->assertSeeHtml('Forecast filters');
-    }
-
-    public function test_forecast_displays_future_first_payment_and_zero_months_independently_of_selected_period(): void
-    {
-        $this->travelTo(now()->setDate(2026, 10, 2));
-        $user = User::factory()->create(['selected_month' => 1, 'selected_year' => 2020]);
-        $payment = Transaction::factory()->for($user)->recurring('yearly')->create([
-            'type' => 'expense', 'category_id' => null, 'date' => '2026-12-15', 'description' => 'Car insurance', 'amount' => '650.00',
-        ]);
-        $testable = Livewire::actingAs($user)->test(UpcomingPayments::class)
-            ->assertSet('months', '6')->assertSet('minimum', '')->assertSet('includeRegular', false)
-            ->assertSee('2 Oct 2026')->assertSee('31 Mar 2027')->assertSee('Car insurance')
-            ->assertSee('£650.00')->assertSee('Yearly')->assertSee('November 2026')->assertSee('£0.00')
-            ->assertSeeHtml(e(route('transactions', ['edit' => $payment->id, 'scope' => 'all', 'upcoming' => 1])))
-            ->assertSee('Edit series');
-        $testable->call('$refresh')->assertSee('2 Oct 2026');
-        $this->assertSame(2020, $user->refresh()->selected_year);
-    }
-
-    public function test_monthly_totals_remain_visible_without_an_overall_forecast_total(): void
-    {
-        $this->travelTo(now()->setDate(2026, 10, 2));
-        $user = User::factory()->create();
-        Transaction::factory()->for($user)->create(['type' => 'expense', 'category_id' => null, 'date' => '2026-11-15', 'amount' => '100.10']);
-        Transaction::factory()->for($user)->create(['type' => 'expense', 'category_id' => null, 'date' => '2026-12-15', 'amount' => '200.20']);
-        Livewire::actingAs($user)->test(UpcomingPayments::class)->assertSee('£100.10')->assertSee('£200.20')
-            ->assertDontSee('£300.30')->assertSee('2 payments')->assertSeeHtml(e(route('transactions', ['new' => 1, 'scheduled' => 1, 'scope' => 'all', 'upcoming' => 1])))
-            ->assertDontSeeHtml('aria-label="Forecast summary"')
-            ->assertSeeInOrder(['Forecast filters', '2 Oct 2026', '2 payments', 'October 2026'])
-            ->assertSeeHtml('border-l-emerald-600/60')->assertSeeHtml('dark:border-l-[#75ddb2]/60')
-            ->assertSeeHtml('text-[#bd5b52] dark:text-[#f19b91]')->assertSeeHtml('text-base font-medium app-muted');
-    }
-
-    public function test_filters_load_from_url_apply_together_and_reset(): void
-    {
-        $this->travelTo(now()->setDate(2026, 10, 2));
-        $user = User::factory()->create();
-        Transaction::factory()->for($user)->recurring('monthly')->create([
-            'type' => 'expense', 'category_id' => null, 'date' => '2027-02-01', 'amount' => '400.00', 'description' => 'Large monthly bill',
-        ]);
-        Livewire::actingAs($user);
-        Livewire::withQueryParams(['months' => '12', 'regular' => true, 'minimum' => '400.00'])
-            ->test(UpcomingPayments::class)->assertSet('months', '12')->assertSet('includeRegular', true)
-            ->assertSet('minimum', '400')->assertSee('Large monthly bill')->assertDontSee('£3,200.00')->assertSee('£400.00')
-            ->set('months', '3')->assertDontSee('Large monthly bill')->assertSee('No upcoming payments match these filters.')
-            ->call('resetFilters')->assertSet('months', '6')->assertSet('includeRegular', false)->assertSet('minimum', '')
-            ->assertHasNoErrors()->assertSee('No scheduled spending payments in this date range.');
-    }
-
-    /** @return iterable<string, array{string, string}> */
-    public static function invalidFilters(): iterable
-    {
-        foreach (['', '0', '4', '13', '-1', '100000', 'three'] as $value) {
-            yield 'months ' . $value => ['months', $value];
-        }
-
-        foreach (['-1', '1.001', 'abc', '1e2', '£100', '10000000000', ' 100 ', '.5'] as $value) {
-            yield 'minimum ' . $value => ['minimum', $value];
-        }
-    }
-
-    #[DataProvider('invalidFilters')]
-    public function test_invalid_filters_show_errors_without_generating_a_forecast(string $field, string $value): void
-    {
-        Livewire::actingAs(User::factory()->create())->test(UpcomingPayments::class)
-            ->set($field, $value)->assertHasErrors($field)->assertViewHas('forecast', null)
-            ->assertSee('Correct the filters')->assertSeeHtml('data-action-error role="alert"')
-            ->call('resetFilters')->assertHasNoErrors()->assertDontSeeHtml('data-action-error');
-    }
-
-    public function test_invalid_query_parameters_are_validated_and_valid_minimum_limits_are_accepted(): void
-    {
-        Livewire::actingAs(User::factory()->create());
-        Livewire::withQueryParams(['months' => '999', 'minimum' => '-5'])->test(UpcomingPayments::class)
-            ->assertHasErrors(['months', 'minimum'])->assertViewHas('forecast', null);
-        Livewire::withQueryParams([]);
-        foreach (['0', '0.01', '1.1', '9999999999.99', ''] as $minimum) {
-            Livewire::test(UpcomingPayments::class)->set('minimum', $minimum)->assertHasNoErrors();
-        }
-    }
-
-    public function test_one_off_labels_and_description_fallbacks_and_income_exclusion(): void
-    {
-        $this->travelTo(now()->setDate(2026, 10, 2));
-        $user = User::factory()->create();
-        Transaction::factory()->for($user)->create([
-            'type' => 'expense', 'date' => '2026-10-03', 'description' => null, 'category_id' => null,
-        ]);
-        $named = Transaction::factory()->for($user)->create(['type' => 'expense', 'date' => '2026-10-04', 'description' => '']);
-        Transaction::factory()->for($user)->create(['type' => 'income', 'date' => '2026-10-03', 'description' => 'Hidden income']);
-        Livewire::actingAs($user)->test(UpcomingPayments::class)->assertSee('One-off')->assertSee('Uncategorised')
-            ->assertSee($named->category()->firstOrFail()->name)->assertSee('Payment')->assertSee('Edit')->assertDontSee('Hidden income');
+            ->assertOk()->assertSee('Add payment')->assertDontSeeHtml('aria-label="Previous month"');
     }
 }
