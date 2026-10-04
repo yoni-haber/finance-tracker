@@ -56,7 +56,7 @@ class UpcomingPayments extends Component
         $this->editingId = $id;
         $this->name = $plannedPayment->name;
         $this->note = $plannedPayment->note;
-        $this->amount = (string) $plannedPayment->amount;
+        $this->amount = $plannedPayment->amount;
         $this->due_on = $plannedPayment->nextDueDate()?->toDateString() ?? $plannedPayment->first_due_on->toDateString();
         $this->frequency = $plannedPayment->frequency;
         $this->dispatch('open-planned-payment-modal');
@@ -73,12 +73,6 @@ class UpcomingPayments extends Component
         ]);
 
         $data['name'] = trim($data['name']);
-        if ($data['name'] === '') {
-            $this->addError('name', 'Enter a payment name.');
-
-            return;
-        }
-
         $note = trim($data['note'] ?? '');
         $data['note'] = $note === '' ? null : $note;
 

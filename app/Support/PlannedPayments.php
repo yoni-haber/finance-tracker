@@ -11,8 +11,11 @@ use Illuminate\Support\Collection as SupportCollection;
 
 final class PlannedPayments
 {
-    /** @return Collection<int, PlannedPayment> */
-    public static function outstanding(int $userId): Collection
+    /**
+     * @param int $userId
+     * @return SupportCollection
+     */
+    public static function outstanding(int $userId): SupportCollection
     {
         return PlannedPayment::query()->where('user_id', $userId)->get()
             ->filter(fn (PlannedPayment $plannedPayment): bool => $plannedPayment->nextDueDate() instanceof CarbonImmutable)

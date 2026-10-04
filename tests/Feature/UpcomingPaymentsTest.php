@@ -16,6 +16,7 @@ use App\Support\BudgetProgress;
 use App\Support\PlannedPayments;
 use App\Support\TransactionReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -127,6 +128,125 @@ final class UpcomingPaymentsTest extends TestCase
             ->set('due_on', '2026-11-30')->set('frequency', 'yearly')->call('save')->assertHasNoErrors();
         $this->assertSame(0, $plan->refresh()->completed_occurrences);
         $this->assertSame('2026-11-30', $plan->nextDueDate()?->toDateString());
+    }
+
+    public function test_each_required_field_is_validated_and_a_one_off_name_is_trimmed(): void
+    {
+        $user = User::factory()->create();
+        $valid = ['name' => '  Car insurance  ', 'amount' => '650.00', 'due_on' => '2026-11-15', 'frequency' => 'once'];
+
+        foreach (['name', 'amount', 'due_on', 'frequency'] as $field) {
+            $input = $valid;
+            $input[$field] = '';
+            Livewire::actingAs($user)->test(UpcomingPayments::class)
+                ->set($input)->call('save')->assertHasErrors([$field => 'required']);
+        }
+
+        $this->assertDatabaseCount('planned_payments', 0);
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->set($valid)->call('save')->assertHasNoErrors()
+            ->assertSet('editingId', null)->assertSet('name', '')->assertSet('amount', '')
+            ->assertSet('due_on', '')->assertSet('frequency', 'once');
+        $plan = PlannedPayment::sole();
+        $this->assertSame('Car insurance', $plan->name);
+        $this->assertSame('once', $plan->frequency);
+    }
+
+    public function test_create_and_edit_reset_stale_form_state_and_validation_errors(): void
+    {
+        $user = User::factory()->create();
+        $first = PlannedPayment::create(['user_id' => $user->id, 'name' => 'First', 'amount' => '10', 'first_due_on' => '2026-11-01', 'frequency' => 'once']);
+        $second = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Second', 'amount' => '20', 'first_due_on' => '2026-12-01', 'frequency' => 'yearly']);
+
+        $component = Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('edit', $first->id)->assertDispatched('open-planned-payment-modal')
+            ->set('name', '')->set('amount', '')->call('save')->assertHasErrors(['name', 'amount']);
+        $component->call('openCreate')->assertDispatched('open-planned-payment-modal')
+            ->assertHasNoErrors()->assertSet('editingId', null)->assertSet('name', '')
+            ->assertSet('amount', '')->assertSet('frequency', 'once')
+            ->set('name', 'Partial')->set('amount', '99')->set('frequency', 'quarterly');
+        $component->call('edit', $second->id)->assertDispatched('open-planned-payment-modal')
+            ->assertSet('editingId', $second->id)->assertSet('name', 'Second')
+            ->assertSet('amount', '20.00')->assertSet('frequency', 'yearly');
+
+        $component->set('name', '')->call('save')->assertHasErrors(['name']);
+        $component->call('resetForm')->assertHasNoErrors()->assertSet('editingId', null);
+    }
+
+    public function test_changing_only_date_or_only_repeat_restarts_schedule(): void
+    {
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Insurance', 'amount' => '650', 'first_due_on' => '2025-01-31', 'frequency' => 'quarterly', 'completed_occurrences' => 2]);
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('edit', $plan->id)->set('due_on', '2026-11-30')
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame(0, $plan->refresh()->completed_occurrences);
+        $this->assertSame('2026-11-30', $plan->nextDueDate()?->toDateString());
+        $this->assertSame('quarterly', $plan->frequency);
+
+        $plan->update(['completed_occurrences' => 1]);
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('edit', $plan->id)->set('frequency', 'yearly')
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame(0, $plan->refresh()->completed_occurrences);
+        $this->assertSame('2027-02-28', $plan->first_due_on->toDateString());
+        $this->assertSame('yearly', $plan->frequency);
+    }
+
+    public function test_completed_one_off_can_be_edited_and_cannot_be_completed_again(): void
+    {
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Service', 'amount' => '240', 'first_due_on' => '2026-11-25', 'frequency' => 'once', 'completed_occurrences' => 1]);
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('edit', $plan->id)->assertSet('due_on', '2026-11-25')
+            ->set('name', 'Car service')->call('save')->assertHasNoErrors();
+        $this->assertSame(1, $plan->refresh()->completed_occurrences);
+        $this->assertSame('Car service', $plan->name);
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('markDone', $plan->id, '2026-11-25')
+            ->assertSet('status', 'This payment has already moved to another date.')
+            ->assertSet('statusUndoId', null);
+        $this->assertSame(1, $plan->refresh()->completed_occurrences);
+    }
+
+    public function test_stale_completion_has_no_undo_and_undo_at_zero_does_not_go_negative(): void
+    {
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Water', 'amount' => '50', 'first_due_on' => '2026-11-25', 'frequency' => 'quarterly']);
+
+        $component = Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('markDone', $plan->id, '2026-12-25')
+            ->assertSet('status', 'This payment has already moved to another date.')
+            ->assertSet('statusUndoId', null);
+        $this->assertSame(0, $plan->refresh()->completed_occurrences);
+        $component->call('undo', $plan->id)->assertSet('status', 'Payment plan restored.');
+        $this->assertSame(0, $plan->refresh()->completed_occurrences);
+    }
+
+    public function test_deleting_a_plan_clears_the_pending_confirmation(): void
+    {
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Service', 'amount' => '240', 'first_due_on' => '2026-11-25', 'frequency' => 'once']);
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('confirmDelete', $plan->id)->assertSet('deletingName', 'Service')
+            ->call('delete')->assertSet('deletingId', null)->assertSet('deletingName', '')
+            ->assertDispatched('close-delete-planned-payment-modal');
+        $this->assertDatabaseCount('planned_payments', 0);
+    }
+
+    public function test_render_accepts_a_numeric_string_auth_identifier(): void
+    {
+        $user = User::factory()->create();
+        $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Service', 'amount' => '240', 'first_due_on' => '2026-11-25', 'frequency' => 'once']);
+        $this->actingAs($user);
+        Auth::shouldReceive('id')->once()->andReturn((string) $user->id);
+
+        $payments = app(UpcomingPayments::class)->render()->getData()['payments'];
+        $this->assertSame($plan->id, $payments->first()['plan']->id);
     }
 
     public function test_dashboard_shows_first_three_plans_below_summary_without_changing_actuals(): void

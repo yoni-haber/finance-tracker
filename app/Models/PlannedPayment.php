@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $user_id
  * @property string $name
  * @property string|null $note
- * @property numeric $amount
+ * @property string $amount
  * @property \Illuminate\Support\Carbon $first_due_on
  * @property string $frequency
  * @property int $completed_occurrences

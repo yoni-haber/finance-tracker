@@ -82,6 +82,43 @@ final class PlannedPaymentsTest extends TestCase
         $this->assertSame(['2026-10-04', '2027-10-04'], PlannedPayments::nextTwelveMonths($user->id)->pluck('due')->map->toDateString()->all());
     }
 
+    public function test_frequency_and_due_labels_cover_today_tomorrow_and_overdue_grammar(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $plan = $this->plan('2026-10-04', 'once');
+        $this->assertSame('One-off', $plan->frequencyLabel());
+        $this->assertSame('Due today', $plan->dueLabel());
+
+        foreach ([
+            ['2026-10-02', 'Overdue by 2 days'],
+            ['2026-10-03', 'Overdue by 1 day'],
+            ['2026-10-05', 'Due tomorrow'],
+            ['2026-10-06', 'Due in 2 days'],
+        ] as [$date, $label]) {
+            $plan->first_due_on = $date;
+            $this->assertSame($label, $plan->dueLabel());
+        }
+
+        $plan->frequency = 'quarterly';
+        $this->assertSame('Quarterly', $plan->frequencyLabel());
+        $plan->frequency = 'yearly';
+        $this->assertSame('Yearly', $plan->frequencyLabel());
+        $plan->frequency = 'once';
+        $plan->completed_occurrences = 1;
+        $this->assertSame('Completed', $plan->dueLabel());
+    }
+
+    public function test_plans_with_the_same_due_date_keep_creation_order_in_both_lists(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
+        $user = User::factory()->create();
+        $first = PlannedPayment::create(['user_id' => $user->id, 'name' => 'First', 'amount' => '10', 'first_due_on' => '2026-11-01', 'frequency' => 'once']);
+        $second = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Second', 'amount' => '20', 'first_due_on' => '2026-11-01', 'frequency' => 'once']);
+
+        $this->assertSame([$first->id, $second->id], PlannedPayments::outstanding($user->id)->pluck('id')->all());
+        $this->assertSame([$first->id, $second->id], PlannedPayments::nextTwelveMonths($user->id)->pluck('plan')->pluck('id')->all());
+    }
+
     private function plan(string $date, string $frequency): PlannedPayment
     {
         return PlannedPayment::create(['user_id' => User::factory()->create()->id, 'name' => 'Plan', 'amount' => '10.00', 'first_due_on' => $date, 'frequency' => $frequency]);

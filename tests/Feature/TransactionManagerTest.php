@@ -837,6 +837,7 @@ final class TransactionManagerTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(TransactionManager::class)
+            ->set('new', true)
             ->set('transactionId', 999)
             ->set('type', Transaction::TYPE_INCOME)
             ->set('amount', '500.00')
@@ -845,6 +846,7 @@ final class TransactionManagerTest extends TestCase
             ->set('frequency', 'weekly')
             ->set('recurring_until', '2025-12-31')
             ->call('resetForm')
+            ->assertSet('new', false)
             ->assertSet('transactionId', null)
             ->assertSet('type', Transaction::TYPE_EXPENSE)
             ->assertSet('amount', '')
@@ -853,6 +855,16 @@ final class TransactionManagerTest extends TestCase
             ->assertSet('is_recurring', false)
             ->assertSet('frequency', null)
             ->assertSet('recurring_until', null);
+    }
+
+    public function test_subclass_can_extend_transaction_validation_rules(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)->test(TransactionManagerWithHigherMinimum::class)
+            ->set('amount', '50.00')->set('date', '2026-10-04')
+            ->call('save')->assertHasErrors(['amount' => 'min']);
+        $this->assertDatabaseCount('transactions', 0);
     }
 
     public function test_open_modal_dispatches_open_transaction_modal_event(): void
@@ -1358,5 +1370,17 @@ final class TransactionManagerTest extends TestCase
             ->assertSee('No transactions match this search and the active filters.')
             ->call('clearSearch')
             ->assertSee('No transactions found for this period with the active filters.');
+    }
+}
+
+class TransactionManagerWithHigherMinimum extends TransactionManager
+{
+    /** @return array<string, list<mixed>> */
+    protected function rules(): array
+    {
+        $rules = parent::rules();
+        $rules['amount'] = ['required', 'numeric', 'min:1000'];
+
+        return $rules;
     }
 }
