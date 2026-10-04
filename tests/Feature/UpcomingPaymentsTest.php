@@ -217,12 +217,12 @@ final class UpcomingPaymentsTest extends TestCase
         $user = User::factory()->create();
         $plan = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Water', 'amount' => '50', 'first_due_on' => '2026-11-25', 'frequency' => 'quarterly']);
 
-        $component = Livewire::actingAs($user)->test(UpcomingPayments::class)
+        $testable = Livewire::actingAs($user)->test(UpcomingPayments::class)
             ->call('markDone', $plan->id, '2026-12-25')
             ->assertSet('status', 'This payment has already moved to another date.')
             ->assertSet('statusUndoId', null);
         $this->assertSame(0, $plan->refresh()->completed_occurrences);
-        $component->call('undo', $plan->id)->assertSet('status', 'Payment plan restored.');
+        $testable->call('undo', $plan->id)->assertSet('status', 'Payment plan restored.');
         $this->assertSame(0, $plan->refresh()->completed_occurrences);
     }
 

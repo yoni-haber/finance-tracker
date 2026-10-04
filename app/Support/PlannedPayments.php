@@ -6,15 +6,10 @@ namespace App\Support;
 
 use App\Models\PlannedPayment;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 
 final class PlannedPayments
 {
-    /**
-     * @param int $userId
-     * @return SupportCollection
-     */
     public static function outstanding(int $userId): SupportCollection
     {
         return PlannedPayment::query()->where('user_id', $userId)->get()
