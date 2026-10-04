@@ -3,9 +3,9 @@
         <button type="button" wire:click="openCreate" class="app-button-primary">+ Add payment</button>
     </x-page-header>
 
-    @if ($status !== '')
+    @if ($status !== '' || session()->has('status'))
         <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-900/20" data-action-feedback role="status">
-            <div class="flex flex-wrap items-center gap-3 text-sm font-medium text-emerald-800 dark:text-emerald-300"><span>{{ $status }}</span>@if ($statusUndoId !== null)<button type="button" wire:click="undo({{ $statusUndoId }})" class="app-link underline">Undo</button>@endif</div>
+            <div class="flex flex-wrap items-center gap-3 text-sm font-medium text-emerald-800 dark:text-emerald-300"><span>{{ $status !== '' ? $status : session('status') }}</span>@if ($status !== '' && $statusUndoId !== null)<button type="button" wire:click="undo({{ $statusUndoId }})" class="app-link underline">Undo</button>@endif</div>
         </div>
     @endif
 
