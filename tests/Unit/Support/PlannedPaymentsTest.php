@@ -7,6 +7,7 @@ namespace Tests\Unit\Support;
 use App\Models\PlannedPayment;
 use App\Models\User;
 use App\Support\PlannedPayments;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -95,7 +96,7 @@ final class PlannedPaymentsTest extends TestCase
             ['2026-10-05', 'Due tomorrow'],
             ['2026-10-06', 'Due in 2 days'],
         ] as [$date, $label]) {
-            $plan->first_due_on = $date;
+            $plan->first_due_on = Carbon::parse($date);
             $this->assertSame($label, $plan->dueLabel());
         }
 

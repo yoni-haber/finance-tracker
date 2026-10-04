@@ -173,6 +173,21 @@ final class UpcomingPaymentsTest extends TestCase
         $component->call('resetForm')->assertHasNoErrors()->assertSet('editingId', null);
     }
 
+    public function test_edit_clears_validation_errors_from_a_previous_payment(): void
+    {
+        $user = User::factory()->create();
+        $first = PlannedPayment::create(['user_id' => $user->id, 'name' => 'First', 'amount' => '10', 'first_due_on' => '2026-11-01', 'frequency' => 'once']);
+        $second = PlannedPayment::create(['user_id' => $user->id, 'name' => 'Second', 'amount' => '20', 'first_due_on' => '2026-12-01', 'frequency' => 'yearly']);
+
+        Livewire::actingAs($user)->test(UpcomingPayments::class)
+            ->call('edit', $first->id)
+            ->set('name', '')->call('save')->assertHasErrors(['name' => 'required'])
+            ->call('edit', $second->id)
+            ->assertHasNoErrors()
+            ->assertSet('editingId', $second->id)
+            ->assertSet('name', 'Second');
+    }
+
     public function test_changing_only_date_or_only_repeat_restarts_schedule(): void
     {
         $user = User::factory()->create();
@@ -223,7 +238,7 @@ final class UpcomingPaymentsTest extends TestCase
             ->assertSet('statusUndoId', null);
         $this->assertSame(0, $plan->refresh()->completed_occurrences);
         $testable->call('undo', $plan->id)->assertSet('status', 'Payment plan restored.');
-        $this->assertSame(0, $plan->refresh()->completed_occurrences);
+        $this->assertDatabaseHas('planned_payments', ['id' => $plan->id, 'completed_occurrences' => 0]);
     }
 
     public function test_deleting_a_plan_clears_the_pending_confirmation(): void

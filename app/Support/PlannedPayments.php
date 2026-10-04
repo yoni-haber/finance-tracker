@@ -10,6 +10,7 @@ use Illuminate\Support\Collection as SupportCollection;
 
 final class PlannedPayments
 {
+    /** @return SupportCollection<int, PlannedPayment> */
     public static function outstanding(int $userId): SupportCollection
     {
         return PlannedPayment::query()->where('user_id', $userId)->get()
