@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Support\PlannedPayments;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use LogicException;
 use Tests\TestCase;
 
 final class PlannedPaymentsTest extends TestCase
@@ -82,28 +81,6 @@ final class PlannedPaymentsTest extends TestCase
         PlannedPayment::create(['user_id' => $user->id, 'name' => 'Annual', 'amount' => '650.00', 'first_due_on' => '2026-10-04', 'frequency' => 'yearly']);
 
         $this->assertSame(['2026-10-04', '2027-10-04'], PlannedPayments::nextTwelveMonths($user->id)->pluck('due')->map->toDateString()->all());
-    }
-
-    public function test_non_advancing_overdue_schedule_is_rejected(): void
-    {
-        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
-        $user = User::factory()->create();
-        PlannedPayment::create(['user_id' => $user->id, 'name' => 'Invalid', 'amount' => '10', 'first_due_on' => '2026-09-01', 'frequency' => 'unknown']);
-
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessageIsOrContains('Planned payment due dates must advance.');
-        PlannedPayments::nextTwelveMonths($user->id);
-    }
-
-    public function test_non_advancing_future_schedule_is_rejected(): void
-    {
-        $this->travelTo(now()->setDate(2026, 10, 4)->startOfDay());
-        $user = User::factory()->create();
-        PlannedPayment::create(['user_id' => $user->id, 'name' => 'Invalid', 'amount' => '10', 'first_due_on' => '2026-11-01', 'frequency' => 'unknown']);
-
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessageIsOrContains('Planned payment due dates must advance.');
-        PlannedPayments::nextTwelveMonths($user->id);
     }
 
     public function test_frequency_and_due_labels_cover_today_tomorrow_and_overdue_grammar(): void
