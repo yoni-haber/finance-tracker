@@ -7,6 +7,7 @@ namespace App\Support;
 use App\Models\PlannedPayment;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection as SupportCollection;
+use LogicException;
 
 final class PlannedPayments
 {
@@ -45,7 +46,12 @@ final class PlannedPayments
 
             while ($due->isBefore($today)) {
                 $index++;
-                $due = $plan->dueDateForOccurrence($index);
+                $nextDue = $plan->dueDateForOccurrence($index);
+                if ($nextDue->lessThanOrEqualTo($due)) {
+                    throw new LogicException('Planned payment due dates must advance.');
+                }
+
+                $due = $nextDue;
             }
 
             if ($index === $nextIndex && $due->isAfter($end)) {
@@ -55,7 +61,12 @@ final class PlannedPayments
             while ($due->lessThanOrEqualTo($end)) {
                 $occurrences->push(['plan' => $plan, 'due' => $due, 'is_next' => $index === $nextIndex]);
                 $index++;
-                $due = $plan->dueDateForOccurrence($index);
+                $nextDue = $plan->dueDateForOccurrence($index);
+                if ($nextDue->lessThanOrEqualTo($due)) {
+                    throw new LogicException('Planned payment due dates must advance.');
+                }
+
+                $due = $nextDue;
             }
         }
 
