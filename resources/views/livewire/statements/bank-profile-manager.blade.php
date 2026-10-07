@@ -108,7 +108,7 @@
                     <button
                         type="button"
                         wire:click="showCreate"
-                        class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                        class="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
                     >
                         Create bank profile
                     </button>

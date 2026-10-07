@@ -19,11 +19,11 @@ final class NetWorthTrackerTest extends TestCase
     /** @return iterable<string, array{string, string, string, string}> */
     public static function summaryColours(): iterable
     {
-        yield 'positive' => ['500.00', '100.00', '400.00', 'text-[#126e51] dark:text-[#75ddb2]'];
+        yield 'positive' => ['500.00', '100.00', '400.00', 'text-finance-positive'];
 
-        yield 'zero' => ['500.00', '500.00', '0.00', 'text-[#126e51] dark:text-[#75ddb2]'];
+        yield 'zero' => ['500.00', '500.00', '0.00', 'text-finance-positive'];
 
-        yield 'negative' => ['100.00', '200.00', '-100.00', 'text-[#bd5b52] dark:text-[#f19b91]'];
+        yield 'negative' => ['100.00', '200.00', '-100.00', 'text-finance-negative'];
     }
 
     #[DataProvider('summaryColours')]
@@ -33,8 +33,8 @@ final class NetWorthTrackerTest extends TestCase
         NetWorthEntry::factory()->for($user)->create(['date' => today(), 'assets' => $assets, 'liabilities' => $liabilities, 'net_worth' => $netWorth]);
         Livewire::actingAs($user)->test(NetWorthTracker::class)
             ->assertSeeHtml('tabular-nums ' . $colour . '">' . \App\Support\Money::format($netWorth))
-            ->assertSeeHtml('tabular-nums text-[#126e51] dark:text-[#75ddb2]">' . \App\Support\Money::format($assets))
-            ->assertSeeHtml('tabular-nums text-[#bd5b52] dark:text-[#f19b91]">' . \App\Support\Money::format($liabilities));
+            ->assertSeeHtml('tabular-nums text-finance-positive">' . \App\Support\Money::format($assets))
+            ->assertSeeHtml('tabular-nums text-finance-negative">' . \App\Support\Money::format($liabilities));
     }
 
     public function test_missing_current_snapshot_keeps_headline_placeholders_neutral(): void
@@ -44,7 +44,7 @@ final class NetWorthTrackerTest extends TestCase
         NetWorthEntry::factory()->for($user)->create(['date' => today()->addDay()]);
         $testable = Livewire::actingAs($user)->test(NetWorthTracker::class)
             ->assertSeeHtml('tabular-nums app-muted">—')->assertSee('No snapshot through today')
-            ->assertDontSeeHtml('tabular-nums text-[#126e51]')->assertDontSeeHtml('tabular-nums text-[#bd5b52]');
+            ->assertDontSeeHtml('tabular-nums text-finance-positive')->assertDontSeeHtml('tabular-nums text-finance-negative');
         $this->assertNull($testable->viewData('latestEntry'));
     }
 

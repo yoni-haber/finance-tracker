@@ -12,17 +12,17 @@
         <section class="app-card min-w-0 p-4 sm:p-5" aria-labelledby="spending-limits-summary-heading">
             <h2 id="spending-limits-summary-heading" class="mb-3 text-lg font-semibold">Spending limits</h2>
             <div class="grid gap-2 sm:grid-cols-3">
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Planned</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-[#4d6f96] dark:text-[#a7c9ec] xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['planned']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Spent</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-[#bd5b52] dark:text-[#f19b91] xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['spent']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">{{ $budgetTotals['remaining'] < 0 ? 'Over plan' : 'Remaining' }}</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $budgetTotals['remaining'] < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">£{{ \App\Support\Money::formatPennies(abs($budgetTotals['remaining'])) }}</p></div>
+                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Planned</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['planned']) }}</p></div>
+                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Spent</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-negative xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['spent']) }}</p></div>
+                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">{{ $budgetTotals['remaining'] < 0 ? 'Over plan' : 'Remaining' }}</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $budgetTotals['remaining'] < 0 ? 'text-finance-negative' : 'text-finance-positive' }}">£{{ \App\Support\Money::formatPennies(abs($budgetTotals['remaining'])) }}</p></div>
             </div>
         </section>
         <section class="app-card min-w-0 p-4 sm:p-5" aria-labelledby="investment-goals-summary-heading">
             <h2 id="investment-goals-summary-heading" class="mb-3 text-lg font-semibold">Investment goals</h2>
             <div class="grid gap-2 sm:grid-cols-3">
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Target</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-[#4d6f96] dark:text-[#a7c9ec] xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['target']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Invested</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-[#4d6f96] dark:text-[#a7c9ec] xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['invested']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">To goal</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $investmentTotals['toGoal'] > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-[#126e51] dark:text-[#75ddb2]' }}">£{{ \App\Support\Money::formatPennies($investmentTotals['toGoal']) }}</p></div>
+                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Target</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['target']) }}</p></div>
+                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Invested</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['invested']) }}</p></div>
+                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">To goal</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $investmentTotals['toGoal'] > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-finance-positive' }}">£{{ \App\Support\Money::formatPennies($investmentTotals['toGoal']) }}</p></div>
             </div>
         </section>
     </div>
@@ -99,7 +99,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-400">No budgets defined for this period.</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-600 dark:text-zinc-400">No budgets defined for this period.</td>
                         </tr>
                     @endforelse
                 </tbody>

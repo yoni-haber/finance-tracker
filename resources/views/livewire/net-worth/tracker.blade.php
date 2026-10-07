@@ -3,9 +3,9 @@
         <button type="button" wire:click="openModal" class="app-button-primary">+ New snapshot</button>
     </x-page-header>
     <div class="grid gap-3 sm:grid-cols-3">
-        <div class="app-card p-4"><p class="app-eyebrow">Latest net worth</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry && \App\Support\Money::normalize($latestEntry->net_worth) < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : ($latestEntry ? 'text-[#126e51] dark:text-[#75ddb2]' : 'app-muted') }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->net_worth) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
-        <div class="app-card p-4"><p class="app-eyebrow">Assets</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-[#126e51] dark:text-[#75ddb2]' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->assets) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
-        <div class="app-card p-4"><p class="app-eyebrow">Liabilities</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->liabilities) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Latest net worth</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry && \App\Support\Money::normalize($latestEntry->net_worth) < 0 ? 'text-finance-negative' : ($latestEntry ? 'text-finance-positive' : 'app-muted') }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->net_worth) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Assets</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-finance-positive' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->assets) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Liabilities</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-finance-negative' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->liabilities) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
     </div>
     {{-- Status message --}}
     @if (session()->has('status'))
@@ -61,14 +61,14 @@
                             </td>
                             <td class="px-3 py-2 font-semibold tabular-nums {{ $entry->net_worth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">{{ \App\Support\Money::format($entry->net_worth) }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
-                                <button type="button" x-on:click="expanded = !expanded" class="text-xs font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" x-text="expanded ? 'Collapse' : 'Expand'"></button>
+                                <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="text-xs font-medium text-zinc-600 hover:text-zinc-800 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:text-zinc-300 dark:hover:text-zinc-100" x-text="expanded ? 'Collapse' : 'Expand'"></button>
                                 <button type="button" wire:click="edit({{ $entry->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
                                 <button type="button" wire:click="confirmDelete({{ $entry->id }})" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-400">
+                            <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-600 dark:text-zinc-400">
                                 No entries yet. Start by creating a snapshot of your current assets and liabilities.
                             </td>
                         </tr>
@@ -196,7 +196,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-400">No assets added yet.</td>
+                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-600 dark:text-zinc-400">No assets added yet.</td>
                                         </tr>
                                     @endforelse
                                     {{-- Inline add row --}}
@@ -267,7 +267,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-400">No liabilities added yet.</td>
+                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-600 dark:text-zinc-400">No liabilities added yet.</td>
                                         </tr>
                                     @endforelse
                                     {{-- Inline add row --}}

@@ -42,7 +42,7 @@
                 <div class="flex items-center {{ $loop->last ? '' : 'flex-1' }}">
                     <div class="flex flex-col items-center gap-1">
                         <div class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold
-                            {{ $isActive ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : ($isDone ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800') }}
+                            {{ $isActive ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : ($isDone ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-600 dark:text-zinc-400 dark:bg-zinc-800') }}
                             {{ $currentStep === -1 && $i === 2 ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40' : '' }}
                         ">
                             @if ($isDone)
@@ -51,7 +51,7 @@
                                 {{ $i + 1 }}
                             @endif
                         </div>
-                        <span class="text-center text-[10px] font-medium sm:text-xs {{ $isActive ? 'text-emerald-700 dark:text-emerald-400' : ($isDone ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400') }}">{{ $label }}</span>
+                        <span class="text-center text-[10px] font-medium sm:text-xs {{ $isActive ? 'text-emerald-700 dark:text-emerald-400' : ($isDone ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-600 dark:text-zinc-400') }}">{{ $label }}</span>
                     </div>
                     @if (!$loop->last)
                         <div class="mx-2 h-px flex-1 {{ $isDone ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-zinc-200 dark:bg-zinc-700' }}"></div>
@@ -72,7 +72,7 @@
             <h3 class="text-base font-semibold text-amber-900 dark:text-amber-200">No bank profiles set up</h3>
             <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">You need at least one bank profile to import statements. A profile tells the system how to read your statement file.</p>
             <a href="{{ route('statements.bank-profiles', ['create' => 1]) }}"
-               class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
+               class="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
                 Create bank profile
             </a>
         </div>
@@ -155,8 +155,8 @@
 
             <form wire:submit="uploadStatement" class="mt-5 space-y-5">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Bank profile</label>
-                    <select wire:model="bankProfileId" class="app-field mt-1.5 w-full">
+                    <label for="statement-bank-profile" class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Bank profile</label>
+                    <select id="statement-bank-profile" wire:model="bankProfileId" class="app-field mt-1.5 w-full">
                         <option value="">Select a profile…</option>
                         @foreach ($bankProfiles as $profile)
                             <option value="{{ $profile->id }}">
@@ -172,8 +172,9 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Statement file</label>
+                    <label for="statement-file" class="block text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-300">Statement file</label>
                     <input
+                        id="statement-file"
                         type="file"
                         wire:model="csvFile"
                         accept=".csv,.txt"

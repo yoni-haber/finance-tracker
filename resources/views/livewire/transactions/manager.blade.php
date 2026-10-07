@@ -105,7 +105,7 @@
                                     {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'Money in' : 'Money out' }}
                                 </span>
                                 @if ($transaction->is_recurring)
-                                    <span class="ml-1 text-xs text-zinc-400" title="Recurring {{ ucfirst($transaction->frequency) }}">↻</span>
+                                    <span class="ml-1 text-xs text-zinc-600 dark:text-zinc-400" title="Recurring {{ ucfirst($transaction->frequency) }}">↻</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-right font-medium tabular-nums {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
@@ -131,7 +131,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-400">
+                            <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-600 dark:text-zinc-400">
                                 @if ($searching)
                                     {{ $filterParentCategory || $filterSubCategory || $filterType ? 'No transactions match this search and the active filters.' : 'No transactions match this search.' }}
                                 @elseif ($showingRecorded)
@@ -163,14 +163,14 @@
                         <span class="shrink-0 text-sm font-semibold tabular-nums {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">{{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? '+' : '−' }}{{ \App\Support\Money::format($transaction->amount) }}</span>
                     </div>
                     <div class="mt-3 flex gap-4 border-t border-app-border pt-3 text-sm">
-                        <button type="button" wire:click="edit({{ $transaction->id }})" class="app-link">{{ $showingRecorded && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
+                        <button type="button" wire:click="edit({{ $transaction->id }})" class="app-link inline-flex min-h-11 items-center">{{ $showingRecorded && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
                         <button type="button"
                             @if ($showingRecorded && $transaction->is_recurring)
                                 wire:click="confirmDelete({{ $transaction->id }})"
                             @else
                                 wire:click="confirmDelete({{ $transaction->id }}, '{{ \Carbon\Carbon::parse($transaction->date)->toDateString() }}')"
                             @endif
-                            class="font-medium text-rose-700 dark:text-rose-400">{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : 'Delete' }}</button>
+                            class="inline-flex min-h-11 items-center font-medium text-rose-700 dark:text-rose-400">{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : 'Delete' }}</button>
                     </div>
                 </article>
             @empty

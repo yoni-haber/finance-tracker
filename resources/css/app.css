@@ -52,6 +52,11 @@ html {
     --color-app-border: #e4e9e1;
     --color-app-muted: #65736a;
 
+    --color-finance-positive: #126e51;
+    --color-finance-negative: #bd5b52;
+    --color-finance-investment: #4d6f96;
+    --color-finance-savings: #795c9f;
+
     --color-accent: #147d5a;
     --color-accent-content: #147d5a;
     --color-accent-foreground: var(--color-white);
@@ -67,6 +72,10 @@ html {
         --color-app-ink: #ecf4ee;
         --color-app-border: #304038;
         --color-app-muted: #a8b8ad;
+        --color-finance-positive: #75ddb2;
+        --color-finance-negative: #f19b91;
+        --color-finance-investment: #a7c9ec;
+        --color-finance-savings: #d2b5ef;
     }
 }
 
@@ -80,7 +89,7 @@ html {
     }
 
     .app-link {
-        @apply font-medium text-[#126e51] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#147d5a] dark:text-[#75ddb2];
+        @apply font-medium text-finance-positive underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600;
     }
 
     .app-page-header {

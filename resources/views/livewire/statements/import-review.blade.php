@@ -102,8 +102,9 @@
                 <div class="ml-auto flex flex-wrap items-center gap-3">
                     <!-- Bulk Category Assignment -->
                     <div class="flex items-center gap-2">
-                        <label class="text-sm text-emerald-900 dark:text-emerald-100">Assign category:</label>
+                        <label for="bulk-import-category" class="text-sm text-emerald-900 dark:text-emerald-100">Assign category:</label>
                         <select
+                            id="bulk-import-category"
                             wire:change="bulkAssignCategory($event.target.value)"
                             class="app-field text-sm"
                         >
@@ -148,7 +149,7 @@
 
         <div class="flex flex-wrap gap-2 border-b border-app-border px-4 py-3 sm:px-6" role="group" aria-label="Filter imported transactions">
             @foreach (['all' => 'All', 'needs_attention' => 'Needs a category', 'ready' => 'Ready', 'possible' => 'Possible matches', 'duplicates' => 'Skipped duplicates'] as $filterValue => $filterLabel)
-                <button type="button" wire:click="$set('viewFilter', '{{ $filterValue }}')" aria-pressed="{{ $viewFilter === $filterValue ? 'true' : 'false' }}" class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors {{ $viewFilter === $filterValue ? 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-600 dark:hover:text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:hover:text-white' }}">{{ $filterLabel }} <span class="tabular-nums">{{ match ($filterValue) { 'all' => $summary['total'], 'needs_attention' => $summary['needs_attention'], 'ready' => $summary['new_transactions'] - $summary['needs_attention'], 'possible' => $summary['possible_duplicates'], default => $summary['duplicates'] } }}</span></button>
+                <button type="button" wire:click="$set('viewFilter', '{{ $filterValue }}')" aria-pressed="{{ $viewFilter === $filterValue ? 'true' : 'false' }}" class="inline-flex min-h-11 items-center rounded-full px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 {{ $viewFilter === $filterValue ? 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-600 dark:hover:text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:hover:text-white' }}">{{ $filterLabel }} <span class="ml-1 tabular-nums">{{ match ($filterValue) { 'all' => $summary['total'], 'needs_attention' => $summary['needs_attention'], 'ready' => $summary['new_transactions'] - $summary['needs_attention'], 'possible' => $summary['possible_duplicates'], default => $summary['duplicates'] } }}</span></button>
             @endforeach
         </div>
         <div class="grid gap-3 p-3 sm:p-4">
@@ -184,7 +185,7 @@
                                     <div class="flex items-center gap-2"><input type="checkbox" wire:model.live="selectedTransactionIds" value="{{ $transaction->id }}" aria-label="Select {{ $transaction->description }}" class="rounded border-zinc-300"><select wire:change="updateCategory({{ $transaction->id }}, $event.target.value)" aria-label="Category for {{ $transaction->description }}" class="app-field min-w-0 flex-1 text-sm"><option value="" @selected($transaction->category_id === null)>Uncategorised</option>@foreach ($categories->where('type', $mobileType) as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}" @selected($transaction->category_id == $sub->id)>{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}" @selected($transaction->category_id == $parent->id)>{{ $parent->name }}</option>@endif @endforeach</select></div>
                                     @if (isset($categorySuggestions[$transaction->id]))<button type="button" wire:click="updateCategory({{ $transaction->id }}, {{ $categorySuggestions[$transaction->id]['id'] }})" class="app-link mt-1 text-xs">Use previous category: {{ $categorySuggestions[$transaction->id]['name'] }}</button>@endif
                                 </div>
-                                <div class="flex basis-full gap-3 text-sm lg:flex-col lg:items-end lg:gap-1"><button type="button" wire:click="editTransaction({{ $transaction->id }})" class="app-link">Edit</button><button type="button" wire:click="confirmDeleteTransaction({{ $transaction->id }})" class="font-medium text-rose-700 dark:text-rose-400">Remove</button></div>
+                                <div class="flex basis-full gap-3 text-sm lg:flex-col lg:items-end lg:gap-1"><button type="button" wire:click="editTransaction({{ $transaction->id }})" class="app-link inline-flex min-h-11 items-center lg:min-h-9">Edit</button><button type="button" wire:click="confirmDeleteTransaction({{ $transaction->id }})" class="inline-flex min-h-11 items-center font-medium text-rose-700 dark:text-rose-400 lg:min-h-9">Remove</button></div>
                             @endif
                         </div>
                     @endif
