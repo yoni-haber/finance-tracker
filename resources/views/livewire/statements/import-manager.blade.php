@@ -3,7 +3,7 @@
          wire:poll.2s="checkImportStatus"
      @endif>
 
-    <x-page-header eyebrow="Bring data in" title="Import a statement" description="Upload a bank or card statement, review each transaction, then add the new entries to your ledger." />
+    <x-page-header title="Import a statement" description="Upload a bank or card statement, review each transaction, then add the new entries to your ledger." />
 
     @if (session('status'))
         <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">

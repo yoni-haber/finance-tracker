@@ -1,5 +1,5 @@
 <div class="space-y-5">
-    <x-page-header eyebrow="Plan" title="Budgets" description="Keep an eye on spending limits and investment goals for {{ $periodLabel }}.">
+    <x-page-header title="Budgets" description="Keep an eye on spending limits and investment goals for {{ $periodLabel }}.">
         <div class="flex flex-wrap gap-2">
             <button type="button" wire:click="copyFromPreviousMonth" wire:loading.attr="disabled" wire:target="copyFromPreviousMonth" class="app-button-secondary" title="Copy budgets from {{ $previousPeriodLabel }} into {{ $periodLabel }}">
                 <span wire:loading.remove wire:target="copyFromPreviousMonth">Copy previous month</span>
@@ -11,18 +11,18 @@
     <div class="grid gap-3 lg:grid-cols-2">
         <section class="app-card min-w-0 p-4 sm:p-5" aria-labelledby="spending-limits-summary-heading">
             <h2 id="spending-limits-summary-heading" class="mb-3 text-lg font-semibold">Spending limits</h2>
-            <div class="grid gap-2 sm:grid-cols-3">
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Planned</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['planned']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Spent</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-negative xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['spent']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">{{ $budgetTotals['remaining'] < 0 ? 'Over plan' : 'Remaining' }}</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $budgetTotals['remaining'] < 0 ? 'text-finance-negative' : 'text-finance-positive' }}">£{{ \App\Support\Money::formatPennies(abs($budgetTotals['remaining'])) }}</p></div>
+            <div class="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
+                <div class="min-w-0"><p class="app-eyebrow">Planned</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['planned']) }}</p></div>
+                <div class="min-w-0"><p class="app-eyebrow">Spent</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-negative xl:text-xl">£{{ \App\Support\Money::formatPennies($budgetTotals['spent']) }}</p></div>
+                <div class="col-span-2 min-w-0 border-t border-app-border pt-3 sm:col-span-1 sm:border-t-0 sm:pt-0"><p class="app-eyebrow">{{ $budgetTotals['remaining'] < 0 ? 'Over plan' : 'Remaining' }}</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $budgetTotals['remaining'] < 0 ? 'text-finance-negative' : 'text-finance-positive' }}">£{{ \App\Support\Money::formatPennies(abs($budgetTotals['remaining'])) }}</p></div>
             </div>
         </section>
         <section class="app-card min-w-0 p-4 sm:p-5" aria-labelledby="investment-goals-summary-heading">
             <h2 id="investment-goals-summary-heading" class="mb-3 text-lg font-semibold">Investment goals</h2>
-            <div class="grid gap-2 sm:grid-cols-3">
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Target</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['target']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">Invested</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['invested']) }}</p></div>
-                <div class="min-w-0 rounded-xl border border-app-border bg-zinc-50 p-3 dark:bg-zinc-800/50"><p class="app-eyebrow">To goal</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $investmentTotals['toGoal'] > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-finance-positive' }}">£{{ \App\Support\Money::formatPennies($investmentTotals['toGoal']) }}</p></div>
+            <div class="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
+                <div class="min-w-0"><p class="app-eyebrow">Target</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['target']) }}</p></div>
+                <div class="min-w-0"><p class="app-eyebrow">Invested</p><p class="mt-2 break-words text-lg font-semibold tabular-nums text-finance-investment xl:text-xl">£{{ \App\Support\Money::formatPennies($investmentTotals['invested']) }}</p></div>
+                <div class="col-span-2 min-w-0 border-t border-app-border pt-3 sm:col-span-1 sm:border-t-0 sm:pt-0"><p class="app-eyebrow">To goal</p><p class="mt-2 break-words text-lg font-semibold tabular-nums xl:text-xl {{ $investmentTotals['toGoal'] > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-finance-positive' }}">£{{ \App\Support\Money::formatPennies($investmentTotals['toGoal']) }}</p></div>
             </div>
         </section>
     </div>
@@ -111,10 +111,10 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
-                                <button type="button" wire:click="edit({{ $budget->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
+                                <button type="button" wire:click="edit({{ $budget->id }})" class="app-row-action">Edit</button>
                                 <button type="button" wire:click="confirmDelete({{ $budget->id }})"
                                         wire:loading.attr="disabled" wire:target="confirmDelete"
-                                        class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
+                                        class="app-row-action app-row-action-danger">Delete</button>
                             </td>
                         </tr>
                     @empty

@@ -1,5 +1,5 @@
 <div class="space-y-5 sm:space-y-7">
-    <x-page-header eyebrow="Planning ahead" title="Upcoming Payments" description="Keep track of payments before they happen. Plans do not count as spending until you record a transaction." description-class="max-w-none xl:whitespace-nowrap">
+    <x-page-header title="Upcoming Payments" description="Keep track of payments before they happen. Plans do not count as spending until you record a transaction." description-class="max-w-none xl:whitespace-nowrap">
         <button type="button" wire:click="openCreate" class="app-button-primary">+ Add payment</button>
     </x-page-header>
 
@@ -48,8 +48,8 @@
                                         @if ($isNext)
                                             <button type="button" wire:click="markDone({{ $payment->id }}, '{{ $due->toDateString() }}')" wire:loading.attr="disabled" class="app-button-primary px-3 text-xs">Mark done <span class="sr-only">{{ $payment->name }} due {{ $due->format('j M Y') }}</span></button>
                                         @endif
-                                        <button type="button" wire:click="edit({{ $payment->id }})" wire:loading.attr="disabled" wire:target="edit({{ $payment->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit <span class="sr-only">{{ $payment->name }} plan</span></button>
-                                        <button type="button" wire:click="confirmDelete({{ $payment->id }})" wire:loading.attr="disabled" wire:target="confirmDelete" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete <span class="sr-only">{{ $payment->name }} plan</span></button>
+                                        <button type="button" wire:click="edit({{ $payment->id }})" wire:loading.attr="disabled" wire:target="edit({{ $payment->id }})" class="app-row-action">Edit <span class="sr-only">{{ $payment->name }} plan</span></button>
+                                        <button type="button" wire:click="confirmDelete({{ $payment->id }})" wire:loading.attr="disabled" wire:target="confirmDelete" class="app-row-action app-row-action-danger">Delete <span class="sr-only">{{ $payment->name }} plan</span></button>
                                     </div>
                                 </td>
                             </tr>

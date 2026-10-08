@@ -11,6 +11,35 @@
 /* Keep the page and dialog content aligned when scrollbars appear or disappear. */
 html {
     scrollbar-gutter: stable;
+    accent-color: var(--color-accent);
+    scroll-behavior: smooth;
+}
+
+::selection {
+    background: #9be4c0;
+    color: #102019;
+}
+
+.dark ::selection {
+    background: #147d5a;
+    color: #ffffff;
+}
+
+:where(a, button, summary, [role='button']):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+:where(button, a, summary) {
+    -webkit-tap-highlight-color: transparent;
+}
+
+:where(table, .tabular-nums) {
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
 }
 
 [data-flux-modal] > dialog:not([data-flux-flyout]):not([data-flux-modal-overflow]) {
@@ -85,7 +114,7 @@ html {
 
 @layer components {
     .app-card {
-        @apply rounded-2xl border border-app-border bg-app-surface shadow-[0_1px_3px_rgba(20,40,29,0.04)];
+        @apply rounded-2xl border border-app-border bg-app-surface;
     }
 
     .app-muted {
@@ -101,7 +130,7 @@ html {
     }
 
     .app-page-title {
-        @apply mt-2 text-3xl font-semibold tracking-tight text-app-ink sm:text-4xl;
+        @apply text-3xl font-semibold tracking-tight text-app-ink sm:text-4xl;
     }
 
     .app-eyebrow {
@@ -109,11 +138,11 @@ html {
     }
 
     .app-button-primary {
-        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 active:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50;
     }
 
     .app-button-secondary {
-        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800;
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink transition-colors hover:bg-zinc-50 active:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800;
     }
 
     .app-empty {
@@ -121,7 +150,7 @@ html {
     }
 
     .app-field {
-        @apply box-border min-h-11 rounded-xl border border-app-border bg-app-surface px-3.5 py-2.5 text-sm leading-5 text-app-ink shadow-[0_1px_2px_rgba(20,40,29,0.04)] transition-colors placeholder:text-zinc-500 hover:border-zinc-300 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-zinc-500;
+        @apply box-border min-h-11 rounded-xl border border-app-border bg-app-surface px-3.5 py-2.5 text-sm leading-5 text-app-ink transition-colors placeholder:text-zinc-500 hover:border-zinc-300 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-zinc-500;
     }
 
     input.app-field,
@@ -177,7 +206,15 @@ html {
     }
 
     .app-form-actions {
-        @apply flex flex-wrap justify-end gap-3 border-t border-app-border bg-white pt-4 pb-1 dark:bg-zinc-800;
+        @apply flex flex-wrap justify-end gap-3 border-t border-app-border bg-app-surface pt-4 pb-1;
+    }
+
+    .app-row-action {
+        @apply inline-flex min-h-9 items-center rounded-md px-1.5 text-xs font-semibold text-finance-positive hover:underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .app-row-action-danger {
+        @apply text-finance-negative;
     }
 }
 
@@ -192,7 +229,30 @@ html {
     }
 }
 
+@media (min-width: 1024px) {
+    .settings-nav,
+    .settings-nav + .app-card {
+        box-shadow: 0 1px 3px rgba(20, 40, 29, 0.04);
+    }
+}
+
 @media (max-width: 639px) {
+    .settings-nav [data-flux-navlist] {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.25rem;
+    }
+
+    .settings-nav [data-flux-navlist-item] {
+        min-width: 0;
+        margin: 0;
+    }
+
+    .settings-nav [data-content] {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     select.app-period-select {
         padding-left: 0.5rem;
         padding-right: 1.75rem;
@@ -258,7 +318,3 @@ textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
 }
-
-/* \[:where(&)\]:size-4 {
-    @apply size-4;
-} */

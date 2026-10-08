@@ -1,18 +1,18 @@
 <div class="flex flex-col gap-5 sm:gap-7">
     <header class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#147d5a] dark:text-[#75ddb2]">Your money at a glance</p>
-            <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{{ $periodLabel }} overview</h1>
+            <h1 class="app-page-title">{{ $periodLabel }} overview</h1>
             <p class="mt-2 text-sm app-muted">Monthly totals include projected recurring transactions.</p>
         </div>
+        <a href="{{ route('transactions') }}" wire:navigate class="app-button-secondary">View transactions</a>
     </header>
 
     <section aria-label="Monthly summary" class="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         @foreach ([
-            ['label' => 'Income', 'value' => $income, 'accent' => 'text-finance-positive'],
-            ['label' => 'Spending', 'value' => $spending, 'accent' => 'text-finance-negative'],
-            ['label' => 'Invested', 'value' => $invested, 'accent' => 'text-finance-investment'],
-            ['label' => 'Remainder', 'value' => $savings, 'accent' => (float) $savings < 0 ? 'text-finance-negative' : 'text-finance-positive'],
+            ['label' => 'Expected income', 'value' => $income, 'accent' => 'text-finance-positive'],
+            ['label' => 'Expected spending', 'value' => $spending, 'accent' => 'text-finance-negative'],
+            ['label' => 'Expected invested', 'value' => $invested, 'accent' => 'text-finance-investment'],
+            ['label' => 'Expected remainder', 'value' => $savings, 'accent' => (float) $savings < 0 ? 'text-finance-negative' : 'text-finance-positive'],
         ] as $metric)
             <div class="app-card min-w-0 px-3 py-2.5 sm:px-5 sm:py-4">
                 <p class="text-sm font-medium app-muted">{{ $metric['label'] }}</p>

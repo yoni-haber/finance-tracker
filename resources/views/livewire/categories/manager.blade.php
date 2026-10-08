@@ -1,5 +1,5 @@
 <div class="space-y-5">
-    <x-page-header eyebrow="Organise" title="Categories" description="Give every transaction a useful place, and decide how expenses appear in your reports.">
+    <x-page-header title="Categories" description="Give every transaction a useful place, and decide how expenses appear in your reports.">
         <button type="button" wire:click="openModal" class="app-button-primary">+ New category</button>
     </x-page-header>
     {{-- Status message --}}
@@ -35,7 +35,7 @@
                             @foreach ($section['parents'] as $parent)
                                 @php($groupTransactions = $parent->transactions_count + $parent->children->sum('transactions_count'))
                                 <div class="min-w-0 overflow-hidden rounded-xl border border-app-border">
-                                    <div class="flex flex-wrap items-start justify-between gap-3 border-l-4 {{ $section['expense'] ? 'border-rose-300 dark:border-rose-700' : 'border-emerald-300 dark:border-emerald-700' }} bg-zinc-50 px-4 py-3 dark:bg-zinc-800">
+                                    <div class="flex flex-wrap items-start justify-between gap-3 bg-zinc-50 px-4 py-3 dark:bg-zinc-800">
                                         <div class="min-w-0 flex-1">
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <h4 class="min-w-0 break-words font-semibold">{{ $parent->name }}</h4>
