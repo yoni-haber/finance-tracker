@@ -80,12 +80,12 @@
             @forelse ($entries as $entry)
                 <article class="p-4" x-data="{ expanded: false }">
                     <div class="flex items-start justify-between gap-3"><div><p class="font-semibold">{{ $entry->date->format('j M Y') }}</p><p class="mt-1 text-sm app-muted">Assets {{ \App\Support\Money::format($entry->assets) }} · Liabilities {{ \App\Support\Money::format($entry->liabilities) }}</p></div><p class="shrink-0 font-semibold tabular-nums {{ \App\Support\Money::normalize($entry->net_worth) < 0 ? 'text-rose-700 dark:text-rose-400' : '' }}">{{ \App\Support\Money::format($entry->net_worth) }}</p></div>
-                    <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="app-link mt-3 text-sm" x-text="expanded ? 'Hide details' : 'Show details'"></button>
+                    <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="app-link mt-3 inline-flex min-h-11 items-center text-sm" x-text="expanded ? 'Hide details' : 'Show details'"></button>
                     <div x-show="expanded" x-cloak class="mt-3 grid grid-cols-2 gap-3 border-t border-app-border pt-3 text-xs">
                         <div><p class="font-semibold">Assets</p>@foreach ($entry->lineItems->where('type', 'asset') as $item)<p class="mt-1 break-words app-muted">{{ $item->category }} · {{ \App\Support\Money::format($item->amount) }}</p>@endforeach</div>
                         <div><p class="font-semibold">Liabilities</p>@foreach ($entry->lineItems->where('type', 'liability') as $item)<p class="mt-1 break-words app-muted">{{ $item->category }} · {{ \App\Support\Money::format($item->amount) }}</p>@endforeach</div>
                     </div>
-                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $entry->id }})" class="app-link">Edit</button><button type="button" wire:click="confirmDelete({{ $entry->id }})" class="font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
+                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $entry->id }})" class="app-link inline-flex min-h-11 min-w-11 items-center justify-center">Edit</button><button type="button" wire:click="confirmDelete({{ $entry->id }})" class="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
                 </article>
             @empty
                 <p class="app-empty m-4">No snapshots yet. Add your current assets and liabilities to start tracking net worth.</p>
@@ -188,11 +188,11 @@
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
                                                 @if ($editingAssetIndex === $index)
-                                                    <button type="button" wire:click="saveAssetLine({{ $index }})" class="text-xs font-medium text-emerald-600">Save</button>
+                                                    <button type="button" wire:click="saveAssetLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-emerald-600 sm:min-h-0 sm:min-w-0">Save</button>
                                                 @else
-                                                    <button type="button" wire:click="editAssetLine({{ $index }})" class="text-xs font-medium text-blue-600">Edit</button>
+                                                    <button type="button" wire:click="editAssetLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-blue-600 sm:min-h-0 sm:min-w-0">Edit</button>
                                                 @endif
-                                                <button type="button" wire:click="removeAssetLine({{ $index }})" class="text-xs font-medium text-rose-600">Delete</button>
+                                                <button type="button" wire:click="removeAssetLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-rose-600 sm:min-h-0 sm:min-w-0">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
@@ -214,7 +214,7 @@
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <button type="button" wire:click="addAssetLine"
-                                                    class="rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Add</button>
+                                                    class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 sm:min-h-0 sm:min-w-0">Add</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -259,11 +259,11 @@
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
                                                 @if ($editingLiabilityIndex === $index)
-                                                    <button type="button" wire:click="saveLiabilityLine({{ $index }})" class="text-xs font-medium text-emerald-600">Save</button>
+                                                    <button type="button" wire:click="saveLiabilityLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-emerald-600 sm:min-h-0 sm:min-w-0">Save</button>
                                                 @else
-                                                    <button type="button" wire:click="editLiabilityLine({{ $index }})" class="text-xs font-medium text-blue-600">Edit</button>
+                                                    <button type="button" wire:click="editLiabilityLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-blue-600 sm:min-h-0 sm:min-w-0">Edit</button>
                                                 @endif
-                                                <button type="button" wire:click="removeLiabilityLine({{ $index }})" class="text-xs font-medium text-rose-600">Delete</button>
+                                                <button type="button" wire:click="removeLiabilityLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-rose-600 sm:min-h-0 sm:min-w-0">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
@@ -285,7 +285,7 @@
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <button type="button" wire:click="addLiabilityLine"
-                                                    class="rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Add</button>
+                                                    class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 sm:min-h-0 sm:min-w-0">Add</button>
                                         </td>
                                     </tr>
                                 </tbody>

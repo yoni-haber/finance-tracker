@@ -117,7 +117,7 @@
                     <div class="mt-3 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" aria-label="{{ $summary['category'] }} {{ $summary['isInvestment'] ? 'goal progress' : 'budget used' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $summary['barPercent'] }}" aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget' : $summary['percent'] . '% used') }}">
                         <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: {{ $summary['barPercent'] }}%"></div>
                     </div>
-                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $budget->id }})" class="app-link">Edit</button><button type="button" wire:click="confirmDelete({{ $budget->id }})" class="font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
+                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $budget->id }})" class="app-link inline-flex min-h-11 min-w-11 items-center justify-center">Edit</button><button type="button" wire:click="confirmDelete({{ $budget->id }})" class="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
                 </article>
             @empty
                 <p class="app-empty m-4">No budgets for this month. Add a budget or copy one from last month to get started.</p>
