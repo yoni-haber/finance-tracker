@@ -38,6 +38,8 @@ class TransactionManager extends Component
     #[Url(as: 'new', except: false)]
     public bool $new = false;
 
+    public string $status = '';
+
     public string $type = Transaction::TYPE_EXPENSE;
 
     public string $amount = '';
@@ -173,6 +175,7 @@ class TransactionManager extends Component
 
     public function save(): void
     {
+        $this->status = '';
         $data = $this->validate($this->rules());
         $data['user_id'] = Auth::id();
 
@@ -198,13 +201,14 @@ class TransactionManager extends Component
 
         $this->resetForm();
         $this->resetPage();
-        session()->flash('status', 'Transaction saved successfully.');
+        $this->status = 'Transaction saved successfully.';
         $this->dispatch('close-transaction-modal');
 
     }
 
     public function openModal(): void
     {
+        $this->status = '';
         $this->resetForm();
         $this->dispatch('open-transaction-modal');
     }
@@ -213,6 +217,7 @@ class TransactionManager extends Component
     {
         $transaction = Transaction::forUser((int) Auth::id())->findOrFail($transactionId);
 
+        $this->status = '';
         $this->resetValidation();
 
         $this->transactionId = $transaction->id;
@@ -233,6 +238,7 @@ class TransactionManager extends Component
     {
         $transaction = Transaction::forUser((int) Auth::id())->findOrFail($transactionId);
 
+        $this->status = '';
         $this->deletingTransactionId = $transaction->id;
         $this->deletingOccurrenceDate = $occurrenceDate;
         $this->deletingDescription = $transaction->description ?: 'this transaction';
@@ -251,7 +257,7 @@ class TransactionManager extends Component
         if ($transaction->is_recurring) {
             if ($entireSeries) {
                 $transaction->delete();
-                session()->flash('status', 'Recurring transaction series removed.');
+                $this->status = 'Recurring transaction series removed.';
                 $this->finishDelete();
 
                 return;
@@ -273,14 +279,14 @@ class TransactionManager extends Component
             }
 
             $transaction->occurrenceExceptions()->firstOrCreate(['date' => $parsedDate->toDateString()]);
-            session()->flash('status', 'Transaction occurrence removed.');
+            $this->status = 'Transaction occurrence removed.';
             $this->finishDelete();
 
             return;
         }
 
         $transaction->delete();
-        session()->flash('status', 'Transaction removed.');
+        $this->status = 'Transaction removed.';
         $this->finishDelete();
     }
 

@@ -57,6 +57,7 @@ html {
     --color-finance-negative: #bd5b52;
     --color-finance-investment: #4d6f96;
     --color-finance-savings: #795c9f;
+    --color-finance-warning: #9a5b12;
 
     --color-accent: #147d5a;
     --color-accent-content: #147d5a;
@@ -78,6 +79,7 @@ html {
         --color-finance-negative: #f19b91;
         --color-finance-investment: #a7c9ec;
         --color-finance-savings: #d2b5ef;
+        --color-finance-warning: #f2bf70;
     }
 }
 

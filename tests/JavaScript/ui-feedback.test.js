@@ -30,7 +30,7 @@ function modal({ open = true, height = 540, styleHeight = '', elements = [] } = 
     return Object.assign(root(elements), { open, offsetHeight: height, style: { height: styleHeight } });
 }
 
-function assertRevealed(element, block = 'start') {
+function assertRevealed(element, block = 'nearest') {
     assert.deepEqual(element.events, [
         ['attribute', 'tabindex', '-1'],
         ['focus', { preventScroll: true }],
@@ -78,7 +78,7 @@ function runtime(page = root(), dialogList = []) {
     };
 }
 
-test('page errors take priority over successes and receive focus before scrolling', () => {
+test('page errors take priority over successes and use minimal scrolling', () => {
     const error = message('error');
     const success = message('success');
     revealFeedback(root([success, error]));

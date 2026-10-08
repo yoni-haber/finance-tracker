@@ -14,7 +14,7 @@ class BudgetProgress
     /**
      * @param Collection<int, Budget> $budgets
      * @param Collection<int, Transaction> $transactions Projected occurrences for the selected month.
-     * @return Collection<int, array{category: string, category_id: int, budget: string, actual: string, remaining: string, over: string, overspent: bool, percent: int|null, barPercent: int, isInvestment: bool, goalMet: bool}>
+     * @return Collection<int, array{category: string, category_id: int, budget: string, actual: string, remaining: string, over: string, overspent: bool, percent: int|null, barPercent: int, status: string, isInvestment: bool, goalMet: bool}>
      */
     public static function forPeriod(Collection $budgets, Collection $transactions, int $month, int $year): Collection
     {
@@ -42,6 +42,13 @@ class BudgetProgress
             $percent = $limitPennies > 0
                 ? (int) round($spentPennies * 100 / $limitPennies)
                 : ($spentPennies === 0 ? 0 : null);
+            $goalMet = $isInvestment && $spentPennies >= $limitPennies;
+            $status = $isInvestment
+                ? ($goalMet ? 'goal-met' : 'goal-short')
+                : ($limitPennies === 0 && $spentPennies <= 0 ? 'safe'
+                    : ($spentPennies > $limitPennies ? 'over'
+                    : ($spentPennies >= $limitPennies ? 'limit'
+                        : ($limitPennies > 0 && $spentPennies * 5 >= $limitPennies * 4 ? 'near' : 'safe'))));
 
             return [
                 'category' => $budget->category->name,
@@ -53,8 +60,9 @@ class BudgetProgress
                 'overspent' => !$isInvestment && $spentPennies > $limitPennies,
                 'percent' => $percent,
                 'barPercent' => $percent === null ? 100 : min(100, max(0, $percent)),
+                'status' => $status,
                 'isInvestment' => $isInvestment,
-                'goalMet' => $isInvestment && $spentPennies >= $limitPennies,
+                'goalMet' => $goalMet,
             ];
         });
     }

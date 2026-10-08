@@ -3,9 +3,9 @@
         <button type="button" wire:click="openModal" class="app-button-primary">+ New transaction</button>
     </x-page-header>
     {{-- Status message --}}
-    @if (session()->has('status'))
+    @if ($status !== '' || session()->has('status'))
         <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
-            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
+            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ $status !== '' ? $status : session('status') }}</p>
         </div>
     @endif
 

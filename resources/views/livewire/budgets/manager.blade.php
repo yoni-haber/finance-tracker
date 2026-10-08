@@ -66,13 +66,33 @@
                 </thead>
                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                     @forelse ($budgetRows as $row)
-                        @php($budget = $row['budget'])
-                        @php($summary = $row['summary'])
+                        @php
+                            $budget = $row['budget'];
+                            $summary = $row['summary'];
+                            $budgetTone = match ($summary['status']) {
+                                'near' => 'text-finance-warning',
+                                'limit', 'over' => 'text-finance-negative',
+                                'goal-short' => 'text-finance-investment',
+                                default => 'text-finance-positive',
+                            };
+                            $budgetBar = match ($summary['status']) {
+                                'near' => 'bg-finance-warning',
+                                'limit', 'over' => 'bg-finance-negative',
+                                'goal-short' => 'bg-finance-investment',
+                                default => 'bg-finance-positive',
+                            };
+                            $budgetUsageLabel = match (true) {
+                                $summary['percent'] === null => 'Over limit',
+                                $summary['status'] === 'safe' && $summary['percent'] >= 80 => 'Just under 80%',
+                                $summary['status'] === 'near' && $summary['percent'] >= 100 => 'Just under 100%',
+                                default => $summary['percent'] . '%',
+                            };
+                        @endphp
                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                             <td class="px-3 py-2 font-medium text-zinc-900 dark:text-white"><a class="app-link" href="{{ route('transactions', ['type' => 'expense', 'category' => $budget->category_id]) }}" wire:navigate>{{ $budget->category->name }}</a>@if ($summary['isInvestment']) <span class="app-badge ml-1">Investment goal</span>@endif</td>
                             <td class="px-3 py-2 text-right font-medium tabular-nums text-zinc-900 dark:text-white">{{ \App\Support\Money::format($summary['budget']) }}</td>
                             <td class="px-3 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{{ \App\Support\Money::format($summary['actual']) }}</td>
-                            <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums font-medium {{ $summary['overspent'] ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400' }}">
+                            <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums font-medium {{ $budgetTone }}">
                                 @if ($summary['isInvestment'])
                                     {{ $summary['goalMet'] ? 'Goal met' : \App\Support\Money::format($summary['remaining']) . ' to goal' }}
                                 @else
@@ -83,11 +103,11 @@
                                 <div class="h-2 rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar"
                                      aria-label="{{ $summary['category'] }} {{ $summary['isInvestment'] ? 'goal progress' : 'budget used' }}" aria-valuemin="0" aria-valuemax="100"
                                      aria-valuenow="{{ $summary['barPercent'] }}"
-                                     aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget with no limit' : $summary['percent'] . '% used') }}">
-                                    <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: {{ $summary['barPercent'] }}%"></div>
+                                     aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget with no limit' : $budgetUsageLabel . ' used') }}">
+                                    <div class="h-2 rounded-full {{ $budgetBar }}" style="width: {{ $summary['barPercent'] }}%"></div>
                                 </div>
-                                <span class="mt-1 block text-xs {{ $summary['overspent'] ? 'text-rose-700 dark:text-rose-400' : 'text-zinc-600 dark:text-zinc-400' }}">
-                                    {{ $summary['isInvestment'] ? $summary['percent'] . '% of goal' : ($summary['percent'] === null ? 'Over budget' : $summary['percent'] . '% used') }}
+                                <span class="mt-1 block text-xs {{ $budgetTone }}">
+                                    {{ $summary['isInvestment'] ? $summary['percent'] . '% of goal' : ($summary['percent'] === null ? 'Over budget' : $budgetUsageLabel . ' used') }}
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
@@ -107,15 +127,43 @@
         </div>
         <div class="divide-y divide-app-border md:hidden">
             @forelse ($budgetRows as $row)
-                @php($budget = $row['budget'])
-                @php($summary = $row['summary'])
+                @php
+                    $budget = $row['budget'];
+                    $summary = $row['summary'];
+                    $budgetTone = match ($summary['status']) {
+                        'near' => 'text-finance-warning',
+                        'limit', 'over' => 'text-finance-negative',
+                        'goal-short' => 'text-finance-investment',
+                        default => 'text-finance-positive',
+                    };
+                    $budgetBar = match ($summary['status']) {
+                        'near' => 'bg-finance-warning',
+                        'limit', 'over' => 'bg-finance-negative',
+                        'goal-short' => 'bg-finance-investment',
+                        default => 'bg-finance-positive',
+                    };
+                    $budgetUsageLabel = match (true) {
+                        $summary['percent'] === null => 'Over limit',
+                        $summary['status'] === 'safe' && $summary['percent'] >= 80 => 'Just under 80%',
+                        $summary['status'] === 'near' && $summary['percent'] >= 100 => 'Just under 100%',
+                        default => $summary['percent'] . '%',
+                    };
+                @endphp
                 <article class="p-4">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div><h3 class="font-semibold"><a class="app-link" href="{{ route('transactions', ['type' => 'expense', 'category' => $budget->category_id]) }}" wire:navigate>{{ $summary['category'] }}</a></h3><p class="mt-1 text-sm app-muted">{{ \App\Support\Money::format($summary['actual']) }} of {{ \App\Support\Money::format($summary['budget']) }} {{ $summary['isInvestment'] ? 'invested' : 'spent' }}</p></div>
-                        <span class="app-badge {{ $summary['overspent'] ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' }}">{{ $summary['isInvestment'] ? ($summary['goalMet'] ? 'Goal met' : \App\Support\Money::format($summary['remaining']) . ' to goal') : ($summary['overspent'] ? \App\Support\Money::format($summary['over']) . ' over' : \App\Support\Money::format($summary['remaining']) . ' left') }}</span>
+                        <span class="text-right text-sm font-semibold tabular-nums {{ $budgetTone }}">
+                            @if ($summary['isInvestment'])
+                                {{ $summary['goalMet'] ? 'Goal met' : \App\Support\Money::format($summary['remaining']) . ' to goal' }}
+                            @elseif ($summary['status'] === 'over')
+                                {{ $summary['percent'] === null ? 'Over limit' : $budgetUsageLabel . ' used' }} · {{ \App\Support\Money::format($summary['over']) }} over
+                            @else
+                                {{ $budgetUsageLabel }} used · {{ \App\Support\Money::format($summary['remaining']) }} left
+                            @endif
+                        </span>
                     </div>
-                    <div class="mt-3 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" aria-label="{{ $summary['category'] }} {{ $summary['isInvestment'] ? 'goal progress' : 'budget used' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $summary['barPercent'] }}" aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget' : $summary['percent'] . '% used') }}">
-                        <div class="h-2 rounded-full {{ $summary['overspent'] ? 'bg-rose-500' : 'bg-emerald-500' }}" style="width: {{ $summary['barPercent'] }}%"></div>
+                    <div class="mt-3 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" aria-label="{{ $summary['category'] }} {{ $summary['isInvestment'] ? 'goal progress' : 'budget used' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $summary['barPercent'] }}" aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget' : $budgetUsageLabel . ' used') }}">
+                        <div class="h-2 rounded-full {{ $budgetBar }}" style="width: {{ $summary['barPercent'] }}%"></div>
                     </div>
                     <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $budget->id }})" class="app-link inline-flex min-h-11 min-w-11 items-center justify-center">Edit</button><button type="button" wire:click="confirmDelete({{ $budget->id }})" class="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
                 </article>

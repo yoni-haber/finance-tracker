@@ -502,7 +502,7 @@ final class BudgetManagerTest extends TestCase
         $expected = [
             'category' => 'Food', 'category_id' => $parent->id, 'budget' => '100.00', 'actual' => '70.30',
             'remaining' => '29.70', 'over' => '0.00', 'overspent' => false,
-            'percent' => 70, 'barPercent' => 70, 'isInvestment' => false, 'goalMet' => false,
+            'percent' => 70, 'barPercent' => 70, 'status' => 'safe', 'isInvestment' => false, 'goalMet' => false,
         ];
 
         Livewire::actingAs($user)->test(BudgetManager::class)
