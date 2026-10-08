@@ -52,8 +52,8 @@
                                             <a href="{{ route('transactions', ['scope' => 'all', 'category' => $parent->id]) }}" wire:navigate class="app-link mt-1 inline-flex rounded text-xs underline decoration-current/40 underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" aria-label="View {{ $groupTransactions }} recorded {{ \Illuminate\Support\Str::plural('transaction', $groupTransactions) }} in {{ $parent->name }}{{ $parent->children->isNotEmpty() ? ' and its subcategories' : '' }}">{{ $groupTransactions }} {{ \Illuminate\Support\Str::plural('transaction', $groupTransactions) }} total <span aria-hidden="true" class="ml-1">↗</span></a>
                                         </div>
                                         <div class="flex shrink-0 gap-3 text-sm">
-                                            <button type="button" wire:click="edit({{ $parent->id }})" class="app-link">Edit</button>
-                                            <button type="button" wire:click="confirmDelete({{ $parent->id }})" class="font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
+                                            <button type="button" wire:click="edit({{ $parent->id }})" class="app-link inline-flex min-h-11 min-w-11 items-center justify-center sm:min-h-0 sm:min-w-0">Edit</button>
+                                            <button type="button" wire:click="confirmDelete({{ $parent->id }})" class="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 sm:min-h-0 sm:min-w-0">Delete</button>
                                         </div>
                                     </div>
                                     @if ($parent->children->isNotEmpty())
@@ -65,8 +65,8 @@
                                                         <a href="{{ route('transactions', ['scope' => 'all', 'category' => $parent->id, 'subcategory' => $sub->id]) }}" wire:navigate class="app-link mt-0.5 inline-flex rounded text-xs underline decoration-current/40 underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" aria-label="View {{ $sub->transactions_count }} recorded {{ \Illuminate\Support\Str::plural('transaction', $sub->transactions_count) }} in {{ $sub->name }}">{{ $sub->transactions_count }} {{ \Illuminate\Support\Str::plural('transaction', $sub->transactions_count) }} <span aria-hidden="true" class="ml-1">↗</span></a>
                                                     </div>
                                                     <div class="flex shrink-0 gap-3 text-sm">
-                                                        <button type="button" wire:click="edit({{ $sub->id }})" class="app-link">Edit</button>
-                                                        <button type="button" wire:click="confirmDelete({{ $sub->id }})" class="font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
+                                                        <button type="button" wire:click="edit({{ $sub->id }})" class="app-link inline-flex min-h-11 min-w-11 items-center justify-center sm:min-h-0 sm:min-w-0">Edit</button>
+                                                        <button type="button" wire:click="confirmDelete({{ $sub->id }})" class="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 sm:min-h-0 sm:min-w-0">Delete</button>
                                                     </div>
                                                 </li>
                                             @endforeach

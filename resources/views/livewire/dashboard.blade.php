@@ -9,10 +9,10 @@
 
     <section aria-label="Monthly summary" class="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         @foreach ([
-            ['label' => 'Income', 'value' => $income, 'accent' => 'text-[#126e51] dark:text-[#75ddb2]'],
-            ['label' => 'Spending', 'value' => $spending, 'accent' => 'text-[#bd5b52] dark:text-[#f19b91]'],
-            ['label' => 'Invested', 'value' => $invested, 'accent' => 'text-[#4d6f96] dark:text-[#a7c9ec]'],
-            ['label' => 'Savings', 'value' => $savings, 'accent' => (float) $savings < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]'],
+            ['label' => 'Income', 'value' => $income, 'accent' => 'text-finance-positive'],
+            ['label' => 'Spending', 'value' => $spending, 'accent' => 'text-finance-negative'],
+            ['label' => 'Invested', 'value' => $invested, 'accent' => 'text-finance-investment'],
+            ['label' => 'Savings', 'value' => $savings, 'accent' => (float) $savings < 0 ? 'text-finance-negative' : 'text-finance-positive'],
         ] as $metric)
             <div class="app-card min-w-0 p-3 sm:p-6">
                 <p class="text-sm font-medium app-muted">{{ $metric['label'] }}</p>
@@ -37,7 +37,7 @@
                 <div class="mt-5 border-t border-[#e4e9e1] pt-4 dark:border-[#304038]">
                     <div class="flex justify-between gap-3 text-sm">
                         <a class="app-link font-medium" href="{{ route('transactions', ['type' => 'expense', 'category' => $summary['category_id']]) }}" wire:navigate>{{ $summary['category'] }}</a>
-                        <span class="font-semibold tabular-nums {{ $summary['overspent'] || $summary['isInvestment'] ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['isInvestment'] ? 'short of goal' : ($summary['overspent'] ? 'over' : 'left') }}</span>
+                        <span class="font-semibold tabular-nums {{ $summary['overspent'] || $summary['isInvestment'] ? 'text-finance-negative' : 'text-finance-positive' }}">{{ \App\Support\Money::format($summary['overspent'] ? $summary['over'] : $summary['remaining']) }} {{ $summary['isInvestment'] ? 'short of goal' : ($summary['overspent'] ? 'over' : 'left') }}</span>
                     </div>
                     <p class="mt-1 text-xs app-muted">{{ \App\Support\Money::format($summary['actual']) }} of {{ \App\Support\Money::format($summary['budget']) }} {{ $summary['isInvestment'] ? 'invested' : 'used' }}</p>
                     <div class="mt-3 h-2 rounded-full bg-[#e8eee6] dark:bg-[#314539]" role="progressbar" aria-label="{{ $summary['category'] }} {{ $summary['isInvestment'] ? 'goal progress' : 'budget used' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $summary['barPercent'] }}" aria-valuetext="{{ $summary['isInvestment'] ? $summary['percent'] . '% of goal reached' : ($summary['percent'] === null ? 'Over budget with no limit' : $summary['percent'] . '% used') }}">
@@ -63,7 +63,7 @@
                         <p class="truncate text-sm font-medium">{{ $transaction->description ?: ($transaction->category?->name ?? 'Transaction') }}</p>
                         <p class="mt-0.5 text-xs app-muted">{{ $transaction->date->format('j M') }} · {{ $transaction->category?->name ?? 'Uncategorised' }}</p>
                     </div>
-                    <span class="shrink-0 text-sm font-semibold tabular-nums {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'text-[#126e51] dark:text-[#75ddb2]' : 'text-[#bd5b52] dark:text-[#f19b91]' }}">{{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? '+' : '−' }}{{ \App\Support\Money::format($transaction->amount) }}</span>
+                    <span class="shrink-0 text-sm font-semibold tabular-nums {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'text-finance-positive' : 'text-finance-negative' }}">{{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? '+' : '−' }}{{ \App\Support\Money::format($transaction->amount) }}</span>
                 </div>
             @empty
                 <p class="mt-6 rounded-xl bg-[#f4f7f2] px-5 py-8 text-center text-sm app-muted dark:bg-[#26362b]">No recorded transactions for this period yet. <a class="app-link" href="{{ route('transactions') }}" wire:navigate>Add one</a> to get started.</p>

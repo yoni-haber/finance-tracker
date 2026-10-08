@@ -38,7 +38,7 @@
                         @foreach ($payments as $item)
                             @php $payment = $item['plan']; $due = $item['due']; $isNext = $item['is_next']; @endphp
                             <tr wire:key="planned-payment-desktop-{{ $payment->id }}-{{ $due->toDateString() }}" class="h-14 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                                <td class="whitespace-nowrap px-3 py-2"><time datetime="{{ $due->toDateString() }}">{{ $due->format('j M Y') }}</time><span class="block text-xs font-medium {{ $due->isBefore(today()) ? 'text-[#a33d36] dark:text-[#ffafa6]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ $payment->dueLabel($due) }}</span></td>
+                                <td class="whitespace-nowrap px-3 py-2"><time datetime="{{ $due->toDateString() }}">{{ $due->format('j M Y') }}</time><span class="block text-xs font-medium {{ $due->isBefore(today()) ? 'text-[#a33d36] dark:text-[#ffafa6]' : 'text-finance-positive' }}">{{ $payment->dueLabel($due) }}</span></td>
                                 <th scope="row" class="break-words px-3 py-2 text-left font-medium">{{ $payment->name }}<span class="block truncate text-xs font-normal app-muted xl:hidden" title="{{ $payment->note }}">{{ $payment->frequencyLabel() }}@if ($payment->note) · {{ $payment->note }}@endif</span></th>
                                 <td class="hidden px-3 py-2 xl:table-cell">{{ $payment->frequencyLabel() }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums">{{ \App\Support\Money::format($payment->amount) }}</td>
@@ -68,7 +68,7 @@
                             </div>
                             <p class="shrink-0 text-sm font-semibold tabular-nums">{{ \App\Support\Money::format($payment->amount) }}</p>
                         </div>
-                        <p class="mt-1 text-xs"><time datetime="{{ $due->toDateString() }}">{{ $due->format('j M Y') }}</time><span class="mx-1 app-muted" aria-hidden="true">·</span>{{ $payment->frequencyLabel() }}<span class="mx-1 app-muted" aria-hidden="true">·</span><span class="font-medium {{ $due->isBefore(today()) ? 'text-[#a33d36] dark:text-[#ffafa6]' : 'text-[#126e51] dark:text-[#75ddb2]' }}">{{ $payment->dueLabel($due) }}</span></p>
+                        <p class="mt-1 text-xs"><time datetime="{{ $due->toDateString() }}">{{ $due->format('j M Y') }}</time><span class="mx-1 app-muted" aria-hidden="true">·</span>{{ $payment->frequencyLabel() }}<span class="mx-1 app-muted" aria-hidden="true">·</span><span class="font-medium {{ $due->isBefore(today()) ? 'text-[#a33d36] dark:text-[#ffafa6]' : 'text-finance-positive' }}">{{ $payment->dueLabel($due) }}</span></p>
                         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                             @if ($isNext)
                                 <button type="button" wire:click="markDone({{ $payment->id }}, '{{ $due->toDateString() }}')" wire:loading.attr="disabled" class="app-button-primary px-3 text-xs">Mark done <span class="sr-only">{{ $payment->name }} due {{ $due->format('j M Y') }}</span></button>

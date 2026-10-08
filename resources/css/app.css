@@ -48,9 +48,15 @@ html {
 
     --color-app-canvas: #f7f8f4;
     --color-app-surface: #ffffff;
+    --color-app-sidebar: #f1f5ef;
     --color-app-ink: #203027;
     --color-app-border: #e4e9e1;
     --color-app-muted: #65736a;
+
+    --color-finance-positive: #126e51;
+    --color-finance-negative: #bd5b52;
+    --color-finance-investment: #4d6f96;
+    --color-finance-savings: #795c9f;
 
     --color-accent: #147d5a;
     --color-accent-content: #147d5a;
@@ -64,9 +70,14 @@ html {
         --color-accent-foreground: #102019;
         --color-app-canvas: #121b16;
         --color-app-surface: #1c2922;
+        --color-app-sidebar: #17231c;
         --color-app-ink: #ecf4ee;
         --color-app-border: #304038;
         --color-app-muted: #a8b8ad;
+        --color-finance-positive: #75ddb2;
+        --color-finance-negative: #f19b91;
+        --color-finance-investment: #a7c9ec;
+        --color-finance-savings: #d2b5ef;
     }
 }
 
@@ -80,7 +91,7 @@ html {
     }
 
     .app-link {
-        @apply font-medium text-[#126e51] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#147d5a] dark:text-[#75ddb2];
+        @apply font-medium text-finance-positive underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600;
     }
 
     .app-page-header {
@@ -96,11 +107,11 @@ html {
     }
 
     .app-button-primary {
-        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50;
     }
 
     .app-button-secondary {
-        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800;
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800;
     }
 
     .app-empty {

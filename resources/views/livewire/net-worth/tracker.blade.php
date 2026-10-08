@@ -3,9 +3,9 @@
         <button type="button" wire:click="openModal" class="app-button-primary">+ New snapshot</button>
     </x-page-header>
     <div class="grid gap-3 sm:grid-cols-3">
-        <div class="app-card p-4"><p class="app-eyebrow">Latest net worth</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry && \App\Support\Money::normalize($latestEntry->net_worth) < 0 ? 'text-[#bd5b52] dark:text-[#f19b91]' : ($latestEntry ? 'text-[#126e51] dark:text-[#75ddb2]' : 'app-muted') }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->net_worth) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
-        <div class="app-card p-4"><p class="app-eyebrow">Assets</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-[#126e51] dark:text-[#75ddb2]' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->assets) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
-        <div class="app-card p-4"><p class="app-eyebrow">Liabilities</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-[#bd5b52] dark:text-[#f19b91]' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->liabilities) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Latest net worth</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry && \App\Support\Money::normalize($latestEntry->net_worth) < 0 ? 'text-finance-negative' : ($latestEntry ? 'text-finance-positive' : 'app-muted') }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->net_worth) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Assets</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-finance-positive' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->assets) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
+        <div class="app-card p-4"><p class="app-eyebrow">Liabilities</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $latestEntry ? 'text-finance-negative' : 'app-muted' }}">{{ $latestEntry ? \App\Support\Money::format($latestEntry->liabilities) : '—' }}</p><p class="mt-1 text-xs app-muted">{{ $latestEntry ? 'As of ' . $latestEntry->date->format('j M Y') : 'No snapshot through today' }}</p></div>
     </div>
     {{-- Status message --}}
     @if (session()->has('status'))
@@ -61,14 +61,14 @@
                             </td>
                             <td class="px-3 py-2 font-semibold tabular-nums {{ $entry->net_worth >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">{{ \App\Support\Money::format($entry->net_worth) }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
-                                <button type="button" x-on:click="expanded = !expanded" class="text-xs font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" x-text="expanded ? 'Collapse' : 'Expand'"></button>
+                                <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="text-xs font-medium text-zinc-600 hover:text-zinc-800 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:text-zinc-300 dark:hover:text-zinc-100" x-text="expanded ? 'Collapse' : 'Expand'"></button>
                                 <button type="button" wire:click="edit({{ $entry->id }})" class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</button>
                                 <button type="button" wire:click="confirmDelete({{ $entry->id }})" class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">Delete</button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-400">
+                            <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-600 dark:text-zinc-400">
                                 No entries yet. Start by creating a snapshot of your current assets and liabilities.
                             </td>
                         </tr>
@@ -80,12 +80,12 @@
             @forelse ($entries as $entry)
                 <article class="p-4" x-data="{ expanded: false }">
                     <div class="flex items-start justify-between gap-3"><div><p class="font-semibold">{{ $entry->date->format('j M Y') }}</p><p class="mt-1 text-sm app-muted">Assets {{ \App\Support\Money::format($entry->assets) }} · Liabilities {{ \App\Support\Money::format($entry->liabilities) }}</p></div><p class="shrink-0 font-semibold tabular-nums {{ \App\Support\Money::normalize($entry->net_worth) < 0 ? 'text-rose-700 dark:text-rose-400' : '' }}">{{ \App\Support\Money::format($entry->net_worth) }}</p></div>
-                    <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="app-link mt-3 text-sm" x-text="expanded ? 'Hide details' : 'Show details'"></button>
+                    <button type="button" x-on:click="expanded = !expanded" x-bind:aria-expanded="expanded.toString()" class="app-link mt-3 inline-flex min-h-11 items-center text-sm" x-text="expanded ? 'Hide details' : 'Show details'"></button>
                     <div x-show="expanded" x-cloak class="mt-3 grid grid-cols-2 gap-3 border-t border-app-border pt-3 text-xs">
                         <div><p class="font-semibold">Assets</p>@foreach ($entry->lineItems->where('type', 'asset') as $item)<p class="mt-1 break-words app-muted">{{ $item->category }} · {{ \App\Support\Money::format($item->amount) }}</p>@endforeach</div>
                         <div><p class="font-semibold">Liabilities</p>@foreach ($entry->lineItems->where('type', 'liability') as $item)<p class="mt-1 break-words app-muted">{{ $item->category }} · {{ \App\Support\Money::format($item->amount) }}</p>@endforeach</div>
                     </div>
-                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $entry->id }})" class="app-link">Edit</button><button type="button" wire:click="confirmDelete({{ $entry->id }})" class="font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
+                    <div class="mt-3 flex gap-4 text-sm"><button type="button" wire:click="edit({{ $entry->id }})" class="app-link inline-flex min-h-11 min-w-11 items-center justify-center">Edit</button><button type="button" wire:click="confirmDelete({{ $entry->id }})" class="inline-flex min-h-11 min-w-11 items-center justify-center font-medium text-rose-700 dark:text-rose-400">Delete</button></div>
                 </article>
             @empty
                 <p class="app-empty m-4">No snapshots yet. Add your current assets and liabilities to start tracking net worth.</p>
@@ -101,6 +101,7 @@
     {{-- Net worth snapshot modal --}}
     <flux:modal
         name="networth-form"
+        x-init="$el.querySelector('dialog').setAttribute('aria-labelledby', 'networth-form-title')"
         x-on:open-networth-modal.window="$flux.modal('networth-form').show()"
         x-on:close-networth-modal.window="$flux.modal('networth-form').close()"
         focusable
@@ -108,7 +109,7 @@
     >
         <div class="space-y-5">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <div><flux:heading size="lg">{{ $entryId ? 'Edit snapshot' : 'New snapshot' }}</flux:heading><p class="mt-1 max-w-md text-sm app-muted">Add assets and liabilities, or copy a previous snapshot and update its amounts.</p></div>
+                <div><flux:heading id="networth-form-title" level="2" size="lg">{{ $entryId ? 'Edit snapshot' : 'New snapshot' }}</flux:heading><p class="mt-1 max-w-md text-sm app-muted">Add assets and liabilities, or copy a previous snapshot and update its amounts.</p></div>
                 <div class="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
                     <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Net Worth</p>
                     <div class="mt-1 rounded-lg px-3 py-1.5 text-lg font-bold {{ $this->calculatedNetWorthStyle }}">
@@ -153,15 +154,15 @@
                     {{-- Assets --}}
                     <div class="rounded-lg border border-emerald-200 dark:border-emerald-800/50">
                         <div class="border-b border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-800/50 dark:bg-emerald-900/20">
-                            <h4 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Assets</h4>
+                            <h3 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Assets</h3>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="networth-line-table min-w-full text-sm">
                                 <thead class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
                                     <tr>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Category</th>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount (£)</th>
-                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500">Actions</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Category</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Amount (£)</th>
+                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-300">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700">
@@ -187,16 +188,16 @@
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
                                                 @if ($editingAssetIndex === $index)
-                                                    <button type="button" wire:click="saveAssetLine({{ $index }})" class="text-xs font-medium text-emerald-600">Save</button>
+                                                    <button type="button" wire:click="saveAssetLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-emerald-600 sm:min-h-0 sm:min-w-0">Save</button>
                                                 @else
-                                                    <button type="button" wire:click="editAssetLine({{ $index }})" class="text-xs font-medium text-blue-600">Edit</button>
+                                                    <button type="button" wire:click="editAssetLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-blue-600 sm:min-h-0 sm:min-w-0">Edit</button>
                                                 @endif
-                                                <button type="button" wire:click="removeAssetLine({{ $index }})" class="text-xs font-medium text-rose-600">Delete</button>
+                                                <button type="button" wire:click="removeAssetLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-rose-600 sm:min-h-0 sm:min-w-0">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-400">No assets added yet.</td>
+                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-600 dark:text-zinc-400">No assets added yet.</td>
                                         </tr>
                                     @endforelse
                                     {{-- Inline add row --}}
@@ -213,7 +214,7 @@
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <button type="button" wire:click="addAssetLine"
-                                                    class="rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Add</button>
+                                                    class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 sm:min-h-0 sm:min-w-0">Add</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -224,15 +225,15 @@
                     {{-- Liabilities --}}
                     <div class="rounded-lg border border-rose-200 dark:border-rose-800/50">
                         <div class="border-b border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-800/50 dark:bg-rose-900/20">
-                            <h4 class="text-sm font-semibold text-rose-800 dark:text-rose-300">Liabilities</h4>
+                            <h3 class="text-sm font-semibold text-rose-800 dark:text-rose-300">Liabilities</h3>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="networth-line-table min-w-full text-sm">
                                 <thead class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
                                     <tr>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Category</th>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount (£)</th>
-                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500">Actions</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Category</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Amount (£)</th>
+                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-300">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700">
@@ -258,16 +259,16 @@
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
                                                 @if ($editingLiabilityIndex === $index)
-                                                    <button type="button" wire:click="saveLiabilityLine({{ $index }})" class="text-xs font-medium text-emerald-600">Save</button>
+                                                    <button type="button" wire:click="saveLiabilityLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-emerald-600 sm:min-h-0 sm:min-w-0">Save</button>
                                                 @else
-                                                    <button type="button" wire:click="editLiabilityLine({{ $index }})" class="text-xs font-medium text-blue-600">Edit</button>
+                                                    <button type="button" wire:click="editLiabilityLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-blue-600 sm:min-h-0 sm:min-w-0">Edit</button>
                                                 @endif
-                                                <button type="button" wire:click="removeLiabilityLine({{ $index }})" class="text-xs font-medium text-rose-600">Delete</button>
+                                                <button type="button" wire:click="removeLiabilityLine({{ $index }})" class="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-medium text-rose-600 sm:min-h-0 sm:min-w-0">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-400">No liabilities added yet.</td>
+                                            <td colspan="3" class="px-3 py-3 text-center text-xs text-zinc-600 dark:text-zinc-400">No liabilities added yet.</td>
                                         </tr>
                                     @endforelse
                                     {{-- Inline add row --}}
@@ -284,7 +285,7 @@
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <button type="button" wire:click="addLiabilityLine"
-                                                    class="rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Add</button>
+                                                    class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 sm:min-h-0 sm:min-w-0">Add</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -311,6 +312,7 @@
 
     <flux:modal
         name="delete-networth"
+        x-init="$el.querySelector('dialog').setAttribute('aria-labelledby', 'delete-networth-title')"
         x-on:open-delete-networth-modal.window="$flux.modal('delete-networth').show()"
         x-on:close-delete-networth-modal.window="$flux.modal('delete-networth').close()"
         focusable
@@ -318,7 +320,7 @@
     >
         <div class="space-y-5">
             <div>
-                <flux:heading size="lg">Delete net worth snapshot?</flux:heading>
+                <flux:heading id="delete-networth-title" level="2" size="lg">Delete net worth snapshot?</flux:heading>
                 <flux:subheading class="mt-2">
                     This permanently deletes the snapshot{{ $deletingEntryDate ? ' from ' . $deletingEntryDate : '' }} and all of its line items.
                 </flux:subheading>
