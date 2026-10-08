@@ -15,7 +15,7 @@
     <div class="app-card p-4 sm:p-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Import Summary</h3>
+                <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Import Summary</h2>
                 <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                     {{ $import->original_filename }}
                     @if ($import->bankProfile)
@@ -142,7 +142,7 @@
     <!-- Transaction List -->
     <div class="app-card overflow-hidden">
         <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
-            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Transaction Details</h3>
+            <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Transaction Details</h2>
             <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Review, edit, categorize, or remove transactions
                 before importing.</p>
         </div>

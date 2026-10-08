@@ -3,8 +3,8 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-[#f7f8f4] text-[#203027] dark:bg-[#121b16] dark:text-[#ecf4ee]">
-        <flux:sidebar sticky stashable class="border-e border-[#e4e9e1] bg-[#f1f5ef] dark:border-[#304038] dark:bg-[#17231c]">
+    <body class="min-h-screen bg-app-canvas text-app-ink">
+        <flux:sidebar sticky stashable class="border-e border-app-border bg-app-sidebar">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
             <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>

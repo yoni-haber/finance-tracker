@@ -48,6 +48,7 @@ html {
 
     --color-app-canvas: #f7f8f4;
     --color-app-surface: #ffffff;
+    --color-app-sidebar: #f1f5ef;
     --color-app-ink: #203027;
     --color-app-border: #e4e9e1;
     --color-app-muted: #65736a;
@@ -69,6 +70,7 @@ html {
         --color-accent-foreground: #102019;
         --color-app-canvas: #121b16;
         --color-app-surface: #1c2922;
+        --color-app-sidebar: #17231c;
         --color-app-ink: #ecf4ee;
         --color-app-border: #304038;
         --color-app-muted: #a8b8ad;

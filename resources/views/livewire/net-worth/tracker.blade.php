@@ -101,6 +101,7 @@
     {{-- Net worth snapshot modal --}}
     <flux:modal
         name="networth-form"
+        x-init="$el.querySelector('dialog').setAttribute('aria-labelledby', 'networth-form-title')"
         x-on:open-networth-modal.window="$flux.modal('networth-form').show()"
         x-on:close-networth-modal.window="$flux.modal('networth-form').close()"
         focusable
@@ -108,7 +109,7 @@
     >
         <div class="space-y-5">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <div><flux:heading size="lg">{{ $entryId ? 'Edit snapshot' : 'New snapshot' }}</flux:heading><p class="mt-1 max-w-md text-sm app-muted">Add assets and liabilities, or copy a previous snapshot and update its amounts.</p></div>
+                <div><flux:heading id="networth-form-title" level="2" size="lg">{{ $entryId ? 'Edit snapshot' : 'New snapshot' }}</flux:heading><p class="mt-1 max-w-md text-sm app-muted">Add assets and liabilities, or copy a previous snapshot and update its amounts.</p></div>
                 <div class="rounded-xl bg-zinc-50 p-3 dark:bg-zinc-800/50">
                     <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Net Worth</p>
                     <div class="mt-1 rounded-lg px-3 py-1.5 text-lg font-bold {{ $this->calculatedNetWorthStyle }}">
@@ -153,15 +154,15 @@
                     {{-- Assets --}}
                     <div class="rounded-lg border border-emerald-200 dark:border-emerald-800/50">
                         <div class="border-b border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-800/50 dark:bg-emerald-900/20">
-                            <h4 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Assets</h4>
+                            <h3 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Assets</h3>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="networth-line-table min-w-full text-sm">
                                 <thead class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
                                     <tr>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Category</th>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount (£)</th>
-                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500">Actions</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Category</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Amount (£)</th>
+                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-300">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700">
@@ -224,15 +225,15 @@
                     {{-- Liabilities --}}
                     <div class="rounded-lg border border-rose-200 dark:border-rose-800/50">
                         <div class="border-b border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-800/50 dark:bg-rose-900/20">
-                            <h4 class="text-sm font-semibold text-rose-800 dark:text-rose-300">Liabilities</h4>
+                            <h3 class="text-sm font-semibold text-rose-800 dark:text-rose-300">Liabilities</h3>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="networth-line-table min-w-full text-sm">
                                 <thead class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
                                     <tr>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Category</th>
-                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500">Amount (£)</th>
-                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500">Actions</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Category</th>
+                                        <th class="px-3 py-1.5 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-300">Amount (£)</th>
+                                        <th class="px-3 py-1.5 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-300">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700">
@@ -311,6 +312,7 @@
 
     <flux:modal
         name="delete-networth"
+        x-init="$el.querySelector('dialog').setAttribute('aria-labelledby', 'delete-networth-title')"
         x-on:open-delete-networth-modal.window="$flux.modal('delete-networth').show()"
         x-on:close-delete-networth-modal.window="$flux.modal('delete-networth').close()"
         focusable
@@ -318,7 +320,7 @@
     >
         <div class="space-y-5">
             <div>
-                <flux:heading size="lg">Delete net worth snapshot?</flux:heading>
+                <flux:heading id="delete-networth-title" level="2" size="lg">Delete net worth snapshot?</flux:heading>
                 <flux:subheading class="mt-2">
                     This permanently deletes the snapshot{{ $deletingEntryDate ? ' from ' . $deletingEntryDate : '' }} and all of its line items.
                 </flux:subheading>
