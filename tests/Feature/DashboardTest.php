@@ -149,7 +149,7 @@ final class DashboardTest extends TestCase
             ->assertViewHas('invested', '0.00')
             ->assertViewHas('savings', '2250.00')
             ->assertViewHas('periodLabel', 'May 2024')
-            ->assertSee('Remainder')
+            ->assertSee('Expected remainder')
             ->assertDontSee('Estimated month-end remainder')
             ->assertSee('Investment goals appear here after month-end.')
             ->assertDontSee('past investment goals missed');
@@ -497,7 +497,7 @@ final class DashboardTest extends TestCase
             ->assertViewHas('trend', fn (array $trend): bool => $trend['savings'][3] === 0.0
                 && $trend['savings'][4] === -30.0 && $trend['savings'][5] === 70.0)
             ->assertViewHas('recentTransactions', fn ($items): bool => $items->contains('category_id', $saving->id))
-            ->assertSee('Remainder')
+            ->assertSee('Expected remainder')
             ->assertDontSee('Estimated month-end remainder');
 
         Livewire::actingAs($user)->test(Dashboard::class)
