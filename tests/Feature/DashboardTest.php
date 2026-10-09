@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Livewire\Budgets\BudgetManager;
 use App\Livewire\Dashboard;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\PlannedPayment;
 use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
@@ -147,7 +149,8 @@ final class DashboardTest extends TestCase
             ->assertViewHas('invested', '0.00')
             ->assertViewHas('savings', '2250.00')
             ->assertViewHas('periodLabel', 'May 2024')
-            ->assertSee('Estimated month-end remainder')
+            ->assertSee('Expected remainder')
+            ->assertDontSee('Estimated month-end remainder')
             ->assertSee('Investment goals appear here after month-end.')
             ->assertDontSee('past investment goals missed');
 
@@ -400,7 +403,7 @@ final class DashboardTest extends TestCase
         Carbon::setTestNow('2024-05-15');
         $user = User::factory()->create();
 
-        foreach (['At threshold' => 80, 'Below threshold' => 79] as $name => $spent) {
+        foreach (['At threshold' => '80.00', 'Below threshold' => '79.99'] as $name => $spent) {
             $category = Category::factory()->for($user)->expense()->create(['name' => $name]);
             Budget::factory()->for($user)->for($category)->create([
                 'month' => 5, 'year' => 2024, 'amount' => 100,
@@ -494,7 +497,8 @@ final class DashboardTest extends TestCase
             ->assertViewHas('trend', fn (array $trend): bool => $trend['savings'][3] === 0.0
                 && $trend['savings'][4] === -30.0 && $trend['savings'][5] === 70.0)
             ->assertViewHas('recentTransactions', fn ($items): bool => $items->contains('category_id', $saving->id))
-            ->assertSee('Estimated month-end remainder');
+            ->assertSee('Expected remainder')
+            ->assertDontSee('Estimated month-end remainder');
 
         Livewire::actingAs($user)->test(Dashboard::class)
             ->dispatch('period-changed', month: 5, year: 2024)
@@ -531,5 +535,85 @@ final class DashboardTest extends TestCase
         ]);
         Livewire::actingAs($user)->test(Dashboard::class)
             ->assertViewHas('budgetHighlights', fn ($rows): bool => $rows->isEmpty());
+    }
+
+    public function test_budget_usage_counts_recurring_occurrences_only_through_today(): void
+    {
+        Carbon::setTestNow('2024-05-10');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        $food = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        Budget::factory()->for($user)->for($food)->create(['month' => 5, 'year' => 2024, 'amount' => '600.00']);
+
+        $user->transactions()->createMany([
+            ['type' => Transaction::TYPE_INCOME, 'amount' => '1000.00', 'date' => '2024-05-02'],
+            ['type' => Transaction::TYPE_INCOME, 'amount' => '500.00', 'date' => '2024-05-01', 'is_recurring' => true, 'frequency' => 'monthly'],
+            ['type' => Transaction::TYPE_EXPENSE, 'category_id' => $food->id, 'amount' => '200.00', 'date' => '2024-05-03'],
+            ['type' => Transaction::TYPE_EXPENSE, 'category_id' => $food->id, 'amount' => '300.00', 'date' => '2024-05-09', 'is_recurring' => true, 'frequency' => 'weekly'],
+        ]);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('income', '1500.00')
+            ->assertViewHas('spending', '1400.00')
+            ->assertViewHas('savings', '100.00')
+            ->assertViewHas('budgetHighlights', fn ($rows): bool => $rows->sole()['actual'] === '500.00'
+                && $rows->sole()['status'] === 'near')
+            ->assertDontSee('Recurring schedules through today:');
+    }
+
+    public function test_budget_statuses_use_exact_limits_and_remain_distinct_from_investment_goals(): void
+    {
+        Carbon::setTestNow('2024-06-01');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+
+        foreach (['Safe' => ['79.99', '100.00'], 'Near' => ['80.00', '100.00'], 'Almost full' => ['99.99', '100.00'], 'At limit' => ['100.00', '100.00'], 'Over' => ['120.00', '100.00'], 'No limit' => ['1.00', '0.00'], 'Unused zero limit' => ['0.00', '0.00']] as $name => [$spent, $limit]) {
+            $category = Category::factory()->for($user)->expense()->create(['name' => $name]);
+            Budget::factory()->for($user)->for($category)->create(['month' => 5, 'year' => 2024, 'amount' => $limit]);
+            if ($spent !== '0.00') {
+                $user->transactions()->create(['type' => Transaction::TYPE_EXPENSE, 'category_id' => $category->id, 'amount' => $spent, 'date' => '2024-05-05']);
+            }
+        }
+
+        $investment = Category::factory()->for($user)->expense()->create(['name' => 'Investments', 'expense_treatment' => Category::TREATMENT_INVESTMENT]);
+        Budget::factory()->for($user)->for($investment)->create(['month' => 5, 'year' => 2024, 'amount' => '100.00']);
+        $user->transactions()->create(['type' => Transaction::TYPE_EXPENSE, 'category_id' => $investment->id, 'amount' => '80.00', 'date' => '2024-05-05']);
+
+        $assertStatuses = function ($rows): bool {
+            $statuses = $rows->pluck('status', 'category')->all();
+
+            return $statuses === [
+                'Safe' => 'safe', 'Near' => 'near', 'Almost full' => 'near', 'At limit' => 'limit',
+                'Over' => 'over', 'No limit' => 'over', 'Unused zero limit' => 'safe', 'Investments' => 'goal-short',
+            ];
+        };
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertViewHas('budgetSummaries', $assertStatuses)
+            ->assertSeeHtml('bg-finance-negative');
+
+        Livewire::actingAs($user)->test(BudgetManager::class)
+            ->assertViewHas('budgetSummaries', $assertStatuses)
+            ->assertSee('80% used · £20.00 left')
+            ->assertSee('Just under 80% used')
+            ->assertSee('Just under 100% used · £0.01 left')
+            ->assertSee('100% used · £0.00 left')
+            ->assertSeeHtml('bg-finance-warning')
+            ->assertSeeHtml('bg-finance-negative')
+            ->assertSeeHtml('bg-finance-investment');
+    }
+
+    public function test_next_payments_keep_their_today_scope_when_selected_month_changes(): void
+    {
+        Carbon::setTestNow('2024-05-10');
+        $user = User::factory()->create(['selected_month' => 5, 'selected_year' => 2024]);
+        PlannedPayment::create(['user_id' => $user->id, 'name' => 'Overdue bill', 'amount' => '20.00', 'first_due_on' => '2024-05-01', 'frequency' => 'once']);
+
+        Livewire::actingAs($user)->test(Dashboard::class)
+            ->assertSee('May 2024 overview')
+            ->assertSee('Next payments from today')
+            ->assertSee('Based on today, including overdue plans. Not filtered by month or included in recorded spending.')
+            ->assertSee('Overdue bill')
+            ->dispatch('period-changed', month: 4, year: 2024)
+            ->assertSee('April 2024 overview')
+            ->assertSee('Overdue bill');
     }
 }

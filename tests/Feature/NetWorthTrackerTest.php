@@ -33,8 +33,8 @@ final class NetWorthTrackerTest extends TestCase
         NetWorthEntry::factory()->for($user)->create(['date' => today(), 'assets' => $assets, 'liabilities' => $liabilities, 'net_worth' => $netWorth]);
         Livewire::actingAs($user)->test(NetWorthTracker::class)
             ->assertSeeHtml('tabular-nums ' . $colour . '">' . \App\Support\Money::format($netWorth))
-            ->assertSeeHtml('tabular-nums text-finance-positive">' . \App\Support\Money::format($assets))
-            ->assertSeeHtml('tabular-nums text-finance-negative">' . \App\Support\Money::format($liabilities));
+            ->assertSeeHtml('tabular-nums text-finance-positive sm:text-2xl">' . \App\Support\Money::format($assets))
+            ->assertSeeHtml('tabular-nums text-finance-negative sm:text-2xl">' . \App\Support\Money::format($liabilities));
     }
 
     public function test_missing_current_snapshot_keeps_headline_placeholders_neutral(): void

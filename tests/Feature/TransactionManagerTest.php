@@ -190,7 +190,13 @@ final class TransactionManagerTest extends TestCase
             ->set('description', 'Coffee')
             ->set('is_recurring', false)
             ->call('save')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertSet('status', 'Transaction saved successfully.')
+            ->set('search', 'Coffee')
+            ->set('search', '')
+            ->assertSee('Transaction saved successfully.')
+            ->call('openModal')
+            ->assertSet('status', '');
 
         $this->assertDatabaseHas('transactions', [
             'user_id' => $user->id,

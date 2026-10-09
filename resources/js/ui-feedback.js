@@ -14,7 +14,7 @@ export function revealFeedback(root) {
 
     target.setAttribute('tabindex', '-1');
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: dialog ? 'nearest' : 'start', behavior: 'instant' });
+    target.scrollIntoView({ block: 'nearest', behavior: 'instant' });
 }
 
 export function installUiFeedback({ document, Livewire, MutationObserver, requestAnimationFrame }) {

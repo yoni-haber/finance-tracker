@@ -1,6 +1,6 @@
 @php use App\Models\Transaction; @endphp
 <div class="space-y-5">
-    <x-page-header eyebrow="Import" title="Review statement" description="Check possible matches, choose which transactions to keep, and assign categories before importing." />
+    <x-page-header title="Review statement" description="Check possible matches, choose which transactions to keep, and assign categories before importing." />
     @if (session('status'))
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20" role="status" data-action-feedback>
             <div class="flex">
@@ -66,11 +66,12 @@
 
         @if ($summary['new_transactions'] > 0)
             <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                <p class="text-sm text-zinc-600 dark:text-zinc-400">
-                    Ready to import <strong
-                        class="text-zinc-900 dark:text-white">{{ $summary['new_transactions'] }}</strong> new
-                    transaction{{ $summary['new_transactions'] !== 1 ? 's' : '' }}.
-                </p>
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p><strong class="text-zinc-900 dark:text-white">{{ $summary['new_transactions'] }}</strong> new transaction{{ $summary['new_transactions'] !== 1 ? 's' : '' }} will be imported.</p>
+                    @if ($summary['needs_attention'] > 0 || $summary['possible_duplicates'] > 0)
+                        <p class="mt-1 text-finance-warning">{{ $summary['needs_attention'] }} without a category · {{ $summary['possible_duplicates'] }} possible matching rows. Review these in the list below.</p>
+                    @endif
+                </div>
                 <flux:modal.trigger name="confirm-import-commit">
                     <button
                         class="app-button-primary">
@@ -148,7 +149,7 @@
         </div>
 
         <div class="flex flex-wrap gap-2 border-b border-app-border px-4 py-3 sm:px-6" role="group" aria-label="Filter imported transactions">
-            @foreach (['all' => 'All', 'needs_attention' => 'Needs a category', 'ready' => 'Ready', 'possible' => 'Possible matches', 'duplicates' => 'Skipped duplicates'] as $filterValue => $filterLabel)
+            @foreach (['all' => 'All', 'needs_attention' => 'Needs a category', 'ready' => 'Categorised', 'possible' => 'Possible matches', 'duplicates' => 'Skipped duplicates'] as $filterValue => $filterLabel)
                 <button type="button" wire:click="$set('viewFilter', '{{ $filterValue }}')" aria-pressed="{{ $viewFilter === $filterValue ? 'true' : 'false' }}" class="inline-flex min-h-11 items-center rounded-full px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 {{ $viewFilter === $filterValue ? 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-600 dark:hover:text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 dark:hover:text-white' }}">{{ $filterLabel }} <span class="ml-1 tabular-nums">{{ match ($filterValue) { 'all' => $summary['total'], 'needs_attention' => $summary['needs_attention'], 'ready' => $summary['new_transactions'] - $summary['needs_attention'], 'possible' => $summary['possible_duplicates'], default => $summary['duplicates'] } }}</span></button>
             @endforeach
         </div>
@@ -208,7 +209,7 @@
                 </flux:subheading>
                 @if ($summary['needs_attention'] > 0 || $summary['possible_duplicates'] > 0)
                     <div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
-                        {{ $summary['needs_attention'] }} without a category · {{ $summary['possible_duplicates'] }} possible matching rows. Review these before importing.
+                        {{ $summary['needs_attention'] }} without a category · {{ $summary['possible_duplicates'] }} possible matching rows. Check these rows before confirming; uncategorised entries will remain uncategorised.
                     </div>
                 @endif
             </div>

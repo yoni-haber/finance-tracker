@@ -53,9 +53,6 @@ jobs:
       - name: Build assets
         run: docker compose run --rm --no-deps app npm run build
 
-      - name: Test shared UI feedback with full coverage
-        run: docker compose run --rm --no-deps app npm run test:ui
-
       - name: Start MySQL
         run: docker compose up -d --wait --wait-timeout 120 mysql
 
@@ -67,3 +64,16 @@ jobs:
 
       - name: Run tests with coverage
         run: docker compose run --rm --no-deps app ./vendor/bin/phpunit --coverage-text
+
+      - name: Run browser flows
+        run: docker compose run --rm --no-deps -e SUPERVISOR_PHP_USER=root app bash docker/8.5/run-browser-tests
+
+      - name: Upload failed browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-diagnostics
+          path: |
+            tests/Browser/Screenshots
+            tests/Browser/Traces
+          if-no-files-found: ignore

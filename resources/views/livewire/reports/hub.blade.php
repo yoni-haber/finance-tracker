@@ -1,5 +1,5 @@
 <div class="space-y-5">
-    <x-page-header eyebrow="Insights" title="Reports" description="See where your money changed, how plans held up, and how your net worth moved." />
+    <x-page-header title="Reports" description="See where your money changed, how plans held up, and how your net worth moved." />
 
     <div class="app-card flex flex-wrap items-end gap-4 p-4 sm:p-5" aria-label="Report controls">
         <div>
@@ -21,11 +21,11 @@
 
     <section aria-labelledby="report-summary-heading">
         <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2"><h2 id="report-summary-heading" class="text-lg font-semibold">At a glance</h2><p class="text-xs app-muted">{{ $rangeOptions[$range] }} · {{ $transactionMode === 'projected' ? 'Includes recurring schedule' : 'Recorded entries only' }}</p></div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="app-card p-4"><p class="app-eyebrow">Income</p><p class="mt-2 text-2xl font-semibold tabular-nums text-finance-positive">£{{ \App\Support\Money::formatPennies($insights['income']) }}</p></div>
-            <div class="app-card p-4"><p class="app-eyebrow">Spending</p><p class="mt-2 text-2xl font-semibold tabular-nums text-finance-negative">£{{ \App\Support\Money::formatPennies($insights['spending']) }}</p></div>
-            <div class="app-card p-4"><p class="app-eyebrow">Invested</p><p class="mt-2 text-2xl font-semibold tabular-nums text-finance-investment">£{{ \App\Support\Money::formatPennies($insights['invested']) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['investmentRate'] === null ? 'No income for a rate' : $insights['investmentRate'] . '% of income' }}</p></div>
-            <div class="app-card p-4"><p class="app-eyebrow">Savings</p><p class="mt-2 text-2xl font-semibold tabular-nums {{ $insights['savings'] < 0 ? 'text-finance-negative' : 'text-finance-positive' }}">{{ $insights['savings'] < 0 ? '−' : '' }}£{{ \App\Support\Money::formatPennies(abs($insights['savings'])) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['savingsRate'] === null ? 'No income for a rate' : $insights['savingsRate'] . '% of income' }} · Income less spending and investing</p></div>
+        <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div class="app-card min-w-0 p-4"><p class="app-eyebrow">Income</p><p class="mt-2 break-words text-xl font-semibold tabular-nums text-finance-positive sm:text-2xl">£{{ \App\Support\Money::formatPennies($insights['income']) }}</p></div>
+            <div class="app-card min-w-0 p-4"><p class="app-eyebrow">Spending</p><p class="mt-2 break-words text-xl font-semibold tabular-nums text-finance-negative sm:text-2xl">£{{ \App\Support\Money::formatPennies($insights['spending']) }}</p></div>
+            <div class="app-card min-w-0 p-4"><p class="app-eyebrow">Invested</p><p class="mt-2 break-words text-xl font-semibold tabular-nums text-finance-investment sm:text-2xl">£{{ \App\Support\Money::formatPennies($insights['invested']) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['investmentRate'] === null ? 'No income for a rate' : $insights['investmentRate'] . '% of income' }}</p></div>
+            <div class="app-card min-w-0 p-4"><p class="app-eyebrow">Savings</p><p class="mt-2 break-words text-xl font-semibold tabular-nums {{ $insights['savings'] < 0 ? 'text-finance-negative' : 'text-finance-positive' }} sm:text-2xl">{{ $insights['savings'] < 0 ? '−' : '' }}£{{ \App\Support\Money::formatPennies(abs($insights['savings'])) }}</p><p class="mt-1 text-xs app-muted">{{ $insights['savingsRate'] === null ? 'No income for a rate' : $insights['savingsRate'] . '% of income' }} · Income less spending and investing</p></div>
         </div>
     </section>
 

@@ -1,5 +1,5 @@
 <div class="space-y-5">
-    <x-page-header eyebrow="Import setup" title="Bank profiles" description="Save the format for each bank or card statement so future imports are quicker.">
+    <x-page-header title="Bank profiles" description="Save the format for each bank or card statement so future imports are quicker.">
         <button type="button" wire:click="showCreate" class="app-button-primary">+ New profile</button>
     </x-page-header>
     @if (session('status'))
@@ -60,12 +60,12 @@
                                     <button
                                         type="button"
                                         wire:click="edit({{ $profile->id }})"
-                                        class="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                                        class="app-row-action"
                                     >
                                         Edit
                                     </button>
                                     <flux:modal.trigger name="confirm-delete-profile-{{ $profile->id }}">
-                                        <button type="button" class="font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400">
+                                        <button type="button" class="app-row-action app-row-action-danger">
                                             Delete
                                         </button>
                                     </flux:modal.trigger>

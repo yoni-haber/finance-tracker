@@ -197,7 +197,8 @@ final class StatementImportReviewTest extends TestCase
         $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'READY ENTRY');
         $testable->set('viewFilter', 'needs_attention');
         $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'NEEDS CATEGORY')
-            ->assertSee('Ready to import');
+            ->assertViewHas('summary', fn (array $summary): bool => $summary['new_transactions'] === 2)
+            ->assertSee('new transactions will be imported.');
         $testable->set('viewFilter', 'duplicates');
         $testable->assertViewHas('transactions', fn ($transactions): bool => $transactions->count() === 1 && $transactions->first()->description === 'DUPLICATE ENTRY');
     }
@@ -376,7 +377,7 @@ final class StatementImportReviewTest extends TestCase
             ->assertSee('3') // Total count
             ->assertSee('Total transactions')
             ->assertSee('2') // New count
-            ->assertSee('Ready to import') // Unique CTA only shown when new_transactions > 0
+            ->assertSee('Import 2') // Import CTA only shown when new_transactions > 0
             ->assertSee('1') // Duplicate count
             ->assertSee('Duplicates (skipped)');
     }

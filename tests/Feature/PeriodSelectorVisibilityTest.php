@@ -23,7 +23,7 @@ final class PeriodSelectorVisibilityTest extends TestCase
 
         $this->get(route('dashboard'))->assertSeeHtmlInOrder([
             'aria-label="Previous month"',
-            'Your money at a glance',
+            today()->format('F Y') . ' overview',
         ]);
 
         foreach (['categories', 'net-worth', 'reports', 'statements.import', 'upcoming-payments'] as $route) {

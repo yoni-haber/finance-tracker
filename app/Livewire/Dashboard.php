@@ -75,7 +75,7 @@ class Dashboard extends Component
         $budgetHighlights = $budgetSummaries
             ->filter(fn (array $row): bool => $row['isInvestment']
                 ? $this->selectedPeriod()->startOfMonth()->endOfMonth()->isPast() && !$row['goalMet']
-                : $row['overspent'] || ($row['percent'] !== null && $row['percent'] >= 80))
+                : in_array($row['status'], ['near', 'limit', 'over'], true))
             ->sort(fn (array $a, array $b): int => ($b['overspent'] <=> $a['overspent'])
                 ?: (($b['percent'] === null) <=> ($a['percent'] === null))
                 ?: ($b['percent'] <=> $a['percent'])
@@ -101,7 +101,6 @@ class Dashboard extends Component
             'spending' => $spending,
             'invested' => $invested,
             'savings' => $savings,
-            'savingsIsEstimate' => $this->selectedPeriod()->isCurrentMonth(),
             'trend' => $trend,
             'budgetHighlights' => $budgetHighlights,
             'budgetSummaries' => $budgetSummaries,

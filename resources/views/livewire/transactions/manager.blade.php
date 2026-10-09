@@ -1,11 +1,11 @@
 <div class="space-y-4">
-    <x-page-header eyebrow="Activity" title="Transactions" description="Find, review, and add the money moving through your accounts.">
+    <x-page-header title="Transactions" description="Find, review, and add the money moving through your accounts.">
         <button type="button" wire:click="openModal" class="app-button-primary">+ New transaction</button>
     </x-page-header>
     {{-- Status message --}}
-    @if (session()->has('status'))
+    @if ($status !== '' || session()->has('status'))
         <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
-            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ session('status') }}</p>
+            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ $status !== '' ? $status : session('status') }}</p>
         </div>
     @endif
 
@@ -115,7 +115,7 @@
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" wire:click="edit({{ $transaction->id }})"
                                         wire:loading.attr="disabled" wire:target="edit({{ $transaction->id }})"
-                                        class="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400">{{ $showingRecorded && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
+                                        class="app-row-action">{{ $showingRecorded && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
                                 <button
                                     type="button"
                                     @if ($showingRecorded && $transaction->is_recurring)
@@ -125,7 +125,7 @@
                                     @endif
                                     wire:loading.attr="disabled"
                                     wire:target="confirmDelete"
-                                    class="text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400"
+                                    class="app-row-action app-row-action-danger"
                                 >{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : 'Delete' }}</button>
                             </td>
                         </tr>
@@ -152,10 +152,10 @@
                         <div class="min-w-0">
                             <p class="break-words text-sm font-semibold">{{ $transaction->description ?: ($transaction->category?->name ?? 'Transaction') }}</p>
                             <p class="mt-1 text-xs app-muted">{{ \Carbon\Carbon::parse($transaction->date)->format('j M Y') }} · {{ $transaction->category?->name ?? 'Uncategorised' }}</p>
-                            @if ($transaction->is_recurring)
-                                <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Recurring {{ $transaction->frequency }}</span>
-                            @elseif ($transaction->getAttribute('projected'))
-                                <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Scheduled occurrence</span>
+                            @if ($transaction->getAttribute('projected'))
+                                <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Scheduled occurrence{{ $transaction->is_recurring ? ' · ' . ucfirst($transaction->frequency) : '' }}</span>
+                            @elseif ($transaction->is_recurring)
+                                <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Recorded · Recurring {{ $transaction->frequency }}</span>
                             @else
                                 <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Recorded</span>
                             @endif

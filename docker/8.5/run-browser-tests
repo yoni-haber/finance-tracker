@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# Installing Chromium's Linux libraries requires root; execute the tests as sail.
+npx playwright install --with-deps --only-shell --no-progress chromium
+chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
+install -d -o "${WWWUSER:-1000}" -g "${WWWGROUP:-1000}" /tmp/finance-browser-views
+
+exec gosu "${WWWUSER:-1000}" env SESSION_DRIVER=file VIEW_COMPILED_PATH=/tmp/finance-browser-views PLAYWRIGHT_BROWSERS_PATH="$PLAYWRIGHT_BROWSERS_PATH" vendor/bin/pest tests/Browser --ci --trace "$@"
