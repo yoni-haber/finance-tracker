@@ -48,7 +48,7 @@ class BudgetProgress
                 : ($limitPennies === 0 && $spentPennies <= 0 ? 'safe'
                     : ($spentPennies > $limitPennies ? 'over'
                     : ($spentPennies >= $limitPennies ? 'limit'
-                        : ($limitPennies > 0 && $spentPennies * 5 >= $limitPennies * 4 ? 'near' : 'safe'))));
+                        : ($spentPennies * 5 >= $limitPennies * 4 ? 'near' : 'safe'))));
 
             return [
                 'category' => $budget->category->name,

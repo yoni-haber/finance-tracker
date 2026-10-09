@@ -541,7 +541,8 @@ final class BudgetManagerTest extends TestCase
                     && $food['over'] === '15.00' && $food['percent'] === 125
                     && $food['barPercent'] === 100 && $travel['actual'] === '10.01'
                     && $travel['remaining'] === '0.00' && $travel['over'] === '10.01'
-                    && $travel['percent'] === null && $travel['barPercent'] === 100;
+                    && $travel['percent'] === null && $travel['barPercent'] === 100
+                    && $travel['status'] === 'over';
             })
             ->assertSee('£15.00 over')
             ->assertSee('£10.01 over')
@@ -592,8 +593,10 @@ final class BudgetManagerTest extends TestCase
 
                 return $empty['actual'] === '0.00' && $empty['percent'] === 0
                     && $empty['barPercent'] === 0 && !$empty['overspent']
+                    && $empty['status'] === 'safe'
                     && $exact['actual'] === '20.00' && $exact['percent'] === 100
                     && $exact['barPercent'] === 100 && !$exact['overspent']
+                    && $exact['status'] === 'limit'
                     && $rounded['actual'] === '2.00' && $rounded['percent'] === 67
                     && $rounded['barPercent'] === 67
                     && $refunded['actual'] === '-0.01' && $refunded['percent'] === -1
