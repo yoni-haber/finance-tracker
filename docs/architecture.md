@@ -95,9 +95,12 @@ width, while height is capped to the viewport. Stable scrollbar gutters prevent
 the page and dialog content from shifting horizontally. These shared behaviours
 cover finance, statement and settings dialogs in both themes.
 
-Run `npm run test:ui` inside the app container for the targeted browser-interface
-tests. CI runs them with 100% line, branch and function coverage required for the
-shared UI module.
+Run `docker compose run --rm --no-deps -e SUPERVISOR_PHP_USER=root app bash
+docker/8.5/run-browser-tests` after installing Node dependencies, building
+assets, and starting MySQL. The runner installs Chromium, then exercises
+sign-in and navigation, transaction validation and saving, search and filters,
+and report chart rendering. CI runs this Pest suite separately from the PHPUnit
+unit and feature suites.
 
 ### Volt Pages (Settings)
 

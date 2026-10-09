@@ -46,4 +46,4 @@ make npm-dev
 
 ## CI
 
-GitHub Actions runs build verification, Pint, PHPStan, Rector, migrations, PHPUnit with coverage, and shared UI feedback tests with 100% JavaScript coverage on pushes to `main` and pull requests. Security checks audit Composer and npm dependencies on those events and weekly. Infection checks changed application PHP on pull requests. Dependabot checks for GitHub Actions, Composer, and npm updates weekly. See `.github/workflows/` and `.github/dependabot.yml` for details.
+GitHub Actions runs build verification, Pint, PHPStan, Rector, migrations, PHPUnit with coverage, and focused Pest Browser tests on pushes to `main` and pull requests. Security checks audit Composer and npm dependencies on those events and weekly. Infection checks changed application PHP on pull requests. Dependabot checks for GitHub Actions, Composer, and npm updates weekly. See `.github/workflows/` and `.github/dependabot.yml` for details.

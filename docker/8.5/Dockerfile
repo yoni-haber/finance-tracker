@@ -44,7 +44,8 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         bcmath \
         intl \
         gd \
-        pcntl
+        pcntl \
+        sockets
 
 # Install PCOV for test coverage
 RUN pecl install pcov && docker-php-ext-enable pcov
