@@ -822,6 +822,20 @@ final class TransactionManagerTest extends TestCase
                 && $transactions->every(fn ($t): bool => $t->category_id === $sub1->id));
     }
 
+    public function test_selected_parent_supplies_its_children_to_the_subcategory_filter(): void
+    {
+        $user = User::factory()->create();
+        $parent = Category::factory()->for($user)->expense()->create(['name' => 'Food']);
+        $child = Category::factory()->subcategoryOf($parent)->create(['name' => 'Groceries']);
+        $otherParent = Category::factory()->for($user)->expense()->create(['name' => 'Travel']);
+        Category::factory()->subcategoryOf($otherParent)->create(['name' => 'Rail']);
+
+        Livewire::actingAs($user)
+            ->test(TransactionManager::class)
+            ->set('filterParentCategory', $parent->id)
+            ->assertViewHas('filterSubCategories', fn ($categories): bool => $categories->pluck('id')->all() === [$child->id]);
+    }
+
     public function test_updated_filter_parent_category_resets_sub_category(): void
     {
         $user = User::factory()->create();
