@@ -142,7 +142,25 @@ html {
     }
 
     .app-button-secondary {
-        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink transition-colors hover:bg-zinc-50 active:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800;
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-medium text-app-ink transition-colors hover:bg-zinc-50 active:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800 dark:active:bg-zinc-700;
+    }
+
+    .app-chart-data-table {
+        width: max-content;
+        min-width: 100%;
+    }
+
+    .app-chart-data-table :where(th, td) {
+        padding-inline: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .app-chart-data-table :where(th, td):first-child {
+        padding-left: 0;
+    }
+
+    .app-chart-data-table :where(th, td):last-child {
+        padding-right: 0;
     }
 
     .app-empty {
@@ -156,6 +174,26 @@ html {
     input.app-field,
     select.app-field {
         height: 2.75rem;
+    }
+
+    /* iOS WebKit can size padded date inputs beyond their declared width. */
+    .app-date-field {
+        @apply flex h-11 min-w-0 items-center py-0 focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20;
+    }
+
+    .app-date-field > input[type='date'] {
+        flex: 1 1 0%;
+        width: 0;
+        min-width: 0;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        outline: none;
     }
 
     input.app-field[type='number'] {

@@ -127,8 +127,9 @@
                 <div class="space-y-3">
                     <div class="max-w-xs">
                         <label for="networth-snapshot-date" class="app-form-label">Snapshot date</label>
-                        <input id="networth-snapshot-date" type="date" wire:model="date" max="{{ today()->toDateString() }}"
-                               class="app-field mt-1.5 w-full"/>
+                        <div class="app-field app-date-field mt-1.5 w-full">
+                            <input id="networth-snapshot-date" type="date" wire:model="date" max="{{ today()->toDateString() }}"/>
+                        </div>
                         @error('date') <p class="mt-1 text-xs text-rose-600" data-action-error role="alert">{{ $message }}</p> @enderror
                     </div>
                     @if (!$entryId)
