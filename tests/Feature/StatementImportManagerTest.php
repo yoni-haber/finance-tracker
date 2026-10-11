@@ -513,8 +513,8 @@ final class StatementImportManagerTest extends TestCase
         // The foreign key also cascades on import deletion, so verify staged rows
         // are removed before that deletion rather than only checking the final state.
         $observedImportDeletion = false;
-        Event::listen('eloquent.deleting: '.BankStatementImport::class, function (BankStatementImport $deletingImport) use ($import, $transaction1, $transaction2, &$observedImportDeletion): void {
-            if ($deletingImport->id !== $import->id) {
+        Event::listen('eloquent.deleting: ' . BankStatementImport::class, function (BankStatementImport $bankStatementImport) use ($import, $transaction1, $transaction2, &$observedImportDeletion): void {
+            if ($bankStatementImport->id !== $import->id) {
                 return;
             }
 
