@@ -150,16 +150,18 @@ class StatementImportManager extends Component
             return;
         }
 
+        $import = $this->currentImport;
+
         try {
             // Clean up the stored file if it exists
             Storage::disk(BankStatementConfig::statementsDisk())
-                ->delete(BankStatementConfig::statementPath((int) $this->currentImport->id));
+                ->delete(BankStatementConfig::statementPath((int) $import->id));
 
             // Delete any imported transactions (staged data)
-            $this->currentImport->importedTransactions()->delete();
+            $import->importedTransactions()->delete();
 
             // Delete the import record
-            $this->currentImport->delete();
+            $import->delete();
 
             $this->currentImport = null;
             $this->polling = false;
@@ -168,9 +170,9 @@ class StatementImportManager extends Component
 
         } catch (Exception $exception) {
             logger()->error('Failed to delete import', [
-                'import_id' => $this->currentImport->id,
+                'import_id' => $import->id,
                 'user_id' => Auth::id(),
-                'import_status' => $this->currentImport->status,
+                'import_status' => $import->status,
                 'error' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
             ]);

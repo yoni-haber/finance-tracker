@@ -164,7 +164,7 @@
                     @if ($editingTransactionId === $transaction->id)
                         <div class="space-y-3">
                             <h3 class="font-semibold">Edit imported transaction</h3>
-                            <label class="block text-sm">Date<input type="date" wire:model="editForm.date" class="app-field mt-1 w-full"></label>
+                            <label class="block text-sm">Date<span class="app-field app-date-field mt-1 w-full"><input type="date" wire:model="editForm.date"></span></label>
                             <label class="block text-sm">Description<textarea wire:model="editForm.description" rows="2" class="app-field mt-1 w-full"></textarea></label>
                             <div class="grid grid-cols-2 gap-2"><label class="block text-sm">Amount<input type="number" step="0.01" min="0.01" wire:model="editForm.amount" class="app-field mt-1 w-full"></label><label class="block text-sm">Direction<select wire:model.live="editForm.type" class="app-field mt-1 w-full"><option value="expense">Money out</option><option value="income">Money in</option></select></label></div>
                             <label class="block text-sm">Category<select wire:model="editForm.category_id" class="app-field mt-1 w-full"><option value="">Uncategorised</option>@foreach ($categories->where('type', $editForm['type'] ?? '') as $parent)@if ($parent->children->isNotEmpty())<optgroup label="{{ $parent->name }}">@foreach ($parent->children as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach</optgroup>@else<option value="{{ $parent->id }}">{{ $parent->name }}</option>@endif @endforeach</select></label>

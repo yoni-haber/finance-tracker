@@ -1,10 +1,9 @@
 <div class="flex flex-col gap-5 sm:gap-7">
-    <header class="flex flex-wrap items-end justify-between gap-4">
+    <header>
         <div>
             <h1 class="app-page-title">{{ $periodLabel }} overview</h1>
             <p class="mt-2 text-sm app-muted">Monthly totals include projected recurring transactions.</p>
         </div>
-        <a href="{{ route('transactions') }}" wire:navigate class="app-button-secondary">View transactions</a>
     </header>
 
     <section aria-label="Monthly summary" class="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
@@ -114,7 +113,7 @@
             <details id="dashboard-trend-data" class="mt-5 text-sm">
                 <summary class="cursor-pointer font-medium app-link">View chart data</summary>
                 <div class="mt-3 overflow-x-auto">
-                    <table class="min-w-full text-sm tabular-nums">
+                    <table class="app-chart-data-table text-sm tabular-nums">
                         <thead><tr class="border-b border-[#e4e9e1] dark:border-[#304038]"><th scope="col" class="py-2 text-left">Month</th><th scope="col" class="py-2 text-right">Income</th><th scope="col" class="py-2 text-right">Spending</th><th scope="col" class="py-2 text-right">Invested</th><th scope="col" class="py-2 text-right">Savings</th></tr></thead>
                         <tbody class="divide-y divide-[#edf0ea] dark:divide-[#304038]">
                             @foreach ($trend['labels'] as $index => $label)

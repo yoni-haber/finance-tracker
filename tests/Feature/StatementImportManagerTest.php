@@ -15,6 +15,7 @@ use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -509,6 +510,19 @@ final class StatementImportManagerTest extends TestCase
         $transaction1 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
         $transaction2 = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
 
+        // The foreign key also cascades on import deletion, so verify staged rows
+        // are removed before that deletion rather than only checking the final state.
+        $observedImportDeletion = false;
+        Event::listen('eloquent.deleting: ' . BankStatementImport::class, function (BankStatementImport $bankStatementImport) use ($import, $transaction1, $transaction2, &$observedImportDeletion): void {
+            if ($bankStatementImport->id !== $import->id) {
+                return;
+            }
+
+            $observedImportDeletion = true;
+            $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction1->id]);
+            $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction2->id]);
+        });
+
         Storage::disk('local')->put(sprintf('statements/%d.csv', $import->id), 'test,data');
 
         Livewire::actingAs($user)
@@ -522,6 +536,7 @@ final class StatementImportManagerTest extends TestCase
         $this->assertDatabaseMissing('bank_statement_imports', ['id' => $import->id]);
         $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction1->id]);
         $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction2->id]);
+        $this->assertTrue($observedImportDeletion);
 
         // Check file was deleted
         Storage::disk('local')->assertMissing(sprintf('statements/%d.csv', $import->id));
@@ -903,11 +918,18 @@ final class StatementImportManagerTest extends TestCase
         // throw, triggering the cancelImport catch block.
         Storage::shouldReceive('disk')->andReturnSelf();
         Storage::shouldReceive('delete')->andThrow(new Exception('Disk error'));
+        Log::shouldReceive('error')->once()->withArgs(fn (string $message, array $context): bool => $message === 'Failed to delete import'
+            && ($context['import_id'] ?? null) === $import->id
+            && ($context['user_id'] ?? null) === $user->id
+            && ($context['import_status'] ?? null) === BankStatementConfig::STATUS_UPLOADED
+            && ($context['error'] ?? null) === 'Disk error'
+            && is_string($context['trace'] ?? null));
 
         Livewire::actingAs($user)
             ->test(StatementImportManager::class)
             ->set('currentImport', $import)
-            ->call('cancelImport');
+            ->call('cancelImport')
+            ->assertSee('Failed to delete import. Please try again.');
 
         // Import should still exist since the exception was caught.
         $this->assertDatabaseHas('bank_statement_imports', ['id' => $import->id]);
