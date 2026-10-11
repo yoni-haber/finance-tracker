@@ -28,7 +28,6 @@ jobs:
           persist-credentials: false
 
       - name: Audit Composer lockfile
-        # Rector Laravel currently requires an abandoned dev package; report it while still failing on advisories.
         run: docker run --rm --mount "type=bind,src=$PWD,dst=/app,readonly" -w /app -e COMPOSER_HOME=/tmp/composer composer:2 audit --locked --no-interaction --abandoned=report
 
       - name: Audit npm lockfile
