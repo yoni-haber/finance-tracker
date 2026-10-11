@@ -120,7 +120,7 @@ class TransactionManager extends Component
         $filterSubCategories = collect();
         if ($this->filterParentCategory) {
             $parentCategory = $filterCategories->firstWhere('id', $this->filterParentCategory);
-            $filterSubCategories = $parentCategory?->children ?? collect();
+            $filterSubCategories = $parentCategory->children ?? collect();
         }
 
         // Resolve effective filter: subcategory takes precedence; parent expands to include all children.
