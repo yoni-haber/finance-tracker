@@ -206,7 +206,7 @@ html {
     }
 
     .app-form-actions {
-        @apply flex flex-wrap justify-end gap-3 border-t border-app-border bg-app-surface pt-4 pb-1;
+        @apply flex flex-wrap justify-end gap-3 border-t border-app-border pt-4 pb-1;
     }
 
     .app-row-action {
