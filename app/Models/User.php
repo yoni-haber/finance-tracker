@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\DatabaseNotificationCollection;
@@ -54,6 +55,7 @@ use Override;
  * @property-read Collection<int, Transaction> $transactions
  * @property-read int|null $transactions_count
  * @property-read Collection<int, PlannedPayment> $plannedPayments
+ * @property-read Note|null $note
  *
  * @method static UserFactory factory($count = null, $state = [])
  * @method static Builder<static>|User newModelQuery()
@@ -168,6 +170,12 @@ class User extends Authenticatable
     public function plannedPayments(): HasMany
     {
         return $this->hasMany(PlannedPayment::class);
+    }
+
+    /** @return HasOne<Note, $this> */
+    public function note(): HasOne
+    {
+        return $this->hasOne(Note::class);
     }
 
     /**
