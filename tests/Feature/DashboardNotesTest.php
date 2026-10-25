@@ -79,8 +79,12 @@ final class DashboardNotesTest extends TestCase
     {
         $user = User::factory()->create();
         $note = $user->note()->create(['body' => 'Keep this until a valid save']);
-        $testable = Livewire::actingAs($user)->test(DashboardNotes::class)
-            ->set('body', str_repeat('a', 2001))->call('save')->assertHasErrors(['body' => 'max']);
+        $testable = Livewire::actingAs($user)
+            ->test(DashboardNotes::class)
+            ->set('body', str_repeat('a', 2001))
+            ->call('save')
+            ->assertHasErrors(['body' => 'max'])
+            ->assertSee('Keep your note to 2,000 characters or fewer.');
         $this->assertSame('Keep this until a valid save', $note->refresh()->body);
         $testable->set('body', str_repeat('a', 2000))->call('save')->assertHasNoErrors();
         $this->assertSame(str_repeat('a', 2000), $note->refresh()->body);
@@ -133,5 +137,16 @@ final class DashboardNotesTest extends TestCase
         $user->delete();
         $this->assertModelMissing($note);
         $this->assertModelExists($otherNote);
+    }
+
+    public function test_note_validation_rejects_non_string_values(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(DashboardNotes::class)
+            ->set('body', 2345)
+            ->call('save')
+            ->assertHasErrors(['body' => 'string']);
     }
 }
