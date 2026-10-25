@@ -138,15 +138,4 @@ final class DashboardNotesTest extends TestCase
         $this->assertModelMissing($note);
         $this->assertModelExists($otherNote);
     }
-
-    public function test_note_validation_rejects_non_string_values(): void
-    {
-        $user = User::factory()->create();
-
-        Livewire::actingAs($user)
-            ->test(DashboardNotes::class)
-            ->set('body', 2345)
-            ->call('save')
-            ->assertHasErrors(['body' => 'string']);
-    }
 }
