@@ -11,6 +11,11 @@
                 "App\\Livewire\\NetWorth\\NetWorthTracker::rules",
                 "App\\Livewire\\Reports\\ReportsHub::buildNetWorthChartData"
             ]
+        },
+        "ArrayItemRemoval": {
+            "ignore": [
+                "App\\Livewire\\DashboardNotes::save"
+            ]
         }
     },
     "minMsi": 100,

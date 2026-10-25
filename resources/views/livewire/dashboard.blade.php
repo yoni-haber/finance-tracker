@@ -165,24 +165,30 @@
         </section>
     </div>
 
-    <section class="app-card p-5 sm:p-6 lg:max-w-2xl" aria-labelledby="dashboard-upcoming-heading">
-        <div class="flex items-center justify-between gap-3">
-            <h2 id="dashboard-upcoming-heading" class="min-w-0 text-lg font-semibold tracking-tight">Next payments from today</h2>
-            <a class="app-link inline-flex min-h-11 shrink-0 items-center text-sm" href="{{ route('upcoming-payments') }}" wire:navigate>View all</a>
-        </div>
-        <p class="mt-1 text-sm app-muted">Based on today, including overdue plans. Not filtered by month or included in recorded spending.</p>
-        @forelse ($upcomingPayments as $item)
-            @php $payment = $item['plan']; $due = $item['due']; @endphp
-            <div class="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm {{ $loop->first ? '' : 'border-t border-app-border pt-3' }}">
-                <div class="min-w-0 break-words">
-                    <p class="font-medium">{{ $payment->name }}</p>
-                    <p class="mt-1 text-xs app-muted">{{ $due->format('j M Y') }} · {{ $payment->dueLabel($due) }} · {{ $payment->frequencyLabel() }}</p>
-                </div>
-                <span class="break-words font-semibold tabular-nums">{{ \App\Support\Money::format($payment->amount) }}</span>
+    <div class="grid items-start gap-5 lg:grid-cols-2">
+        @auth
+            <livewire:dashboard-notes />
+        @endauth
+
+        <section class="app-card min-w-0 p-5 sm:p-6" aria-labelledby="dashboard-upcoming-heading">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="dashboard-upcoming-heading" class="min-w-0 text-lg font-semibold tracking-tight">Next payments from today</h2>
+                <a class="app-link inline-flex min-h-11 shrink-0 items-center text-sm" href="{{ route('upcoming-payments') }}" wire:navigate>View all</a>
             </div>
-        @empty
-            <p class="mt-4 text-sm app-muted">No payment plans yet. <a class="app-link" href="{{ route('upcoming-payments') }}" wire:navigate>Add a payment</a> to plan ahead.</p>
-        @endforelse
-    </section>
+            <p class="mt-1 text-sm app-muted">Based on today, including overdue plans. Not filtered by month or included in recorded spending.</p>
+            @forelse ($upcomingPayments as $item)
+                @php $payment = $item['plan']; $due = $item['due']; @endphp
+                <div class="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm {{ $loop->first ? '' : 'border-t border-app-border pt-3' }}">
+                    <div class="min-w-0 break-words">
+                        <p class="font-medium">{{ $payment->name }}</p>
+                        <p class="mt-1 text-xs app-muted">{{ $due->format('j M Y') }} · {{ $payment->dueLabel($due) }} · {{ $payment->frequencyLabel() }}</p>
+                    </div>
+                    <span class="break-words font-semibold tabular-nums">{{ \App\Support\Money::format($payment->amount) }}</span>
+                </div>
+            @empty
+                <p class="mt-4 text-sm app-muted">No payment plans yet. <a class="app-link" href="{{ route('upcoming-payments') }}" wire:navigate>Add a payment</a> to plan ahead.</p>
+            @endforelse
+        </section>
+    </div>
 
 </div>
