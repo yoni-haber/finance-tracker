@@ -23,6 +23,42 @@ final class StatementImportReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_visible_selection_only_includes_new_rows_from_this_import_and_toggles_off(): void
+    {
+        $user = User::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->parsed()->create();
+        $firstRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $secondRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $duplicate = ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->create();
+        $otherImport = BankStatementImport::factory()->for($user)->parsed()->create();
+        $otherRow = ImportedTransaction::factory()->for($otherImport, 'bankStatementImport')->create();
+        $foreignRow = ImportedTransaction::factory()->create();
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$otherRow->id, $foreignRow->id])
+            ->call('toggleVisibleSelection', [$firstRow->id, $duplicate->id, $otherRow->id, $foreignRow->id])
+            ->assertSet('selectedTransactionIds', [$firstRow->id])
+            ->call('toggleVisibleSelection', [$secondRow->id])
+            ->assertSet('selectedTransactionIds', [$firstRow->id, $secondRow->id])
+            ->call('toggleVisibleSelection', [$firstRow->id])
+            ->assertSet('selectedTransactionIds', [$secondRow->id])
+            ->call('toggleVisibleSelection', [$secondRow->id])
+            ->assertSet('selectedTransactionIds', []);
+    }
+
+    public function test_switching_review_filter_clears_bulk_selection(): void
+    {
+        $user = User::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->parsed()->create();
+        $row = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$row->id])
+            ->set('viewFilter', 'needs_attention')
+            ->assertSet('selectedTransactionIds', [])
+            ->assertSee('Checkboxes are for bulk actions only.');
+    }
+
     public function test_category_can_be_cleared_from_both_review_controls(): void
     {
         $user = User::factory()->create();
@@ -379,7 +415,7 @@ final class StatementImportReviewTest extends TestCase
             ->assertSee('2') // New count
             ->assertSee('Import 2') // Import CTA only shown when new_transactions > 0
             ->assertSee('1') // Duplicate count
-            ->assertSee('Duplicates (skipped)');
+            ->assertSee('Skipped duplicates');
     }
 
     public function test_edits_transaction_successfully(): void
@@ -735,9 +771,11 @@ final class StatementImportReviewTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$transaction->id])
             ->call('confirmDeleteTransaction', $transaction->id)
             ->call('deleteTransaction')
             ->assertSet('deletingTransactionId', null)
+            ->assertSet('selectedTransactionIds', [])
             ->assertDispatched('close-delete-modal');
 
         $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction->id]);

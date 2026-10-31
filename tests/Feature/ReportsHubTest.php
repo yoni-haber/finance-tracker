@@ -73,10 +73,11 @@ final class ReportsHubTest extends TestCase
 
         Livewire::actingAs($user)->test(ReportsHub::class)
             ->set('range', '3_months')
-            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 10000 && $insights['spending'] === 8000 && $insights['invested'] === 0 && $insights['savings'] === 2000 && $insights['savingsRate'] === 20)
+            ->assertViewHas('insights', fn (array $insights): bool => $insights['income'] === 10000 && $insights['spending'] === 8000 && $insights['spendingRate'] === 80 && $insights['invested'] === 0 && $insights['savings'] === 2000 && $insights['savingsRate'] === 20)
             ->assertViewHas('categoryChanges', fn (array $changes): bool => $changes[0]['category'] === 'Food' && $changes[0]['category_id'] === $food->id && $changes[0]['current'] === 6000 && $changes[0]['previous'] === 2000 && $changes[0]['change'] === 4000)
             ->assertViewHas('budgetData', fn (array $data): bool => $data['hasBudgets'] && $data['planned'][2] === 100.0 && $data['spent'][2] === 60.0)
-            ->assertSee('Spending budget performance');
+            ->assertSee('Spending budget performance')
+            ->assertSee('80% of income');
     }
 
     public function test_investment_goals_are_excluded_from_spending_budget_chart(): void

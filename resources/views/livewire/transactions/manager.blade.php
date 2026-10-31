@@ -1,7 +1,18 @@
 <div class="space-y-4">
-    <x-page-header title="Transactions" description="Find, review, and add the money moving through your accounts.">
-        <button type="button" wire:click="openModal" class="app-button-primary">+ New transaction</button>
-    </x-page-header>
+    <header class="mb-6 space-y-4">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0">
+                <h1 class="app-page-title">Transactions</h1>
+                <p class="mt-2 text-sm app-muted">Find, review, and add the money moving through your accounts.</p>
+            </div>
+            <livewire:period-selector :key="'transactions-period-selector'" />
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="ml-auto" data-header-actions="right">
+                <button type="button" wire:click="openModal" class="app-button-primary">+ New transaction</button>
+            </div>
+        </div>
+    </header>
     {{-- Status message --}}
     @if ($status !== '' || session()->has('status'))
         <div class="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-3 dark:bg-emerald-900/20 dark:border-emerald-800" data-action-feedback role="status">
@@ -23,7 +34,7 @@
                                placeholder="Description, category, or amount"
                                class="app-field w-full border-2 border-zinc-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm placeholder:text-zinc-500 hover:border-zinc-400 focus:border-emerald-600 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:border-zinc-500" />
                     </div>
-                    <p id="transaction-search-help" class="mt-1.5 text-xs app-muted">Search all time · Recorded transactions only</p>
+                    <p id="transaction-search-help" class="mt-1.5 text-xs app-muted">Excludes future recurring occurrences</p>
                 </div>
                 <span wire:loading wire:target="search" role="status" class="text-xs text-zinc-500 dark:text-zinc-400">Searching…</span>
             </div>
@@ -58,9 +69,9 @@
             @if ($filterImportId)<p class="text-xs app-muted">Showing transactions from imported statement #{{ $filterImportId }}. You can edit an entry here to correct it.</p>@endif
         </div>
 
-        @if ($showingRecorded)
+        @if ($showingAllDates)
             <div class="flex flex-wrap items-center gap-3 border-b border-zinc-200 px-4 py-2 text-sm dark:border-zinc-700">
-                <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ $searching ? 'Searching all dates' : 'All recorded dates' }}</span>
+                <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ $searching ? 'Searching through today' : 'All recorded dates' }}</span>
                 <span class="text-zinc-500 dark:text-zinc-400">{{ $transactions->total() }} {{ \Illuminate\Support\Str::plural('result', $transactions->total()) }}</span>
                 @unless ($searching)
                     <span class="app-muted">Recorded entries only; projected occurrences are excluded.</span>
@@ -71,7 +82,7 @@
             </div>
         @endif
 
-        <p class="border-b border-app-border px-4 py-2 text-xs app-muted sm:px-5">{{ $showingRecorded ? $transactions->total() : $transactions->count() }} {{ \Illuminate\Support\Str::plural('transaction', $showingRecorded ? $transactions->total() : $transactions->count()) }} {{ $showingRecorded ? 'recorded across all dates' : 'in the selected month' }}</p>
+        <p class="border-b border-app-border px-4 py-2 text-xs app-muted sm:px-5">{{ $showingAllDates ? $transactions->total() : $transactions->count() }} {{ \Illuminate\Support\Str::plural('transaction', $showingAllDates ? $transactions->total() : $transactions->count()) }} {{ $searching ? 'through today, including recurring occurrences' : ($showingRecorded ? 'recorded across all dates' : 'in the selected month') }}</p>
 
         {{-- Ledger table --}}
         <div class="hidden overflow-x-auto md:block">
@@ -94,7 +105,7 @@
                                 @if ($showingRecorded && $transaction->is_recurring)
                                     <span class="block text-xs text-zinc-500 dark:text-zinc-400">Recurring series · Started {{ \Carbon\Carbon::parse($transaction->date)->format('j M Y') }}</span>
                                 @elseif ($transaction->getAttribute('projected'))
-                                    <span class="block text-xs app-muted">Scheduled occurrence</span>
+                                    <span class="block text-xs app-muted">{{ $searching ? 'Recurring occurrence' : 'Scheduled occurrence' }}</span>
                                 @else
                                     <span class="block text-xs app-muted">Recorded</span>
                                 @endif
@@ -115,7 +126,7 @@
                             <td class="px-3 py-2 text-right whitespace-nowrap space-x-3">
                                 <button type="button" wire:click="edit({{ $transaction->id }})"
                                         wire:loading.attr="disabled" wire:target="edit({{ $transaction->id }})"
-                                        class="app-row-action">{{ $showingRecorded && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
+                                        class="app-row-action">{{ $showingAllDates && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
                                 <button
                                     type="button"
                                     @if ($showingRecorded && $transaction->is_recurring)
@@ -126,7 +137,7 @@
                                     wire:loading.attr="disabled"
                                     wire:target="confirmDelete"
                                     class="app-row-action app-row-action-danger"
-                                >{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : 'Delete' }}</button>
+                                >{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : ($searching && $transaction->is_recurring ? 'Delete occurrence' : 'Delete') }}</button>
                             </td>
                         </tr>
                     @empty
@@ -153,7 +164,7 @@
                             <p class="break-words text-sm font-semibold">{{ $transaction->description ?: ($transaction->category?->name ?? 'Transaction') }}</p>
                             <p class="mt-1 text-xs app-muted">{{ \Carbon\Carbon::parse($transaction->date)->format('j M Y') }} · {{ $transaction->category?->name ?? 'Uncategorised' }}</p>
                             @if ($transaction->getAttribute('projected'))
-                                <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Scheduled occurrence{{ $transaction->is_recurring ? ' · ' . ucfirst($transaction->frequency) : '' }}</span>
+                                <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">{{ $searching ? 'Recurring occurrence' : 'Scheduled occurrence' }}{{ $transaction->is_recurring ? ' · ' . ucfirst($transaction->frequency) : '' }}</span>
                             @elseif ($transaction->is_recurring)
                                 <span class="app-badge mt-2 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">Recorded · Recurring {{ $transaction->frequency }}</span>
                             @else
@@ -163,21 +174,21 @@
                         <span class="shrink-0 text-sm font-semibold tabular-nums {{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400' }}">{{ $transaction->type === \App\Models\Transaction::TYPE_INCOME ? '+' : '−' }}{{ \App\Support\Money::format($transaction->amount) }}</span>
                     </div>
                     <div class="mt-3 flex gap-4 border-t border-app-border pt-3 text-sm">
-                        <button type="button" wire:click="edit({{ $transaction->id }})" class="app-link inline-flex min-h-11 items-center">{{ $showingRecorded && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
+                        <button type="button" wire:click="edit({{ $transaction->id }})" class="app-link inline-flex min-h-11 items-center">{{ $showingAllDates && $transaction->is_recurring ? 'Edit series' : 'Edit' }}</button>
                         <button type="button"
                             @if ($showingRecorded && $transaction->is_recurring)
                                 wire:click="confirmDelete({{ $transaction->id }})"
                             @else
                                 wire:click="confirmDelete({{ $transaction->id }}, '{{ \Carbon\Carbon::parse($transaction->date)->toDateString() }}')"
                             @endif
-                            class="inline-flex min-h-11 items-center font-medium text-rose-700 dark:text-rose-400">{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : 'Delete' }}</button>
+                            class="inline-flex min-h-11 items-center font-medium text-rose-700 dark:text-rose-400">{{ $showingRecorded && $transaction->is_recurring ? 'Delete series' : ($searching && $transaction->is_recurring ? 'Delete occurrence' : 'Delete') }}</button>
                     </div>
                 </article>
             @empty
                 <p class="app-empty m-4">{{ $searching ? 'No transactions match your search.' : ($showingRecorded ? 'No recorded transactions match these filters across all dates.' : ($filterParentCategory || $filterSubCategory || $filterType ? 'No transactions match these filters for this month.' : 'No transactions for this month yet. Add one to start your ledger.')) }}</p>
             @endforelse
         </div>
-        @if ($showingRecorded && $transactions->hasPages())
+        @if ($showingAllDates && $transactions->hasPages())
             <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">{{ $transactions->links() }}</div>
         @endif
     </div>
