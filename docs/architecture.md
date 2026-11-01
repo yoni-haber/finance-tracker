@@ -98,9 +98,11 @@ cover finance, statement and settings dialogs in both themes.
 Run `docker compose run --rm --no-deps -e SUPERVISOR_PHP_USER=root app bash
 docker/8.5/run-browser-tests` after installing Node dependencies, building
 assets, and starting MySQL. The runner installs Chromium, then exercises
-sign-in and navigation, transaction validation and saving, search and filters,
-and report chart rendering. CI runs this Pest suite separately from the PHPUnit
-unit and feature suites.
+sign-in and navigation, transaction validation and saving, historical
+recurring-occurrence search and filters, statement review selection and import
+scope, and report chart rendering. Statement review, transaction search and
+reports are exercised at desktop and mobile widths. CI runs this Pest suite
+separately from the PHPUnit unit and feature suites.
 
 ### Volt Pages (Settings)
 
@@ -121,7 +123,7 @@ per-user selection** so it stays consistent as the user moves between pages.
 - **Boundaries:** previous/next navigation stops at January 2000 and December
   2100. The corresponding control is disabled at each limit, and the component
   neither persists nor broadcasts an out-of-range period.
-- **Picker:** `App\Livewire\PeriodSelector` is rendered in the sidebar only on
+- **Picker:** `App\Livewire\PeriodSelector` is rendered in the page header only on
   Dashboard, Transactions, and Budgets, the three screens that consume the
   global period. On change it persists to the user and dispatches a
   `period-changed` event carrying `{ month, year }`.
@@ -174,12 +176,37 @@ several months. The range API loads candidate transactions and relationships
 once, then expands and groups them in memory; reports must not issue one
 transaction query per month.
 
+### Transaction Views and Search
+
+The selected-month view includes scheduled recurring occurrences for that month.
+With an empty search, **All recorded dates** instead lists saved entries across
+all dates, showing each recurring series once without expanding its schedule.
+
+A non-empty search matches descriptions, category names (including parents), or
+an exact amount across history through today, independently of the selected
+month. `TransactionManager` loads matching saved entries and expands recurring
+series with `projectOccurrencesForRange()` through today, respecting skipped
+dates, end dates and anchored calendar rules. Future entries and occurrences are
+excluded. Category, type and import filters still apply; results are paginated
+20 at a time, newest first.
+
+In search results, **Edit series** changes the original recurring transaction;
+**Delete occurrence** skips only the displayed date. In **All recorded dates**,
+**Delete series** removes the whole series. Clearing search returns to the
+previously chosen view scope.
+
 ## Charts and Accessible Data
 
 Chart.js is installed as an exact npm dependency and bundled through Vite; no
 runtime CDN is required. `resources/js/charts.js` owns chart creation and cleanup
 across Livewire navigation. Every chart has a text label and an equivalent data
 table, while an explicit empty state replaces canvases with no meaningful data.
+
+Reports show separate assets, liabilities and net-worth charts from snapshots
+in the selected range, with a shared data table. Summary cards show spending,
+investing and savings as rounded whole percentages of total income for the
+selected range and transaction mode. When income is zero or negative, the cards
+show "No income for a rate" instead of a percentage.
 
 ## Model Query Scopes
 

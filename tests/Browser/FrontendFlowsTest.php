@@ -205,6 +205,7 @@ it('updates report totals and separate net worth charts when the range changes',
             Budget::factory()->for($user)->for($category)->create(['amount' => 100]);
         }
     }
+
     foreach ([6 => [50000, 10000], 5 => [51000, 9500], 4 => [52000, 9000]] as $monthsAgo => [$assets, $liabilities]) {
         NetWorthEntry::factory()->for($user)->create([
             'date' => today()->startOfMonth()->subMonths($monthsAgo),

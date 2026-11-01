@@ -79,7 +79,7 @@ class StatementImportReview extends Component
     {
         $this->selectedTransactionIds = array_values(array_filter(
             $this->selectedTransactionIds,
-            fn ($selectedId): bool => (int) $selectedId !== $transactionId,
+            fn (int $selectedId): bool => $selectedId !== $transactionId,
         ));
     }
 
