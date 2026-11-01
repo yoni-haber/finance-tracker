@@ -170,7 +170,8 @@ years and February 29 in leap years). Projection jumps directly to the first
 possible occurrence in the requested range instead of iterating through the
 entire history.
 
-Always access projected data through `TransactionReport`. Use
+For monthly screens and multi-month reports, access projected data through
+`TransactionReport`. Use
 `projectedForMonth()` for a screen month and `projectedForRange()` when consuming
 several months. The range API loads candidate transactions and relationships
 once, then expands and groups them in memory; reports must not issue one
