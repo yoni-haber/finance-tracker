@@ -17,6 +17,7 @@ use App\Support\BankStatementConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 final class StatementImportReviewTest extends TestCase
@@ -57,6 +58,92 @@ final class StatementImportReviewTest extends TestCase
             ->set('viewFilter', 'needs_attention')
             ->assertSet('selectedTransactionIds', [])
             ->assertSee('Checkboxes are for bulk actions only.');
+    }
+
+    public function test_visible_selection_adds_every_visible_row_once_and_keeps_a_list(): void
+    {
+        $user = User::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->parsed()->create();
+        $firstRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $secondRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $thirdRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', [$firstRow->id])
+            ->call('toggleVisibleSelection', [$firstRow->id, $secondRow->id, $thirdRow->id])
+            ->assertSet('selectedTransactionIds', fn (array $ids): bool => $ids === [$firstRow->id, $secondRow->id, $thirdRow->id])
+            ->assertSee('3 selected')
+            ->call('toggleVisibleSelection', [$firstRow->id, $secondRow->id])
+            ->assertSet('selectedTransactionIds', fn (array $ids): bool => $ids === [$thirdRow->id])
+            ->assertSee('1 selected');
+    }
+
+    public function test_visible_selection_normalises_numeric_string_ids_before_preserving_hidden_rows(): void
+    {
+        $user = User::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->parsed()->create();
+        $hiddenRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $visibleRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+
+        Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])
+            ->set('selectedTransactionIds', ['0' . $hiddenRow->id])
+            ->call('toggleVisibleSelection', [$visibleRow->id])
+            ->assertSet('selectedTransactionIds', fn (array $ids): bool => $ids === [$hiddenRow->id, $visibleRow->id]);
+    }
+
+    #[TestWith(['filter'])]
+    #[TestWith(['visible'])]
+    public function test_selection_changes_clear_bulk_category_errors_but_preserve_other_validation(string $action): void
+    {
+        $user = User::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->parsed()->create();
+        $row = ImportedTransaction::factory()->for($import, 'bankStatementImport')->expense()->create();
+        $category = Category::factory()->for($user)->income()->create();
+
+        $component = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id])->instance();
+        $this->assertInstanceOf(StatementImportReview::class, $component);
+        $component->selectedTransactionIds = [$row->id];
+        $component->bulkAssignCategory($category->id);
+        $component->addError('editForm.description', 'A description is required.');
+        $this->assertTrue($component->getErrorBag()->has('bulk_assign'));
+
+        // Exercise the handler before Livewire hydration can discard non-property errors.
+        if ($action === 'filter') {
+            $component->viewFilter = 'needs_attention';
+            $component->updatedViewFilter();
+        } else {
+            $component->toggleVisibleSelection([$row->id]);
+        }
+
+        $this->assertSame([], $component->selectedTransactionIds);
+        $this->assertFalse($component->getErrorBag()->has('bulk_assign'));
+        $this->assertTrue($component->getErrorBag()->has('editForm.description'));
+    }
+
+    public function test_editing_a_selected_row_only_deselects_it_when_it_becomes_a_duplicate(): void
+    {
+        $user = User::factory()->create();
+        $import = BankStatementImport::factory()->for($user)->parsed()->create();
+        $row = ImportedTransaction::factory()->for($import, 'bankStatementImport')->income(50)->onDate('2024-01-01')->create();
+        $remainingRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
+        $hash = new DuplicateDetector($user->id)->generateTransactionHash($user->id, '2024-01-01', 50, 'ALREADY RECORDED');
+        Transaction::factory()->for($user)->create(['hash' => $hash]);
+
+        $testable = Livewire::actingAs($user)->test(StatementImportReview::class, ['importId' => $import->id]);
+        $testable->set('selectedTransactionIds', [(string) $row->id, $remainingRow->id])
+            ->call('editTransaction', $row->id)
+            ->set('editForm.description', 'A unique description')
+            ->call('updateTransaction')
+            ->assertHasNoErrors()
+            ->assertSet('selectedTransactionIds', fn (array $ids): bool => $ids === [(string) $row->id, $remainingRow->id]);
+        $this->assertDatabaseHas('imported_transactions', ['id' => $row->id, 'is_duplicate' => false]);
+
+        $testable->call('editTransaction', $row->id)
+            ->set('editForm.description', 'Already recorded')
+            ->call('updateTransaction')
+            ->assertHasNoErrors()
+            ->assertSet('selectedTransactionIds', fn (array $ids): bool => $ids === [$remainingRow->id]);
+        $this->assertDatabaseHas('imported_transactions', ['id' => $row->id, 'is_duplicate' => true]);
     }
 
     public function test_category_can_be_cleared_from_both_review_controls(): void
@@ -768,14 +855,15 @@ final class StatementImportReviewTest extends TestCase
         $profile = BankProfile::factory()->create(['statement_type' => 'bank']);
         $import = BankStatementImport::factory()->for($user)->for($profile, 'bankProfile')->create(['status' => BankStatementConfig::STATUS_PARSED]);
         $transaction = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create(['is_duplicate' => false]);
+        $remainingRow = ImportedTransaction::factory()->for($import, 'bankStatementImport')->create();
 
         Livewire::actingAs($user)
             ->test(StatementImportReview::class, ['importId' => $import->id])
-            ->set('selectedTransactionIds', [$transaction->id])
+            ->set('selectedTransactionIds', [(string) $transaction->id, $remainingRow->id])
             ->call('confirmDeleteTransaction', $transaction->id)
             ->call('deleteTransaction')
             ->assertSet('deletingTransactionId', null)
-            ->assertSet('selectedTransactionIds', [])
+            ->assertSet('selectedTransactionIds', fn (array $ids): bool => $ids === [$remainingRow->id])
             ->assertDispatched('close-delete-modal');
 
         $this->assertDatabaseMissing('imported_transactions', ['id' => $transaction->id]);

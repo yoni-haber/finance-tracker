@@ -66,8 +66,8 @@ class StatementImportReview extends Component
     {
         $selectableIds = $this->import->importedTransactions()
             ->where('is_duplicate', false)->pluck('id')->all();
-        $visibleIds = array_values(array_intersect($selectableIds, $transactionIds));
-        $selectedIds = array_values(array_intersect($selectableIds, array_map(intval(...), $this->selectedTransactionIds)));
+        $visibleIds = array_intersect($selectableIds, $transactionIds);
+        $selectedIds = array_intersect($selectableIds, array_map(intval(...), $this->selectedTransactionIds));
 
         $this->selectedTransactionIds = array_diff($visibleIds, $selectedIds) === []
             ? array_values(array_diff($selectedIds, $visibleIds))

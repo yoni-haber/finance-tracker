@@ -12,7 +12,10 @@ use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 final class TransactionManagerTest extends TestCase
@@ -1436,23 +1439,58 @@ final class TransactionManagerTest extends TestCase
     {
         Carbon::setTestNow('2024-05-27');
         $user = User::factory()->create();
-        $series = Transaction::factory()->for($user)->recurring('weekly')->create([
-            'category_id' => null, 'description' => 'Weekly payment', 'date' => '2024-01-01',
-        ]);
         $oneOff = Transaction::factory()->for($user)->create([
             'category_id' => null, 'description' => 'Extra payment', 'date' => '2024-05-27',
+        ]);
+        $series = Transaction::factory()->for($user)->recurring('weekly')->create([
+            'category_id' => null, 'description' => 'Weekly payment', 'date' => '2024-01-01',
         ]);
 
         $testable = Livewire::actingAs($user)->test(TransactionManager::class);
         $testable->set('search', 'payment')
             ->assertViewHas('transactions', fn ($items): bool => $items->total() === 23 && $items->count() === 20
-                && $items->take(2)->pluck('id')->all() === [$oneOff->id, $series->id]);
+                && $items->take(2)->pluck('id')->all() === [$series->id, $oneOff->id]);
         $testable->call('nextPage')
             ->assertViewHas('transactions', fn ($items): bool => $items->count() === 3
                 && $items->pluck('date')->map->toDateString()->all() === ['2024-01-15', '2024-01-08', '2024-01-01']);
         $testable->set('search', 'Weekly')
             ->assertSet('paginators.page', 1)
             ->assertViewHas('transactions', fn ($items): bool => $items->total() === 22 && $items->count() === 20);
+    }
+
+    #[TestWith(['payment'])]
+    #[TestWith([''])]
+    public function test_transaction_pagination_has_twenty_rows_and_uses_the_transactions_route(string $search): void
+    {
+        $user = User::factory()->create();
+        $transactions = Transaction::factory()->for($user)->count(21)->create([
+            'category_id' => null, 'description' => 'Payment', 'date' => '2024-01-01',
+        ])->sortByDesc('id')->values();
+        $paginators = [];
+        view()->composer('livewire.transactions.manager', function (View $view) use (&$paginators): void {
+            $paginators[] = $view->getData()['transactions'];
+        });
+
+        $this->actingAs($user)->get(route('transactions', ['scope' => 'all', 'search' => $search]))->assertOk();
+        $this->assertCount(1, $paginators);
+        $firstPage = $paginators[0];
+        $this->assertInstanceOf(LengthAwarePaginator::class, $firstPage);
+        $this->assertSame(21, $firstPage->total());
+        $this->assertSame(20, $firstPage->perPage());
+        $this->assertSame(1, $firstPage->currentPage());
+        $this->assertSame(2, $firstPage->lastPage());
+        $this->assertSame($transactions->take(20)->pluck('id')->all(), $firstPage->pluck('id')->all());
+        $this->assertSame('transactions?page=2', $firstPage->nextPageUrl());
+
+        $this->get(route('transactions', ['scope' => 'all', 'search' => $search, 'page' => 2]))->assertOk();
+        $this->assertCount(2, $paginators);
+        $secondPage = $paginators[1];
+        $this->assertInstanceOf(LengthAwarePaginator::class, $secondPage);
+        $this->assertSame(20, $secondPage->perPage());
+        $this->assertSame(2, $secondPage->currentPage());
+        $this->assertSame($transactions->skip(20)->pluck('id')->all(), $secondPage->pluck('id')->all());
+        $this->assertSame('transactions?page=1', $secondPage->previousPageUrl());
+        $this->assertNull($secondPage->nextPageUrl());
     }
 
     public function test_all_recorded_dates_still_shows_each_saved_series_once(): void
