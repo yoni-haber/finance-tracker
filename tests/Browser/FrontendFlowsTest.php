@@ -33,7 +33,7 @@ it('reviews statement rows with clear selection and import scope', function (int
     ImportedTransaction::factory()->for($import, 'bankStatementImport')->create([
         'description' => 'CLIENT INVOICE', 'amount' => 325,
     ]);
-    ImportedTransaction::factory()->for($import, 'bankStatementImport')->count(2)->create([
+    $possibleMatches = ImportedTransaction::factory()->for($import, 'bankStatementImport')->count(2)->create([
         'description' => 'COFFEE KIOSK', 'amount' => -8.50, 'date' => today(), 'hash' => 'possible-match',
     ]);
     ImportedTransaction::factory()->for($import, 'bankStatementImport')->duplicate()->create([
@@ -61,6 +61,9 @@ it('reviews statement rows with clear selection and import scope', function (int
         ->assertSee('Showing 2 of 5 transactions')
         ->click('Select visible')
         ->assertSee('2 selected')
+        ->select('#bulk-import-category', '')
+        ->assertSee('2 selected')
+        ->assertNoJavaScriptErrors()
         ->select('#bulk-import-category', (string) $category->id)
         ->assertSee('Category assigned to 2 transactions.')
         ->assertDontSee('2 selected')
@@ -79,6 +82,7 @@ it('reviews statement rows with clear selection and import scope', function (int
         ->assertNoJavaScriptErrors();
 
     expect($expense->fresh()?->description)->toBe('UPDATED MARKET');
+    expect($possibleMatches->fresh()->pluck('category_id')->all())->toBe([$category->id, $category->id]);
     expect(Transaction::forUser($user->id)->count())->toBe(0);
 })->with([1440, 390]);
 

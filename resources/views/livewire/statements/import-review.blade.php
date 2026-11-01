@@ -49,7 +49,7 @@
                 <button type="button" wire:click="$set('selectedTransactionIds', [])" @disabled($isEditing) class="app-link inline-flex min-h-11 items-center text-sm">Clear selection</button>
                 <div class="flex w-full flex-wrap items-center gap-3 sm:ml-auto sm:w-auto">
                     <label for="bulk-import-category" class="text-sm">Assign category</label>
-                    <select id="bulk-import-category" wire:change="if ($event.target.value) $wire.bulkAssignCategory($event.target.value)" @disabled(!$bulkSelectionType || $isEditing) class="app-field min-w-0 flex-1 text-sm sm:w-48 sm:flex-none">
+                    <select id="bulk-import-category" wire:change="$event.target.value && $wire.bulkAssignCategory($event.target.value)" @disabled(!$bulkSelectionType || $isEditing) class="app-field min-w-0 flex-1 text-sm sm:w-48 sm:flex-none">
                         <option value="">Choose category</option>
                         @foreach ($categories->where('type', $bulkSelectionType) as $parent)
                             @if ($parent->children->isNotEmpty())
