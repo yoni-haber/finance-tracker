@@ -1,6 +1,5 @@
-<div class="w-full sm:w-auto">
+<div class="w-fit max-w-full">
     <div class="flex items-center gap-2">
-        <span class="mr-1 hidden text-xs font-semibold uppercase tracking-[0.14em] app-muted sm:inline">Period</span>
         <button
             type="button"
             wire:click="previousMonth"
@@ -14,7 +13,7 @@
         <select
             wire:model.live="month"
             aria-label="Month"
-            class="app-field app-filter-select app-period-select min-w-0 flex-1 sm:w-28 sm:flex-none"
+            class="app-field app-filter-select app-period-select w-20 shrink-0 !pr-8"
         >
             @foreach (range(1, 12) as $m)
                 <option value="{{ $m }}">{{ now()->startOfYear()->month($m)->shortMonthName }}</option>
@@ -24,7 +23,7 @@
         <select
             wire:model.live="year"
             aria-label="Year"
-            class="app-field app-filter-select app-period-select w-20 shrink-0 sm:w-24"
+            class="app-field app-filter-select app-period-select w-24 shrink-0 !pr-8"
         >
             @foreach ($years as $y)
                 <option value="{{ $y }}">{{ $y }}</option>

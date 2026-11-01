@@ -173,36 +173,42 @@ export const renderBudgetChart = (chartData = parseData(document.getElementById(
 };
 
 export const renderNetWorthChart = (chartData = parseData(document.getElementById('netWorthChart'))) => {
-    if (!chartData?.labels?.length || !document.getElementById('netWorthChart')) {
-        destroyChart('netWorthChart');
-        return;
-    }
-
     const colours = themeColours();
     const axisColour = colours.axis;
     const gridColour = colours.grid;
+    const series = [
+        { id: 'assetsChart', key: 'assets', label: 'Assets' },
+        { id: 'liabilitiesChart', key: 'liabilities', label: 'Liabilities' },
+        { id: 'netWorthChart', key: 'netWorth', label: 'Net worth' },
+    ];
 
-    replaceChart('netWorthChart', {
-        type: 'line',
-        data: {
-            labels: chartData.labels,
-            datasets: [
-                { label: 'Assets', data: chartData.assets, borderColor: colours.income, backgroundColor: colours.income, tension: 0.3 },
-                { label: 'Liabilities', data: chartData.liabilities, borderColor: colours.spending, backgroundColor: colours.spending, tension: 0.3 },
-                { label: 'Net worth', data: chartData.netWorth, borderColor: colours.invested, backgroundColor: colours.invested, tension: 0.3 },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            scales: {
-                x: { ticks: { color: axisColour }, grid: { display: false } },
-                y: { ticks: { color: axisColour, callback: (value) => `£${value}` }, grid: { color: gridColour } },
+    for (const { id, key, label } of series) {
+        if (!chartData?.labels?.length || !document.getElementById(id)) {
+            destroyChart(id);
+            continue;
+        }
+
+        const colour = seriesColour(label, colours);
+        replaceChart(id, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    { label, data: chartData[key], borderColor: colour, backgroundColor: colour, tension: 0.3 },
+                ],
             },
-            plugins: { legend: { position: 'bottom', labels: { color: axisColour, usePointStyle: true } } },
-        },
-    });
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { ticks: { color: axisColour, maxTicksLimit: 3, maxRotation: 0 }, grid: { display: false } },
+                    y: { beginAtZero: false, ticks: { color: axisColour, callback: (value) => `${value < 0 ? '−' : ''}£${Math.abs(value).toLocaleString('en-GB')}` }, grid: { color: gridColour } },
+                },
+                plugins: { legend: { display: false, labels: { color: axisColour } } },
+            },
+        });
+    }
 };
 
 export const hydrateCharts = () => {

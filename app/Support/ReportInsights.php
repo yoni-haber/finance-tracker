@@ -14,7 +14,7 @@ final class ReportInsights
 {
     /**
      * @param array{labels: list<string>, income: list<float>, spending: list<float>, invested: list<float>, savings: list<float>} $series
-     * @return array{income: int, spending: int, invested: int, savings: int, investmentRate: int|null, savingsRate: int|null, lastMonthSavings: int, priorMonthSavings: int, monthChange: int}
+     * @return array{income: int, spending: int, invested: int, savings: int, spendingRate: int|null, investmentRate: int|null, savingsRate: int|null, lastMonthSavings: int, priorMonthSavings: int, monthChange: int}
      */
     public static function summary(array $series): array
     {
@@ -31,6 +31,7 @@ final class ReportInsights
             'spending' => $spending,
             'invested' => $invested,
             'savings' => $savings,
+            'spendingRate' => $income > 0 ? (int) round($spending * 100 / $income) : null,
             'investmentRate' => $income > 0 ? (int) round($invested * 100 / $income) : null,
             'savingsRate' => $income > 0 ? (int) round($savings * 100 / $income) : null,
             'lastMonthSavings' => $lastMonthSavings,

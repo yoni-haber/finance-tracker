@@ -1,8 +1,11 @@
 <div class="flex flex-col gap-5 sm:gap-7">
-    <header>
-        <div>
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="min-w-0 flex-1">
             <h1 class="app-page-title">{{ $periodLabel }} overview</h1>
             <p class="mt-2 text-sm app-muted">Monthly totals include projected recurring transactions.</p>
+        </div>
+        <div class="w-full lg:w-auto lg:shrink-0">
+            <livewire:period-selector :key="'dashboard-period-selector'" />
         </div>
     </header>
 
@@ -165,9 +168,9 @@
         </section>
     </div>
 
-    <div class="grid items-start gap-5 lg:grid-cols-2">
+    <div class="grid items-start gap-5 lg:grid-cols-2 lg:items-stretch">
         @auth
-            <livewire:dashboard-notes />
+            <livewire:dashboard-notes :key="'dashboard-notes'" />
         @endauth
 
         <section class="app-card min-w-0 p-5 sm:p-6" aria-labelledby="dashboard-upcoming-heading">

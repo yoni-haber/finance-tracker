@@ -12,7 +12,10 @@ use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 final class TransactionManagerTest extends TestCase
@@ -1081,12 +1084,12 @@ final class TransactionManagerTest extends TestCase
         $testable = Livewire::actingAs($user)->test(TransactionManager::class);
         $testable->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
         $testable->set('search', 'Vintage')
-            ->assertSee('Searching all dates')
+            ->assertSee('Searching through today')
             ->assertSee('1 result')
             ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$older->id]);
         $testable->call('clearSearch')
             ->assertSet('search', '')
-            ->assertDontSee('Searching all dates')
+            ->assertDontSee('Searching through today')
             ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
     }
 
@@ -1153,10 +1156,10 @@ final class TransactionManagerTest extends TestCase
 
         $testable = Livewire::actingAs($user)->test(TransactionManager::class);
         $testable->set('search', '   ')
-            ->assertDontSee('Searching all dates')
+            ->assertDontSee('Searching through today')
             ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$current->id]);
         $testable->set('search', '  coffee  ')
-            ->assertSee('Searching all dates')
+            ->assertSee('Searching through today')
             ->assertViewHas('transactions', fn ($items): bool => $items->pluck('id')->all() === [$older->id]);
     }
 
@@ -1313,7 +1316,7 @@ final class TransactionManagerTest extends TestCase
             ->test(TransactionManager::class)
             ->assertSet('search', 'Pasta')
             ->assertSet('filterParentCategory', $category->id)
-            ->assertSee('Searching all dates')
+            ->assertSee('Searching through today')
             ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $match->id);
     }
 
@@ -1356,26 +1359,157 @@ final class TransactionManagerTest extends TestCase
         $testable->call('showSelectedMonth')->assertSet('paginators.page', 1);
     }
 
-    public function test_search_displays_recurring_series_once_and_delete_targets_the_series(): void
+    public function test_search_displays_historical_occurrences_and_can_delete_one_without_deleting_the_series(): void
     {
+        Carbon::setTestNow('2024-03-01');
         $user = User::factory()->create();
         $series = Transaction::factory()->for($user)->recurring()->create([
-            'category_id' => null, 'description' => 'Recurring rent', 'date' => '2020-01-01',
+            'category_id' => null, 'description' => 'Recurring rent', 'date' => '2024-01-01',
         ]);
 
         $testable = Livewire::actingAs($user)->test(TransactionManager::class);
         $testable
             ->set('search', 'Recurring rent')
-            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $series->id)
-            ->assertSee('Recurring series · Started 1 Jan 2020')
-            ->assertSee('1 Jan 2020')
-            ->assertSee('Edit series')->assertSee('Delete series')->assertSeeHtml('wire:click="confirmDelete(' . $series->id . ')"');
-        $testable->call('confirmDelete', $series->id)
-            ->assertSee('This permanently deletes the entire recurring series')
-            ->assertDontSee('Delete this occurrence');
-        $testable->call('delete', true);
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 3
+                && $items->pluck('date')->map->toDateString()->all() === ['2024-03-01', '2024-02-01', '2024-01-01'])
+            ->assertSee('Recurring occurrence')
+            ->assertSee('Edit series')->assertSee('Delete occurrence')
+            ->assertDontSee('Recurring series · Started')
+            ->assertSeeHtml('wire:click="confirmDelete(' . $series->id . ", '2024-03-01')\"");
+        $testable->call('confirmDelete', $series->id, '2024-03-01')
+            ->assertSee('Delete this occurrence')
+            ->call('delete')
+            ->assertHasNoErrors()
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 2
+                && $items->pluck('date')->map->toDateString()->all() === ['2024-02-01', '2024-01-01']);
 
-        $this->assertDatabaseMissing('transactions', ['id' => $series->id]);
+        $this->assertDatabaseHas('transactions', ['id' => $series->id, 'date' => '2024-01-01']);
+        $this->assertDatabaseCount('transactions', 1);
+        $this->assertDatabaseHas('transaction_exceptions', ['transaction_id' => $series->id, 'date' => '2024-03-01']);
+        $testable->call('edit', $series->id)->assertSet('date', '2024-01-01');
+    }
+
+    public function test_search_includes_today_and_respects_anchored_dates_skips_end_dates_and_filters(): void
+    {
+        Carbon::setTestNow('2024-04-30 00:01:00');
+        $user = User::factory()->create(['selected_month' => 1, 'selected_year' => 2024]);
+        $category = Category::factory()->for($user)->expense()->create(['name' => 'Housing']);
+        $series = Transaction::factory()->for($user)->for($category)->recurring()->create([
+            'description' => 'Rent', 'date' => '2024-01-31', 'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+        $series->occurrenceExceptions()->create(['date' => '2024-02-29']);
+        $ended = Transaction::factory()->for($user)->for($category)->recurring()->create([
+            'description' => 'Rent', 'date' => '2024-02-01', 'recurring_until' => '2024-03-01',
+            'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+        $today = Transaction::factory()->for($user)->for($category)->create([
+            'description' => 'Rent', 'date' => '2024-04-30', 'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+        Transaction::factory()->for($user)->for($category)->create([
+            'description' => 'Rent', 'date' => '2024-05-01', 'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+        Transaction::factory()->for($user)->for($category)->recurring()->create([
+            'description' => 'Rent', 'date' => '2024-05-01', 'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+        $incomeCategory = Category::factory()->for($user)->income()->create();
+        Transaction::factory()->for($user)->for($incomeCategory)->recurring()->create([
+            'description' => 'Rent', 'date' => '2024-01-01', 'amount' => '1234.50', 'type' => Transaction::TYPE_INCOME,
+        ]);
+        Transaction::factory()->for($user)->recurring()->create([
+            'description' => 'Rent', 'date' => '2024-01-01', 'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+        Transaction::factory()->for(User::factory())->recurring()->create([
+            'description' => 'Rent', 'date' => '2024-01-01', 'amount' => '1234.50', 'type' => Transaction::TYPE_EXPENSE,
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class)
+            ->set('filterParentCategory', $category->id)
+            ->set('filterType', Transaction::TYPE_EXPENSE);
+        foreach (['Rent', 'Housing', '£1,234.50'] as $search) {
+            $testable->set('search', $search)
+                ->assertViewHas('transactions', fn ($items): bool => $items->total() === 6
+                    && $items->pluck('id')->all() === [$today->id, $series->id, $series->id, $ended->id, $ended->id, $series->id]
+                    && $items->pluck('date')->map->toDateString()->all() === [
+                        '2024-04-30', '2024-04-30', '2024-03-31', '2024-03-01', '2024-02-01', '2024-01-31',
+                    ]);
+        }
+    }
+
+    public function test_search_paginates_occurrences_with_saved_entries_in_date_and_id_order(): void
+    {
+        Carbon::setTestNow('2024-05-27');
+        $user = User::factory()->create();
+        $oneOff = Transaction::factory()->for($user)->create([
+            'category_id' => null, 'description' => 'Extra payment', 'date' => '2024-05-27',
+        ]);
+        $series = Transaction::factory()->for($user)->recurring('weekly')->create([
+            'category_id' => null, 'description' => 'Weekly payment', 'date' => '2024-01-01',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->set('search', 'payment')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 23 && $items->count() === 20
+                && $items->take(2)->pluck('id')->all() === [$series->id, $oneOff->id]);
+        $testable->call('nextPage')
+            ->assertViewHas('transactions', fn ($items): bool => $items->count() === 3
+                && $items->pluck('date')->map->toDateString()->all() === ['2024-01-15', '2024-01-08', '2024-01-01']);
+        $testable->set('search', 'Weekly')
+            ->assertSet('paginators.page', 1)
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 22 && $items->count() === 20);
+    }
+
+    #[TestWith(['payment'])]
+    #[TestWith([''])]
+    public function test_transaction_pagination_has_twenty_rows_and_uses_the_transactions_route(string $search): void
+    {
+        $user = User::factory()->create();
+        $transactions = Transaction::factory()->for($user)->count(21)->create([
+            'category_id' => null, 'description' => 'Payment', 'date' => '2024-01-01',
+        ])->sortByDesc('id')->values();
+        $paginators = [];
+        view()->composer('livewire.transactions.manager', function (View $view) use (&$paginators): void {
+            $paginators[] = $view->getData()['transactions'];
+        });
+
+        $this->actingAs($user)->get(route('transactions', ['scope' => 'all', 'search' => $search]))->assertOk();
+        $this->assertCount(1, $paginators);
+        $firstPage = $paginators[0];
+        $this->assertInstanceOf(LengthAwarePaginator::class, $firstPage);
+        $this->assertSame(21, $firstPage->total());
+        $this->assertSame(20, $firstPage->perPage());
+        $this->assertSame(1, $firstPage->currentPage());
+        $this->assertSame(2, $firstPage->lastPage());
+        $this->assertSame($transactions->take(20)->pluck('id')->all(), $firstPage->pluck('id')->all());
+        $this->assertSame('transactions?page=2', $firstPage->nextPageUrl());
+
+        $this->get(route('transactions', ['scope' => 'all', 'search' => $search, 'page' => 2]))->assertOk();
+        $this->assertCount(2, $paginators);
+        $secondPage = $paginators[1];
+        $this->assertInstanceOf(LengthAwarePaginator::class, $secondPage);
+        $this->assertSame(20, $secondPage->perPage());
+        $this->assertSame(2, $secondPage->currentPage());
+        $this->assertSame($transactions->skip(20)->pluck('id')->all(), $secondPage->pluck('id')->all());
+        $this->assertSame('transactions?page=1', $secondPage->previousPageUrl());
+        $this->assertNull($secondPage->nextPageUrl());
+    }
+
+    public function test_all_recorded_dates_still_shows_each_saved_series_once(): void
+    {
+        Carbon::setTestNow('2024-03-01');
+        $user = User::factory()->create();
+        $series = Transaction::factory()->for($user)->recurring()->create([
+            'category_id' => null, 'description' => 'Recurring rent', 'date' => '2024-01-01',
+        ]);
+
+        $testable = Livewire::actingAs($user)->test(TransactionManager::class);
+        $testable->set('scope', 'all')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1 && $items->first()->id === $series->id)
+            ->assertSee('Recurring series · Started 1 Jan 2024')
+            ->assertSee('Delete series');
+        $testable->set('search', 'rent')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 3);
+        $testable->call('clearSearch')
+            ->assertViewHas('transactions', fn ($items): bool => $items->total() === 1);
     }
 
     public function test_search_empty_state_mentions_active_filters(): void

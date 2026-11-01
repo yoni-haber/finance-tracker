@@ -53,6 +53,36 @@ class StatementImportReview extends Component
         $this->editForm['category_id'] = null;
     }
 
+    public function updatedViewFilter(): void
+    {
+        $this->selectedTransactionIds = [];
+        $this->resetValidation('bulk_assign');
+    }
+
+    /**
+     * @param array<int, int> $transactionIds
+     */
+    public function toggleVisibleSelection(array $transactionIds): void
+    {
+        $selectableIds = $this->import->importedTransactions()
+            ->where('is_duplicate', false)->pluck('id')->all();
+        $visibleIds = array_intersect($selectableIds, $transactionIds);
+        $selectedIds = array_intersect($selectableIds, array_map(intval(...), $this->selectedTransactionIds));
+
+        $this->selectedTransactionIds = array_diff($visibleIds, $selectedIds) === []
+            ? array_values(array_diff($selectedIds, $visibleIds))
+            : array_values(array_unique([...$selectedIds, ...$visibleIds]));
+        $this->resetValidation('bulk_assign');
+    }
+
+    private function deselectTransaction(int $transactionId): void
+    {
+        $this->selectedTransactionIds = array_values(array_filter(
+            $this->selectedTransactionIds,
+            fn (int $selectedId): bool => $selectedId !== $transactionId,
+        ));
+    }
+
     public function mount(int $importId): void
     {
         try {
@@ -201,6 +231,10 @@ class StatementImportReview extends Component
             'is_duplicate' => $isDuplicate,
         ]);
 
+        if ($isDuplicate) {
+            $this->deselectTransaction($importedTransaction->id);
+        }
+
         $this->cancelEdit();
         session()->flash('status', 'Transaction updated successfully.');
     }
@@ -277,6 +311,7 @@ class StatementImportReview extends Component
     {
         if ($this->deletingTransactionId) {
             $this->import->importedTransactions()->findOrFail($this->deletingTransactionId)->delete();
+            $this->deselectTransaction($this->deletingTransactionId);
             $this->deletingTransactionId = null;
             session()->flash('status', 'Transaction removed from import.');
         }

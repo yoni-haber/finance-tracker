@@ -1,13 +1,22 @@
 <div class="space-y-5">
-    <x-page-header title="Budgets" description="Keep an eye on spending limits and investment goals for {{ $periodLabel }}.">
-        <div class="flex flex-wrap gap-2">
-            <button type="button" wire:click="copyFromPreviousMonth" wire:loading.attr="disabled" wire:target="copyFromPreviousMonth" class="app-button-secondary" title="Copy budgets from {{ $previousPeriodLabel }} into {{ $periodLabel }}">
-                <span wire:loading.remove wire:target="copyFromPreviousMonth">Copy previous month</span>
-                <span wire:loading wire:target="copyFromPreviousMonth">Copying…</span>
-            </button>
-            <button type="button" wire:click="openModal" class="app-button-primary">+ New budget</button>
+    <header class="mb-6 space-y-4">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0">
+                <h1 class="app-page-title">Budgets</h1>
+                <p class="mt-2 text-sm app-muted">Keep an eye on spending limits and investment goals for {{ $periodLabel }}.</p>
+            </div>
+            <livewire:period-selector :key="'budgets-period-selector'" />
         </div>
-    </x-page-header>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="ml-auto flex flex-wrap justify-end gap-2" data-header-actions="right">
+                <button type="button" wire:click="copyFromPreviousMonth" wire:loading.attr="disabled" wire:target="copyFromPreviousMonth" class="app-button-secondary" title="Copy budgets from {{ $previousPeriodLabel }} into {{ $periodLabel }}">
+                    <span wire:loading.remove wire:target="copyFromPreviousMonth">Copy previous month</span>
+                    <span wire:loading wire:target="copyFromPreviousMonth">Copying…</span>
+                </button>
+                <button type="button" wire:click="openModal" class="app-button-primary">+ New budget</button>
+            </div>
+        </div>
+    </header>
     <div class="grid gap-3 lg:grid-cols-2">
         <section class="app-card min-w-0 p-4 sm:p-5" aria-labelledby="spending-limits-summary-heading">
             <h2 id="spending-limits-summary-heading" class="mb-3 text-lg font-semibold">Spending limits</h2>

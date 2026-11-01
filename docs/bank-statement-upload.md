@@ -107,6 +107,28 @@ An import stuck at `parsing` means a worker died mid-job. Reset it to `uploaded`
 6. The user can edit transaction details, assign categories, and correct income/expense type. Edits regenerate `hash`; `original_hash` is never touched. **Bulk actions** are available when ≥1 non-duplicate rows are selected: bulk category assignment (all selected must share the same type; chosen category type must match) and bulk delete (requires confirmation). Both clear the selection on success.
 7. On commit, `StatementImportCommitter` creates a `Transaction` for each non-duplicate, non-committed staged row, sets `Transaction.hash = original_hash`, marks staged rows `is_committed = true`, updates import status → `committed`, and deletes the CSV file.
 
+## Reviewing and Selecting Rows
+
+The review page offers **All**, **Needs a category**, **Categorised**,
+**Possible matches**, and **Skipped duplicates** filters. Categories are optional
+and can be assigned after importing. Money-in and money-out amounts display
+explicit signs; the statement's net amount excludes skipped duplicates.
+
+Checkboxes control bulk actions only. **Select visible** selects the visible
+non-duplicate rows; **Deselect visible** removes those rows from the selection.
+Changing the review filter clears the selection. Bulk category assignment is
+available only when the selected rows share the same direction (money in or
+money out); mixed selections can still be removed together. Deleted rows, and
+rows edited into duplicates, are removed from the selection.
+
+Save or cancel an inline edit before changing filters, using bulk actions,
+leaving the review, or importing. The import confirmation covers **all remaining
+new transactions**, regardless of the current filter or checkbox selection.
+It lists skipped duplicates, uncategorised entries and possible matches.
+Possible matches share a date, description and amount within this statement;
+they remain included unless you remove extra entries. Skipped duplicates are
+excluded automatically.
+
 ## Deduplication
 
 Hash input: `userId|date|amount|description` (SHA-1).

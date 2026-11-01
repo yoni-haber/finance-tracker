@@ -16,6 +16,7 @@ final class ReportInsightsTest extends TestCase
             'spending' => 0,
             'invested' => 0,
             'savings' => 0,
+            'spendingRate' => null,
             'investmentRate' => null,
             'savingsRate' => null,
             'lastMonthSavings' => 0,
@@ -37,6 +38,7 @@ final class ReportInsightsTest extends TestCase
             'spending' => 10000,
             'invested' => 5000,
             'savings' => 15000,
+            'spendingRate' => 33,
             'investmentRate' => 17,
             'savingsRate' => 50,
             'lastMonthSavings' => 8000,
@@ -64,6 +66,18 @@ final class ReportInsightsTest extends TestCase
 
             $this->assertSame($expected, $summary['savingsRate']);
             $this->assertSame((int) ($saved * 100), $summary['lastMonthSavings']);
+        }
+    }
+
+    public function test_spending_rate_rounds_allows_overspending_and_requires_positive_income(): void
+    {
+        foreach ([[101.0, 50.0, 50], [99.0, 49.0, 49], [100.0, 125.0, 125], [0.0, 20.0, null], [-100.0, 20.0, null]] as [$income, $spent, $expected]) {
+            $summary = ReportInsights::summary([
+                'labels' => ['June'],
+                'income' => [$income], 'spending' => [$spent], 'invested' => [0.0], 'savings' => [$income - $spent],
+            ]);
+
+            $this->assertSame($expected, $summary['spendingRate']);
         }
     }
 

@@ -14,6 +14,8 @@ use Carbon\Carbon;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -136,18 +138,20 @@ class TransactionManager extends Component
 
         $search = trim($this->search);
         $searching = $search !== '';
-        $showingRecorded = $searching || $this->scope === 'all';
+        $showingRecorded = !$searching && $this->scope === 'all';
+        $showingAllDates = $searching || $showingRecorded;
 
-        if ($showingRecorded) {
+        if ($showingAllDates) {
             $pattern = '%' . $search . '%';
             $amount = $this->searchAmount($search);
 
-            $transactions = Transaction::forUser($userId)
+            $query = Transaction::forUser($userId)
                 ->forCategory($effectiveCategoryFilter)
                 ->with('category.parent')
                 ->when($this->filterImportId, fn (Builder $builder) => $builder->where('source_import_id', $this->filterImportId))
                 ->when($this->filterType, fn (Builder $builder): Builder => $this->applyTypeFilter($builder))
                 ->when($searching, function (Builder $query) use ($pattern, $amount): void {
+                    $query->whereDate('date', '<=', today())->with('occurrenceExceptions');
                     $query->where(function (Builder $builder) use ($pattern, $amount): void {
                         $builder->where('description', 'like', $pattern)
                             ->orWhereHas('category', function (Builder $builder) use ($pattern): void {
@@ -161,8 +165,24 @@ class TransactionManager extends Component
                     });
                 })
                 ->orderByDesc('date')
-                ->orderByDesc('id')
-                ->paginate(20);
+                ->orderByDesc('id');
+
+            if ($searching) {
+                $through = today()->endOfDay();
+                $occurrences = $query->get()->flatMap(
+                    fn (Transaction $transaction): Collection => $transaction->projectOccurrencesForRange($transaction->date, $through),
+                )->sortBy([['date', 'desc'], ['id', 'desc']])->values();
+                $page = $this->getPage();
+                $transactions = new LengthAwarePaginator(
+                    $occurrences->forPage($page, 20)->values(),
+                    $occurrences->count(),
+                    20,
+                    $page,
+                    ['path' => LengthAwarePaginator::resolveCurrentPath()],
+                );
+            } else {
+                $transactions = $query->paginate(20);
+            }
         } else {
             $transactions = TransactionReport::projectedForMonth($userId, $this->periodMonth, $this->periodYear, $effectiveCategoryFilter)
                 ->when($this->filterImportId, fn ($items) => $items->where('source_import_id', $this->filterImportId))
@@ -170,7 +190,7 @@ class TransactionManager extends Component
                 ->sortByDesc('date');
         }
 
-        return view('livewire.transactions.manager', ['transactions' => $transactions, 'searching' => $searching, 'showingRecorded' => $showingRecorded, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
+        return view('livewire.transactions.manager', ['transactions' => $transactions, 'searching' => $searching, 'showingRecorded' => $showingRecorded, 'showingAllDates' => $showingAllDates, 'formCategories' => $formCategories, 'filterCategories' => $filterCategories, 'filterSubCategories' => $filterSubCategories]);
     }
 
     public function save(): void
